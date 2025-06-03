@@ -1,0 +1,154 @@
+import { z } from "zod";
+
+// Pipeline stages enum
+export const PIPELINE_STAGES = [
+  "scraped",
+  "contacted", 
+  "responded",
+  "scheduled",
+  "quoted",
+  "sold",
+  "in_progress",
+  "delivered",
+  "paid"
+] as const;
+
+// Business interface
+export interface Business {
+  id?: number;
+  name: string;
+  email?: string;
+  phone: string;
+  address: string;
+  city: string;
+  state: string;
+  businessType: string;
+  stage: string;
+  website?: string;
+  notes?: string;
+  score?: number;
+  priority?: string;
+  tags?: string;
+  lastContactDate?: string;
+  scheduledTime?: string;
+  appointmentStatus?: string;
+  paymentStatus?: string;
+  totalAmount?: number;
+  paidAmount?: number;
+  stripeCustomerId?: string;
+  stripePaymentLinkId?: string;
+  lastPaymentDate?: string;
+  paymentNotes?: string;
+  createdAt?: string;
+}
+
+// Activity interface
+export interface Activity {
+  id?: number;
+  type: string;
+  description: string;
+  businessId?: number;
+  createdAt?: string;
+}
+
+// Campaign interface
+export interface Campaign {
+  id?: number;
+  name: string;
+  businessType: string;
+  status: string;
+  totalContacts: number;
+  sentCount: number;
+  responseCount: number;
+  message: string;
+  createdAt?: string;
+}
+
+// Template interface
+export interface Template {
+  id?: number;
+  name: string;
+  businessType: string;
+  description: string;
+  usageCount: number;
+  previewUrl?: string;
+  features?: string;
+}
+
+// Appointment interface
+export interface Appointment {
+  id?: number;
+  businessId: number;
+  datetime: string;
+  status: string;
+  notes?: string;
+  isAutoScheduled?: boolean;
+  squarespaceId?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+// Progress entry interface
+export interface ProgressEntry {
+  id?: number;
+  businessId: number;
+  stage: string;
+  imageUrl: string;
+  date: string;
+  notes?: string;
+  publiclyVisible?: number;
+  paymentRequired?: number;
+  paymentAmount?: number;
+  paymentStatus?: string;
+  paymentNotes?: string;
+  stripeLink?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+// Mock schema objects for compatibility
+export const businesses = { tableName: 'businesses' };
+export const activities = { tableName: 'activities' };
+export const campaigns = { tableName: 'campaigns' };
+export const templates = { tableName: 'templates' };
+export const appointments = { tableName: 'appointments' };
+export const progressEntries = { tableName: 'progress_entries' };
+
+// Zod validation schemas
+export const insertBusinessSchema = z.object({
+  name: z.string().min(1, "Business name is required"),
+  email: z.string().email().optional().or(z.literal("")),
+  phone: z.string().min(1, "Phone number is required"),
+  address: z.string().min(1, "Address is required"),
+  city: z.string().min(1, "City is required"),
+  state: z.string().min(1, "State is required"),
+  businessType: z.string().min(1, "Business type is required"),
+  stage: z.enum(PIPELINE_STAGES).default("scraped"),
+  website: z.string().optional().or(z.literal("")),
+  notes: z.string().optional().or(z.literal("")),
+  score: z.number().min(0).max(100).default(0),
+  priority: z.enum(["low", "medium", "high"]).default("medium"),
+  tags: z.string().optional(),
+  scheduledTime: z.string().optional(),
+  appointmentStatus: z.string().optional(),
+  paymentStatus: z.string().optional(),
+  totalAmount: z.number().optional(),
+  paidAmount: z.number().optional()
+});
+
+export const insertCampaignSchema = z.object({
+  name: z.string().min(1, "Campaign name is required"),
+  businessType: z.string().min(1, "Business type is required"),
+  status: z.enum(["active", "paused", "completed"]).default("active"),
+  totalContacts: z.number().min(0).default(0),
+  sentCount: z.number().min(0).default(0),
+  responseCount: z.number().min(0).default(0),
+  message: z.string().min(1, "Message is required")
+});
+
+// Type exports for compatibility
+export type NewBusiness = Omit<Business, 'id'>;
+export type NewActivity = Omit<Activity, 'id'>;
+export type NewCampaign = Omit<Campaign, 'id'>;
+export type NewAppointment = Omit<Appointment, 'id'>;
+export type NewProgressEntry = Omit<ProgressEntry, 'id'>; 
