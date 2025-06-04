@@ -1,6 +1,6 @@
 import React from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
-import { Home, Users, TrendingUp, Calendar, Settings } from 'lucide-react'
+import { Home, Users, TrendingUp, Calendar, Settings, Inbox, MessageCircle } from 'lucide-react'
 import { clsx } from 'clsx'
 
 interface NavItem {
@@ -11,7 +11,9 @@ interface NavItem {
 
 const navigation: NavItem[] = [
   { path: '/dashboard', label: 'Dashboard', icon: Home },
+  { path: '/project-inbox', label: 'Project Messaging', icon: MessageCircle },
   { path: '/leads', label: 'Leads', icon: Users },
+  { path: '/interactions', label: 'Interactions', icon: Inbox },
   { path: '/progress', label: 'Progress', icon: TrendingUp },
   { path: '/schedule', label: 'Appointments', icon: Calendar },
   { path: '/settings', label: 'Settings', icon: Settings },

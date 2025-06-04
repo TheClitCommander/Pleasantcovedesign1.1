@@ -1,6 +1,6 @@
 import React from 'react'
-import { Mail, Phone, Calendar, AlertCircle } from 'lucide-react'
-import { clsx } from 'clsx'
+import { useNavigate } from 'react-router-dom'
+import ClientSummaryCard from './ClientSummaryCard'
 
 interface Lead {
   id: string
@@ -12,6 +12,7 @@ interface Lead {
   stage: 'scraped' | 'contacted' | 'qualified' | 'scheduled'
   priority: 'high' | 'medium' | 'low'
   score?: number
+  tags?: string[]
   created_at: string
 }
 
@@ -20,112 +21,67 @@ interface LeadCardProps {
 }
 
 const LeadCard: React.FC<LeadCardProps> = ({ lead }) => {
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    })
+  const navigate = useNavigate()
+
+  const handleClientClick = (clientId: number) => {
+    navigate(`/admin/client/${clientId}`)
   }
 
-  const getStageColor = (stage: Lead['stage']) => {
-    switch (stage) {
-      case 'scraped': return 'bg-gray-100 text-gray-700'
-      case 'contacted': return 'bg-blue-100 text-blue-700'
-      case 'qualified': return 'bg-yellow-100 text-yellow-700'
-      case 'scheduled': return 'bg-green-100 text-green-700'
-      default: return 'bg-gray-100 text-gray-700'
+  const handleAction = (action: string, clientId: number) => {
+    switch (action) {
+      case 'contact':
+        // Navigate to project messaging for this client's projects, or offer contact options
+        if (lead.email) {
+          // Open email client
+          window.location.href = `mailto:${lead.email}?subject=Pleasant Cove Design - Following up on your project`
+        } else if (lead.phone) {
+          // Open phone dialer
+          window.location.href = `tel:${lead.phone}`
+        } else {
+          // Navigate to client profile for contact options
+          navigate(`/admin/client/${clientId}`)
+        }
+        break
+      case 'schedule':
+        // Navigate to schedule page with this client pre-selected
+        navigate(`/schedule?client=${clientId}`)
+        break
+      case 'notes':
+        // Navigate to admin client profile where notes can be viewed/edited
+        navigate(`/admin/client/${clientId}#notes`)
+        break
     }
   }
 
-  const getPriorityColor = (priority: Lead['priority']) => {
-    switch (priority) {
-      case 'high': return 'text-error'
-      case 'medium': return 'text-warning'
-      case 'low': return 'text-muted'
-      default: return 'text-muted'
-    }
-  }
-
-  const getPriorityIcon = (priority: Lead['priority']) => {
-    if (priority === 'high') {
-      return <AlertCircle className="h-4 w-4" />
-    }
-    return null
+  // Convert lead to client format for the standardized card
+  const clientData = {
+    id: parseInt(lead.id),
+    name: lead.name,
+    email: lead.email,
+    phone: lead.phone,
+    businessType: lead.business_type,
+    stage: lead.stage,
+    score: lead.score,
+    priority: lead.priority,
+    tags: lead.tags,
+    notes: lead.message,
+    createdAt: lead.created_at
   }
 
   return (
-    <div className="lead-card">
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex-1">
-          <h4 className="font-semibold text-foreground">{lead.name}</h4>
-          <div className="text-sm text-muted capitalize">{lead.business_type}</div>
-        </div>
-        <div className="flex items-center space-x-2">
-          <span className={clsx(
-            getPriorityColor(lead.priority),
-            "flex items-center"
-          )}>
-            {getPriorityIcon(lead.priority)}
-          </span>
-          <span className={clsx(
-            "px-2 py-1 text-xs font-medium rounded-full capitalize",
-            getStageColor(lead.stage)
-          )}>
-            {lead.stage}
-          </span>
-        </div>
-      </div>
-
-      <div className="space-y-2 mb-3">
-        <div className="flex items-center text-sm text-muted">
-          <Mail className="h-4 w-4 mr-2" />
-          <a href={`mailto:${lead.email}`} className="hover:text-primary-600">
-            {lead.email}
-          </a>
-        </div>
-        <div className="flex items-center text-sm text-muted">
-          <Phone className="h-4 w-4 mr-2" />
-          <a href={`tel:${lead.phone}`} className="hover:text-primary-600">
-            {lead.phone}
-          </a>
-        </div>
-        <div className="flex items-center text-sm text-muted">
-          <Calendar className="h-4 w-4 mr-2" />
-          {formatDate(lead.created_at)}
-        </div>
-      </div>
-
-      <p className="text-sm text-foreground line-clamp-2">{lead.message}</p>
-
-      {/* Score bar */}
-      {lead.score !== undefined && (
-        <div className="mt-3">
-          <div className="flex justify-between text-xs mb-1">
-            <span className="text-muted">Score</span>
-            <span className="font-medium">{lead.score}</span>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
-            <div
-              className={clsx(
-                'h-2 rounded-full',
-                lead.score >= 80 ? 'bg-success' : lead.score >= 60 ? 'bg-warning' : 'bg-error'
-              )}
-              style={{ width: `${lead.score}%` }}
-            />
-          </div>
-        </div>
-      )}
-
-      <div className="mt-4 flex space-x-2">
-        <button className="btn-primary text-xs px-3 py-1">
-          Contact
-        </button>
-        <button className="btn-secondary text-xs px-3 py-1">
-          View Details
-        </button>
-      </div>
-    </div>
+    <ClientSummaryCard
+      client={clientData}
+      mode="expanded"
+      onClientClick={handleClientClick}
+      onActionClick={handleAction}
+      showActions={true}
+      showScore={true}
+      showTags={true}
+      showStage={true}
+      showContactInfo={true}
+      showNotes={true}
+      className="lead-card"
+    />
   )
 }
 

@@ -1,0 +1,1080 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pleasant Cove Design - Client Portal</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .pcd-portal-container {
+            width: 100%;
+            max-width: 800px;
+            background: #ffffff;
+            border-radius: 16px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        /* Header */
+        .pcd-portal-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 24px;
+            text-align: center;
+            position: relative;
+        }
+
+        .pcd-portal-header h1 {
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .pcd-portal-header p {
+            opacity: 0.9;
+            font-size: 16px;
+        }
+
+        .pcd-reset-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background 0.2s;
+        }
+
+        .pcd-reset-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Onboarding Form */
+        .pcd-onboarding-section {
+            padding: 40px;
+            display: block;
+        }
+
+        .pcd-onboarding-section.hidden {
+            display: none;
+        }
+
+        .pcd-form-group {
+            margin-bottom: 24px;
+        }
+
+        .pcd-form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .pcd-form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #374151;
+            font-size: 14px;
+        }
+
+        .pcd-form-input,
+        .pcd-form-select,
+        .pcd-form-textarea {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: all 0.2s;
+            background: #fff;
+        }
+
+        .pcd-form-input:focus,
+        .pcd-form-select:focus,
+        .pcd-form-textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .pcd-form-textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .pcd-submit-btn {
+            width: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 16px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .pcd-submit-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(102, 126, 234, 0.3);
+        }
+
+        .pcd-submit-btn:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .pcd-spinner {
+            display: none;
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Messaging Section */
+        .pcd-messaging-section {
+            display: none;
+            height: 600px;
+            flex-direction: column;
+        }
+
+        .pcd-messaging-section.active {
+            display: flex;
+        }
+
+        .pcd-messages-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px 24px;
+            background: #f8fafc;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .pcd-message {
+            margin-bottom: 16px;
+            max-width: 70%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .pcd-message.sent {
+            align-self: flex-end;
+        }
+
+        .pcd-message.received {
+            align-self: flex-start;
+        }
+
+        .pcd-message-header {
+            font-size: 12px;
+            color: #6b7280;
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .pcd-message.sent .pcd-message-header {
+            justify-content: flex-end;
+        }
+
+        .pcd-message-bubble {
+            padding: 12px 16px;
+            border-radius: 18px;
+            word-wrap: break-word;
+            position: relative;
+        }
+
+        .pcd-message.sent .pcd-message-bubble {
+            background: #667eea;
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .pcd-message.received .pcd-message-bubble {
+            background: white;
+            color: #374151;
+            border: 1px solid #e5e7eb;
+            border-bottom-left-radius: 4px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+
+        .pcd-message-content {
+            margin: 0;
+            line-height: 1.4;
+        }
+
+        .pcd-empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            flex: 1;
+            text-align: center;
+            color: #6b7280;
+            padding: 40px;
+        }
+
+        .pcd-empty-state-icon {
+            width: 64px;
+            height: 64px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        .pcd-message-input-container {
+            padding: 20px 24px;
+            background: white;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .pcd-message-form {
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+        }
+
+        .pcd-input-wrapper {
+            flex: 1;
+        }
+
+        .pcd-message-input {
+            width: 100%;
+            max-height: 120px;
+            min-height: 44px;
+            padding: 12px 16px;
+            border: 2px solid #e5e7eb;
+            border-radius: 22px;
+            resize: none;
+            font-family: inherit;
+            font-size: 14px;
+            line-height: 1.4;
+            outline: none;
+            transition: border-color 0.2s;
+            box-sizing: border-box;
+        }
+
+        .pcd-message-input:focus {
+            border-color: #667eea;
+        }
+
+        .pcd-send-btn {
+            width: 44px;
+            height: 44px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+
+        .pcd-send-btn:hover:not(:disabled) {
+            background: #5a6fd8;
+            transform: scale(1.05);
+        }
+
+        .pcd-send-btn:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .pcd-loading-messages {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex: 1;
+            color: #6b7280;
+            font-size: 14px;
+        }
+
+        .pcd-error-message {
+            padding: 16px;
+            background: #fef2f2;
+            color: #dc2626;
+            border: 1px solid #fecaca;
+            border-radius: 8px;
+            margin: 16px 24px;
+            font-size: 14px;
+        }
+
+        .pcd-success-message {
+            padding: 16px;
+            background: #f0fdf4;
+            color: #166534;
+            border: 1px solid #bbf7d0;
+            border-radius: 8px;
+            margin: 16px 24px;
+            font-size: 14px;
+        }
+
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+
+            .pcd-portal-container {
+                max-width: none;
+                margin: 0;
+                border-radius: 0;
+                min-height: 100vh;
+            }
+
+            .pcd-onboarding-section {
+                padding: 20px;
+            }
+
+            .pcd-form-row {
+                grid-template-columns: 1fr;
+                gap: 0;
+            }
+
+            .pcd-message {
+                max-width: 85%;
+            }
+
+            .pcd-portal-header {
+                padding: 20px;
+            }
+
+            .pcd-portal-header h1 {
+                font-size: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="pcd-portal-container">
+        <!-- Header -->
+        <div class="pcd-portal-header">
+            <h1>🌊 Pleasant Cove Design</h1>
+            <p id="header-subtitle">Welcome to your client portal</p>
+            <button class="pcd-reset-btn" id="reset-btn" onclick="resetSession()" title="Start Over">
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Onboarding Section -->
+        <div class="pcd-onboarding-section" id="onboarding-section">
+            <div id="onboarding-form">
+                <div class="pcd-form-group">
+                    <div class="pcd-form-row">
+                        <div>
+                            <label for="name" class="pcd-form-label">Full Name *</label>
+                            <input type="text" id="name" class="pcd-form-input" required>
+                        </div>
+                        <div>
+                            <label for="email" class="pcd-form-label">Email Address *</label>
+                            <input type="email" id="email" class="pcd-form-input" required>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pcd-form-group">
+                    <div class="pcd-form-row">
+                        <div>
+                            <label for="phone" class="pcd-form-label">Phone Number</label>
+                            <input type="tel" id="phone" class="pcd-form-input">
+                        </div>
+                        <div>
+                            <label for="business_name" class="pcd-form-label">Business Name</label>
+                            <input type="text" id="business_name" class="pcd-form-input">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pcd-form-group">
+                    <label for="service_type" class="pcd-form-label">Service Type *</label>
+                    <select id="service_type" class="pcd-form-select" required>
+                        <option value="">Select a service...</option>
+                        <option value="website">New Website</option>
+                        <option value="redesign">Website Redesign</option>
+                        <option value="ecommerce">E-commerce Store</option>
+                        <option value="maintenance">Website Maintenance</option>
+                        <option value="consultation">Consultation</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+
+                <div class="pcd-form-group">
+                    <label for="message" class="pcd-form-label">Tell us about your project *</label>
+                    <textarea id="message" class="pcd-form-textarea" required 
+                              placeholder="Describe your project, goals, timeline, and any specific requirements..."></textarea>
+                </div>
+
+                <button type="submit" class="pcd-submit-btn" id="submit-btn" onclick="handleOnboarding()">
+                    <div class="pcd-spinner" id="spinner"></div>
+                    <span id="submit-text">Start Your Project 🚀</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Messaging Section -->
+        <div class="pcd-messaging-section" id="messaging-section">
+            <div class="pcd-messages-container" id="messages-container">
+                <div class="pcd-loading-messages" id="loading-messages">
+                    <div class="pcd-spinner"></div>
+                    Loading your conversation...
+                </div>
+                
+                <div class="pcd-empty-state" id="empty-state" style="display: none;">
+                    <svg class="pcd-empty-state-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+                    </svg>
+                    <h3>Continue your conversation</h3>
+                    <p>Send a message to continue communicating with the Pleasant Cove Design team.</p>
+                </div>
+
+                <div id="messages-list"></div>
+            </div>
+
+            <div class="pcd-message-input-container">
+                <form class="pcd-message-form" id="message-form" onsubmit="handleSendMessage(event)">
+                    <div class="pcd-input-wrapper">
+                        <textarea 
+                            id="message-input" 
+                            class="pcd-message-input" 
+                            placeholder="Type your message..."
+                            rows="1"
+                        ></textarea>
+                    </div>
+                    <button type="submit" class="pcd-send-btn" id="send-btn">
+                        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                        </svg>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const CONFIG = {
+            backendUrl: 'https://8e97-2603-7080-e501-3f6a-b468-b0d0-1bfd-2e5.ngrok-free.app',
+            pollInterval: 3000
+        };
+
+        let clientData = {
+            projectToken: null,
+            memberEmail: null,
+            memberName: null
+        };
+
+        let lastMessageId = 0;
+        let pollTimer = null;
+
+        // Initialize the portal
+        function initializePortal() {
+            console.log('🚀 Initializing Pleasant Cove Design Client Portal...');
+            const rawStorageData = localStorage.getItem('pcd_client_session');
+            console.log('📦 Raw localStorage data:', rawStorageData);
+
+            let finalSectionToShow = 'onboarding'; // Default to onboarding
+
+            if (rawStorageData) {
+                try {
+                    const parsedSession = JSON.parse(rawStorageData);
+                    console.log('✅ Parsed session data:', parsedSession);
+
+                    if (parsedSession && parsedSession.projectToken) { 
+                        clientData.projectToken = parsedSession.projectToken;
+                        clientData.memberEmail = parsedSession.email || parsedSession.memberEmail || null;
+                        clientData.memberName = parsedSession.name || parsedSession.memberName || null;
+                        clientData.phone = parsedSession.phone || null; 
+
+                        if (clientData.projectToken && clientData.memberEmail) {
+                           console.log('✅ Loaded session from localStorage. Current clientData:', JSON.stringify(clientData));
+                           showMessagingSection();
+                           loadMessages(); 
+                           startPolling();
+                           finalSectionToShow = 'messaging';
+                        } else {
+                            console.warn('⚠️ Parsed session data had a projectToken but was missing critical memberEmail after mapping. Clearing and showing onboarding.', parsedSession);
+                            localStorage.removeItem('pcd_client_session'); 
+                            clientData = { projectToken: null, memberEmail: null, memberName: null }; // Reset global clientData
+                        }
+                    } else {
+                        console.warn('⚠️ Parsed session data is missing projectToken. Clearing and showing onboarding.', parsedSession);
+                        localStorage.removeItem('pcd_client_session');
+                    }
+                } catch (e) {
+                    console.warn('⚠️ Error parsing session from localStorage. Clearing and showing onboarding.', e);
+                    localStorage.removeItem('pcd_client_session');
+                }
+            }
+            
+            if (finalSectionToShow === 'onboarding') {
+                showOnboardingSection();
+            }
+            
+            console.log(`🏁 Portal initialized. Showing section: ${finalSectionToShow}`);
+            setupEventListeners(); // Setup listeners regardless of initial view
+        }
+
+        // Load client session from localStorage (simplified, as main logic is in initializePortal)
+        function loadClientSession() {
+            try {
+                const data = localStorage.getItem('pcd_client_session');
+                return data ? JSON.parse(data) : null;
+            } catch (error) {
+                console.error('💥 Error in loadClientSession (should be rare now):', error);
+                return null;
+            }
+        }
+
+        // Save client session to localStorage
+        function saveClientSession() {
+            try {
+                const sessionToSave = {
+                    projectToken: clientData.projectToken,
+                    memberEmail: clientData.memberEmail,
+                    memberName: clientData.memberName,
+                    phone: clientData.phone
+                };
+
+                if (!sessionToSave.projectToken || !sessionToSave.memberEmail) {
+                    console.error('❌ CRITICAL: Attempted to save incomplete session! Token or Email missing.', sessionToSave);
+                    showMessage('Error: Cannot save incomplete session.', 'error');
+                    return;
+                }
+
+                localStorage.setItem('pcd_client_session', JSON.stringify(sessionToSave));
+                console.log('💾 Session saved successfully to localStorage:', sessionToSave);
+                
+                const verification = localStorage.getItem('pcd_client_session');
+                console.log('✅ Session verification post-save:', verification);
+            } catch (error) {
+                console.error('💥 Error saving session:', error);
+                showMessage('Error saving session data. Please try again.', 'error');
+            }
+        }
+
+        // Enhanced session check (primarily for debugging, core logic in initializePortal)
+        function checkSessionValidity() {
+            console.log('🔍 Performing comprehensive session check (diagnostic)...');
+            const localData = localStorage.getItem('pcd_client_session');
+            console.log('  📦 localStorage check:', localData ? 'Found' : 'Not found');
+            console.log('  👤 Current clientData global:', clientData);
+            
+            if (clientData.projectToken && clientData.memberEmail) {
+                console.log('  ✅ Global clientData appears valid.');
+                return true;
+            } else {
+                console.log('  ❌ Global clientData appears invalid or incomplete.');
+                return false;
+            }
+        }
+
+        // Reset session
+        function resetSession() {
+            console.log('🔄 Resetting session...');
+            console.log('  📦 Current localStorage before reset:', localStorage.getItem('pcd_client_session'));
+            localStorage.removeItem('pcd_client_session');
+            if (pollTimer) clearInterval(pollTimer);
+            clientData = { projectToken: null, memberEmail: null, memberName: null };
+            lastMessageId = 0;
+            console.log('  🧹 Session cleared. localStorage is now:', localStorage.getItem('pcd_client_session'));
+            console.log('  👤 clientData is now:', clientData);
+            showOnboardingSection();
+            console.log('🔄 Session reset complete. Showing onboarding.');
+        }
+
+        // Debug function to test localStorage
+        function testLocalStorage() {
+            console.log('🧪 Testing localStorage functionality...');
+            
+            try {
+                // Test write
+                const testData = { test: 'value', timestamp: Date.now() };
+                localStorage.setItem('pcd_test', JSON.stringify(testData));
+                console.log('✅ localStorage write test passed');
+                
+                // Test read
+                const retrieved = localStorage.getItem('pcd_test');
+                const parsed = JSON.parse(retrieved);
+                console.log('✅ localStorage read test passed:', parsed);
+                
+                // Test removal
+                localStorage.removeItem('pcd_test');
+                const shouldBeNull = localStorage.getItem('pcd_test');
+                console.log('✅ localStorage remove test passed:', shouldBeNull === null);
+                
+                return true;
+            } catch (error) {
+                console.error('❌ localStorage test failed:', error);
+                return false;
+            }
+        }
+
+        // Manual session test function
+        function testSessionPersistence() {
+            console.log('🧪 Testing session persistence...');
+            
+            // Test localStorage functionality first
+            if (!testLocalStorage()) {
+                console.error('❌ localStorage not working, session persistence will fail');
+                return false;
+            }
+            
+            // Test our session functions
+            const testSession = {
+                projectToken: 'test-token-123',
+                memberEmail: 'test@example.com',
+                memberName: 'Test User'
+            };
+            
+            clientData = testSession;
+            saveClientSession();
+            
+            const loaded = loadClientSession();
+            console.log('🧪 Session persistence test result:', {
+                saved: testSession,
+                loaded: loaded,
+                matches: JSON.stringify(testSession) === JSON.stringify(loaded)
+            });
+            
+            // Clean up
+            resetSession();
+            
+            return true;
+        }
+
+        // Show onboarding section
+        function showOnboardingSection() {
+            document.getElementById('onboarding-section').classList.remove('hidden');
+            document.getElementById('messaging-section').classList.remove('active');
+            document.getElementById('header-subtitle').textContent = 'Welcome to your client portal';
+        }
+
+        // Show messaging section
+        function showMessagingSection() {
+            document.getElementById('onboarding-section').classList.add('hidden');
+            document.getElementById('messaging-section').classList.add('active');
+            document.getElementById('header-subtitle').textContent = `Welcome back, ${clientData.memberName || clientData.memberEmail}`;
+        }
+
+        // Handle onboarding form submission
+        async function handleOnboarding() {
+            const submitBtn = document.getElementById('submit-btn');
+            const spinner = document.getElementById('spinner');
+            const submitText = document.getElementById('submit-text');
+
+            // Get form data
+            const formData = {
+                name: document.getElementById('name').value.trim(),
+                email: document.getElementById('email').value.trim(),
+                phone: document.getElementById('phone').value.trim(),
+                business_name: document.getElementById('business_name').value.trim(),
+                service_type: document.getElementById('service_type').value,
+                message: document.getElementById('message').value.trim(),
+                source: 'smart_client_portal',
+                timestamp: new Date().toISOString()
+            };
+
+            // Validate required fields
+            if (!formData.name || !formData.email || !formData.service_type || !formData.message) {
+                showMessage('Please fill in all required fields.', 'error');
+                return;
+            }
+
+            // Show loading state
+            submitBtn.disabled = true;
+            spinner.style.display = 'inline-block';
+            submitText.textContent = 'Creating your project...';
+
+            try {
+                console.log('📤 Submitting onboarding data:', formData);
+
+                const response = await fetch(`${CONFIG.backendUrl}/api/new-lead`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'ngrok-skip-browser-warning': 'true'
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    console.log('✅ Onboarding API call successful:', result);
+
+                    // Populate global clientData from API result and form data
+                    clientData.projectToken = result.projectToken;
+                    clientData.memberEmail = formData.email;
+                    clientData.memberName = formData.name;
+                    clientData.phone = formData.phone;
+
+                    console.log('💾 Populated clientData, about to save session:', clientData);
+                    saveClientSession();
+                    
+                    // Verify session was saved and is valid for transition
+                    const verification = loadClientSession();
+                    console.log('🔍 Session verification after save & re-load:', verification);
+                    
+                    if (verification && verification.projectToken && verification.memberEmail) {
+                        console.log('✅ Session verified successfully post-onboarding.');
+                        showMessage('Welcome! Your project has been created successfully.', 'success');
+
+                        setTimeout(() => {
+                            console.log('🔄 Transitioning to messaging section post-onboarding...');
+                            showMessagingSection();
+                            loadMessages();
+                            startPolling();
+                        }, 1500);
+                    } else {
+                        console.error('❌ Session verification FAILED post-onboarding. Session may not be saved correctly or is incomplete.', verification);
+                        showMessage('Session save failed after onboarding. You might need to refresh or re-enter info.', 'error');
+                    }
+                } else {
+                    const errorText = await response.text();
+                    console.error('❌ Onboarding API call failed:', response.status, errorText);
+                    showMessage('Failed to create your project. Please try again.', 'error');
+                }
+            } catch (error) {
+                console.error('❌ Onboarding critical error:', error);
+                showMessage('Connection error during onboarding. Please check your internet and try again.', 'error');
+            } finally {
+                submitBtn.disabled = false;
+                spinner.style.display = 'none';
+                submitText.textContent = 'Start Your Project 🚀';
+            }
+        }
+
+        // Load messages
+        async function loadMessages() {
+            console.log('📨 Loading messages for:', clientData.memberEmail);
+            
+            try {
+                const url = `${CONFIG.backendUrl}/api/public/project/${clientData.projectToken}/messages`;
+                const response = await fetch(url, {
+                    headers: {
+                        'Accept': 'application/json',
+                        'ngrok-skip-browser-warning': 'true'
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    const messages = data.messages || data;
+                    
+                    if (Array.isArray(messages)) {
+                        renderMessages(messages);
+                        
+                        if (messages.length > 0) {
+                            lastMessageId = Math.max(...messages.map(m => m.id || 0));
+                            hideEmptyState();
+                        } else {
+                            showEmptyState();
+                        }
+                    }
+                } else {
+                    showMessage('Failed to load messages.', 'error');
+                }
+            } catch (error) {
+                console.error('❌ Error loading messages:', error);
+                showMessage('Failed to load messages.', 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // Handle send message
+        async function handleSendMessage(event) {
+            event.preventDefault();
+            
+            const messageInput = document.getElementById('message-input');
+            const sendBtn = document.getElementById('send-btn');
+            const content = messageInput.value.trim();
+            
+            console.log('🔵 handleSendMessage: Attempting to send message...');
+            console.log('  🔑 projectToken from clientData for this message:', clientData.projectToken);
+
+            console.log('  📝 Content:', content);
+            console.log('  👤 Client Data (full object):', JSON.stringify(clientData));
+
+            if (!clientData.projectToken) {
+                console.error('❌ ERROR: projectToken is MISSING or invalid in clientData at send time!');
+                showMessage('Error: Missing project token. Please reset and try again.', 'error');
+                sendBtn.disabled = false;
+                return;
+            }
+
+            if (!content) {
+                console.log('💬 Message content is empty, not sending.');
+                return;
+            }
+
+            try {
+                sendBtn.disabled = true;
+
+                const messageData = {
+                    content: content,
+                    senderName: clientData.memberName || clientData.memberEmail,
+                    // Ensure senderType is client for messages from the portal
+                    senderType: 'client' 
+                };
+                
+                console.log('  📦 Message Data being sent:', JSON.stringify(messageData));
+
+                const url = `${CONFIG.backendUrl}/api/public/project/${clientData.projectToken}/messages`;
+                console.log('  🔗 Target URL:', url);
+
+                const headers = {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'ngrok-skip-browser-warning': 'true'
+                };
+                console.log('  📋 Headers:', JSON.stringify(headers));
+
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify(messageData)
+                });
+
+                console.log('  📬 Response Status:', response.status);
+                const responseText = await response.text(); // Get raw response text for debugging
+                console.log('  📄 Response Text:', responseText);
+
+                if (response.ok) {
+                    console.log('✅ Message sent successfully via smart portal!');
+                    messageInput.value = '';
+                    messageInput.style.height = 'auto';
+                    
+                    // Reload messages to show the new one
+                    setTimeout(() => {
+                        loadMessages();
+                    }, 500);
+                    
+                    hideEmptyState();
+                } else {
+                    console.error('❌ Failed to send message. Status:', response.status, 'Response:', responseText);
+                    showMessage(`Failed to send message. Server said: ${responseText}`, 'error');
+                }
+            } catch (error) {
+                console.error('💥 CRITICAL ERROR sending message:', error);
+                showMessage('Critical error sending message. Check console.', 'error');
+            } finally {
+                sendBtn.disabled = false;
+                console.log('🔵 handleSendMessage: Process finished.');
+            }
+        }
+
+        // Start polling for new messages
+        function startPolling() {
+            if (pollTimer) clearInterval(pollTimer);
+            
+            pollTimer = setInterval(async () => {
+                try {
+                    const url = `${CONFIG.backendUrl}/api/public/project/${clientData.projectToken}/messages`;
+                    const response = await fetch(url, {
+                        headers: {
+                            'Accept': 'application/json',
+                            'ngrok-skip-browser-warning': 'true'
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        const messages = data.messages || data;
+                        
+                        if (Array.isArray(messages)) {
+                            const newMessages = messages.filter(m => (m.id || 0) > lastMessageId);
+                            
+                            if (newMessages.length > 0) {
+                                appendMessages(newMessages);
+                                lastMessageId = Math.max(...messages.map(m => m.id || 0));
+                                hideEmptyState();
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.error('🔄 Polling error:', error);
+                }
+            }, CONFIG.pollInterval);
+        }
+
+        // Setup event listeners
+        function setupEventListeners() {
+            const messageInput = document.getElementById('message-input');
+            
+            // Auto-resize textarea
+            messageInput.addEventListener('input', function() {
+                this.style.height = 'auto';
+                this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+            });
+
+            // Enter to send (Shift+Enter for new line)
+            messageInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage(e);
+                }
+            });
+        }
+
+        // Render messages
+        function renderMessages(messages) {
+            const messagesList = document.getElementById('messages-list');
+            messagesList.innerHTML = messages.map(renderMessage).join('');
+            scrollToBottom();
+        }
+
+        // Append new messages
+        function appendMessages(messages) {
+            const messagesList = document.getElementById('messages-list');
+            messages.forEach(message => {
+                messagesList.innerHTML += renderMessage(message);
+            });
+            scrollToBottom();
+        }
+
+        // Render single message
+        function renderMessage(message) {
+            const isClient = message.senderType === 'client' || message.senderName === clientData.memberEmail;
+            
+            return `
+                <div class="pcd-message ${isClient ? 'sent' : 'received'}">
+                    <div class="pcd-message-header">
+                        <span>${message.senderName || 'Unknown'}</span>
+                        <span>${formatDate(message.createdAt)}</span>
+                    </div>
+                    <div class="pcd-message-bubble">
+                        <p class="pcd-message-content">${escapeHtml(message.content)}</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Utility functions
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            const now = new Date();
+            const diff = now - date;
+            
+            if (diff < 60000) return 'Just now';
+            if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+            if (diff < 86400000) return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function scrollToBottom() {
+            const container = document.getElementById('messages-container');
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function showMessage(message, type) {
+            const existingMessage = document.querySelector('.pcd-error-message, .pcd-success-message');
+            if (existingMessage) {
+                existingMessage.remove();
+            }
+
+            const messageEl = document.createElement('div');
+            messageEl.className = type === 'error' ? 'pcd-error-message' : 'pcd-success-message';
+            messageEl.textContent = message;
+            
+            const container = document.querySelector('.pcd-portal-container');
+            container.appendChild(messageEl);
+
+            setTimeout(() => {
+                messageEl.remove();
+            }, 5000);
+        }
+
+        function hideLoading() {
+            const loading = document.getElementById('loading-messages');
+            if (loading) loading.style.display = 'none';
+        }
+
+        function showEmptyState() {
+            const emptyState = document.getElementById('empty-state');
+            if (emptyState) emptyState.style.display = 'flex';
+        }
+
+        function hideEmptyState() {
+            const emptyState = document.getElementById('empty-state');
+            if (emptyState) emptyState.style.display = 'none';
+        }
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', initializePortal);
+        
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            if (pollTimer) clearInterval(pollTimer);
+        });
+
+        // Make debugging functions available globally
+        window.pcdDebug = {
+            checkSessionValidity: checkSessionValidity,
+            resetSession: resetSession,
+            getCurrentData: () => JSON.parse(JSON.stringify(clientData)),
+            getRawLocalStorage: () => localStorage.getItem('pcd_client_session'),
+            forceShowOnboarding: () => showOnboardingSection(),
+            forceShowMessaging: () => {
+                if(clientData.projectToken && clientData.memberEmail) {
+                    showMessagingSection(); loadMessages(); startPolling(); 
+                } else { 
+                    console.warn('Cannot force show messaging without valid clientData. Load/create a session first.');
+                }
+            }
+        };
+
+        console.log('🎯 Pleasant Cove Design Smart Client Portal - Ready!');
+        console.log('🛠️ Debug functions available at: window.pcdDebug');
+        console.log('  - window.pcdDebug.getRawLocalStorage()');
+        console.log('  - window.pcdDebug.getCurrentData()');
+        console.log('  - window.pcdDebug.checkSessionValidity()');
+        console.log('  - window.pcdDebug.resetSession()');
+    </script>
+</body>
+</html> 

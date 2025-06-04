@@ -8,6 +8,7 @@ interface StatCardProps {
   change: string
   changeType: 'positive' | 'negative' | 'neutral'
   icon: LucideIcon
+  onClick?: () => void
 }
 
 const StatCard: React.FC<StatCardProps> = ({ 
@@ -15,10 +16,17 @@ const StatCard: React.FC<StatCardProps> = ({
   value, 
   change, 
   changeType, 
-  icon: Icon 
+  icon: Icon,
+  onClick
 }) => {
   return (
-    <div className="stat-card">
+    <div 
+      className={clsx(
+        "stat-card",
+        onClick && "cursor-pointer hover:shadow-lg hover:scale-105 transition-all duration-200"
+      )}
+      onClick={onClick}
+    >
       <div className="flex items-center justify-between">
         <div className="flex-1">
           <p className="text-sm font-medium text-muted">{title}</p>
@@ -35,7 +43,10 @@ const StatCard: React.FC<StatCardProps> = ({
           )}
         </div>
         <div className="ml-4">
-          <Icon className="h-8 w-8 text-primary-500" />
+          <Icon className={clsx(
+            "h-8 w-8",
+            onClick ? "text-primary-500 group-hover:text-primary-600" : "text-primary-500"
+          )} />
         </div>
       </div>
     </div>

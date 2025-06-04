@@ -1,137 +1,165 @@
 import React, { useState, useEffect } from 'react'
-import { Search, Filter, Plus } from 'lucide-react'
-// @ts-ignore
-import LeadCard from '../components/LeadCard'
+import { useSearchParams } from 'react-router-dom'
+import { Search, Filter, Plus, Tag, Building2 } from 'lucide-react'
+import EntitySummaryCard from '../components/EntitySummaryCard'
 import api from '../api'
+import type { Company, Project } from '../../shared/schema'
 
-interface Business {
-  id: number
-  name: string
-  email?: string
-  phone: string
-  businessType: string
-  stage: string
-  priority?: string
-  score?: number
-  notes?: string
-  createdAt?: string
+interface CompanyWithProjects extends Company {
+  projects: Project[]
+  totalPaid: number
+  expandedProjects?: boolean
 }
 
 const Leads: React.FC = () => {
+  const [searchParams] = useSearchParams()
   const [searchTerm, setSearchTerm] = useState('')
   const [stageFilter, setStageFilter] = useState<string>('all')
   const [priorityFilter, setPriorityFilter] = useState<string>('all')
-  const [businesses, setBusinesses] = useState<Business[]>([])
+  const [tagFilter, setTagFilter] = useState<string>('all')
+  const [projectTypeFilter, setProjectTypeFilter] = useState<string>('all')
+  const [companies, setCompanies] = useState<CompanyWithProjects[]>([])
+  const [availableTags, setAvailableTags] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
+  const [expandedCompanies, setExpandedCompanies] = useState<Set<number>>(new Set())
 
   useEffect(() => {
-    const fetchBusinesses = async () => {
+    const fetchData = async () => {
       try {
-        const res = await api.get<Business[]>('/businesses')
-        setBusinesses(res.data)
+        const [companiesRes, projectsRes, tagsRes] = await Promise.all([
+          api.get<Company[]>('/companies'),
+          api.get<Project[]>('/projects'),
+          api.get<string[]>('/tags')
+        ])
+        
+        // Group projects by company
+        const projectsByCompany = projectsRes.data.reduce((acc, project) => {
+          if (!acc[project.companyId]) {
+            acc[project.companyId] = []
+          }
+          acc[project.companyId].push(project)
+          return acc
+        }, {} as Record<number, Project[]>)
+
+        // Combine companies with their projects
+        const companiesWithProjects: CompanyWithProjects[] = companiesRes.data.map(company => {
+          const companyProjects = projectsByCompany[company.id!] || []
+          const totalPaid = companyProjects.reduce((sum, project) => sum + (project.paidAmount || 0), 0)
+          
+          return {
+            ...company,
+            projects: companyProjects,
+            totalPaid,
+            expandedProjects: false
+          }
+        })
+
+        setCompanies(companiesWithProjects)
+        setAvailableTags(tagsRes.data)
       } catch (err) {
-        console.error('Failed to fetch leads', err)
+        console.error('Failed to fetch data', err)
       } finally {
         setLoading(false)
       }
     }
 
-    fetchBusinesses()
+    fetchData()
   }, [])
 
-  // Mock leads data
-  const allLeads = [
-    {
-      id: '1',
-      name: 'Coastal Electric',
-      email: 'info@coastalelectric.com',
-      phone: '555-0123',
-      business_type: 'electrical',
-      message: 'Need a professional website for our electrical services',
-      stage: 'scheduled' as const,
-      priority: 'high' as const,
-      created_at: '2024-01-15T10:30:00Z',
-    },
-    {
-      id: '2',
-      name: 'Harbor Plumbing',
-      email: 'contact@harborplumbing.com',
-      phone: '555-0456',
-      business_type: 'plumbing',
-      message: 'Looking for a modern website design',
-      stage: 'contacted' as const,
-      priority: 'high' as const,
-      created_at: '2024-01-14T14:20:00Z',
-    },
-    {
-      id: '3',
-      name: 'Bay Construction',
-      email: 'hello@bayconstruction.com',
-      phone: '555-0789',
-      business_type: 'construction',
-      message: 'Need a complete rebrand and website',
-      stage: 'qualified' as const,
-      priority: 'medium' as const,
-      created_at: '2024-01-13T09:15:00Z',
-    },
-    {
-      id: '4',
-      name: 'Sunset Landscaping',
-      email: 'info@sunsetlandscaping.com',
-      phone: '555-0321',
-      business_type: 'landscaping',
-      message: 'Portfolio website needed',
-      stage: 'scraped' as const,
-      priority: 'low' as const,
-      created_at: '2024-01-12T16:45:00Z',
-    },
-  ]
+  // Handle URL parameters for filtering
+  useEffect(() => {
+    const filter = searchParams.get('filter')
+    if (filter === 'high-priority') {
+      setPriorityFilter('high')
+    }
+  }, [searchParams])
 
-  // Filter leads based on search and filters
-  const mappedLeads = businesses.map((b) => ({
-    id: b.id.toString(),
-    name: b.name,
-    email: b.email || '',
-    phone: b.phone,
-    business_type: b.businessType,
-    message: (b.notes || ''),
-    stage: b.stage as any,
-    priority: (b.priority || 'low') as any,
-    created_at: b.createdAt || '',
-    score: b.score,
-  }))
+  // Toggle company expansion
+  const toggleCompanyExpansion = (companyId: number) => {
+    setExpandedCompanies(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(companyId)) {
+        newSet.delete(companyId)
+      } else {
+        newSet.add(companyId)
+      }
+      return newSet
+    })
+  }
 
-  const filteredLeads = mappedLeads.filter(lead => {
-    const matchesSearch = lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         lead.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         lead.business_type.toLowerCase().includes(searchTerm.toLowerCase())
+  // Filter companies and projects based on search and filters
+  const filteredCompanies = companies.filter(company => {
+    // Search matching
+    const matchesSearch = company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (company.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         company.industry.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         company.projects.some(project => 
+                           project.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           project.type.toLowerCase().includes(searchTerm.toLowerCase())
+                         )
     
-    const matchesStage = stageFilter === 'all' || lead.stage === stageFilter
-    const matchesPriority = priorityFilter === 'all' || lead.priority === priorityFilter
+    // Priority matching
+    const matchesPriority = priorityFilter === 'all' || company.priority === priorityFilter
     
-    return matchesSearch && matchesStage && matchesPriority
+    // Tag matching
+    const matchesTag = tagFilter === 'all' || (company.tags && company.tags.includes(tagFilter))
+    
+    // Stage matching (check both company and projects)
+    const matchesStage = stageFilter === 'all' || 
+                        company.projects.some(project => project.stage === stageFilter)
+
+    // Project type matching
+    const matchesProjectType = projectTypeFilter === 'all' ||
+                              company.projects.some(project => project.type === projectTypeFilter)
+    
+    return matchesSearch && matchesPriority && matchesTag && matchesStage && matchesProjectType
   })
+
+  // Filter projects within expanded companies
+  const getFilteredProjects = (company: CompanyWithProjects): Project[] => {
+    return company.projects.filter(project => {
+      const matchesStage = stageFilter === 'all' || project.stage === stageFilter
+      const matchesProjectType = projectTypeFilter === 'all' || project.type === projectTypeFilter
+      const matchesSearch = searchTerm === '' || 
+                           project.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           project.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           (project.notes || '').toLowerCase().includes(searchTerm.toLowerCase())
+      
+      return matchesStage && matchesProjectType && matchesSearch
+    })
+  }
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-bold text-foreground">Leads Management</h1>
-        <button className="btn-primary mt-4 sm:mt-0">
-          <Plus className="h-4 w-4 mr-2" />
-          Add Lead
-        </button>
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Companies & Projects</h1>
+          <p className="text-sm text-gray-600 mt-1">
+            {filteredCompanies.length} companies, {filteredCompanies.reduce((sum, c) => sum + c.projects.length, 0)} total projects
+          </p>
+        </div>
+        <div className="flex space-x-2 mt-4 sm:mt-0">
+          <button className="btn-secondary">
+            <Building2 className="h-4 w-4 mr-2" />
+            Add Company
+          </button>
+          <button className="btn-primary">
+            <Plus className="h-4 w-4 mr-2" />
+            Add Project
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
       <div className="bg-white rounded-xl shadow-sm border border-border p-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
           {/* Search */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted" />
             <input
               type="text"
-              placeholder="Search leads..."
+              placeholder="Search companies & projects..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
@@ -148,8 +176,13 @@ const Leads: React.FC = () => {
               <option value="all">All Stages</option>
               <option value="scraped">Scraped</option>
               <option value="contacted">Contacted</option>
-              <option value="qualified">Qualified</option>
+              <option value="responded">Responded</option>
               <option value="scheduled">Scheduled</option>
+              <option value="quoted">Quoted</option>
+              <option value="sold">Sold</option>
+              <option value="in_progress">In Progress</option>
+              <option value="delivered">Delivered</option>
+              <option value="paid">Paid</option>
             </select>
           </div>
 
@@ -167,17 +200,50 @@ const Leads: React.FC = () => {
             </select>
           </div>
 
+          {/* Project Type Filter */}
+          <div>
+            <select
+              value={projectTypeFilter}
+              onChange={(e) => setProjectTypeFilter(e.target.value)}
+              className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            >
+              <option value="all">All Project Types</option>
+              <option value="website">Website</option>
+              <option value="seo">SEO</option>
+              <option value="ecommerce">E-commerce</option>
+              <option value="branding">Branding</option>
+              <option value="consultation">Consultation</option>
+              <option value="maintenance">Maintenance</option>
+            </select>
+          </div>
+
+          {/* Tag Filter */}
+          <div>
+            <select
+              value={tagFilter}
+              onChange={(e) => setTagFilter(e.target.value)}
+              className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            >
+              <option value="all">All Tags</option>
+              {availableTags.map((tag) => (
+                <option key={tag} value={tag}>{tag}</option>
+              ))}
+            </select>
+          </div>
+
           {/* Clear Filters */}
           <button
             onClick={() => {
               setSearchTerm('')
               setStageFilter('all')
               setPriorityFilter('all')
+              setTagFilter('all')
+              setProjectTypeFilter('all')
             }}
             className="btn-secondary"
           >
             <Filter className="h-4 w-4 mr-2" />
-            Clear Filters
+            Clear
           </button>
         </div>
       </div>
@@ -186,19 +252,87 @@ const Leads: React.FC = () => {
       <div className="bg-white rounded-xl shadow-sm border border-border">
         <div className="p-6 border-b border-border">
           <h3 className="text-lg font-semibold text-foreground">
-            Leads ({filteredLeads.length})
+            Companies & Projects ({filteredCompanies.length} companies)
           </h3>
         </div>
         <div className="p-6">
-          {filteredLeads.length > 0 ? (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {filteredLeads.map((lead) => (
-                <LeadCard key={lead.id} lead={lead} />
-              ))}
+          {loading ? (
+            <div className="text-center py-8">
+              <p className="text-muted">Loading companies and projects...</p>
+            </div>
+          ) : filteredCompanies.length > 0 ? (
+            <div className="space-y-4">
+              {filteredCompanies.map((company) => {
+                const isExpanded = expandedCompanies.has(company.id!)
+                const filteredProjects = getFilteredProjects(company)
+                
+                return (
+                  <div key={company.id} className="space-y-2">
+                    {/* Company Card */}
+                    <EntitySummaryCard
+                      type="company"
+                      data={company}
+                      expanded={isExpanded}
+                      onExpandClick={() => toggleCompanyExpansion(company.id!)}
+                      projectCount={company.projects.length}
+                      totalPaid={company.totalPaid}
+                      mode="expanded"
+                      showActions={true}
+                      onContact={() => console.log('Contact company:', company.name)}
+                      onSchedule={() => console.log('Schedule with company:', company.name)}
+                      onNotes={() => console.log('View notes for company:', company.name)}
+                    />
+                    
+                    {/* Expanded Projects */}
+                    {isExpanded && filteredProjects.length > 0 && (
+                      <div className="space-y-2 animate-in slide-in-from-top-1 duration-200">
+                        {filteredProjects.map((project) => (
+                          <EntitySummaryCard
+                            key={project.id}
+                            type="project"
+                            data={project}
+                            companyName={company.name}
+                            mode="expanded"
+                            showActions={true}
+                            onContact={() => console.log('Update project:', project.title)}
+                            onSchedule={() => console.log('Schedule for project:', project.title)}
+                            onNotes={() => console.log('View notes for project:', project.title)}
+                          />
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* No projects message */}
+                    {isExpanded && filteredProjects.length === 0 && company.projects.length === 0 && (
+                      <div className="ml-4 p-4 border-2 border-dashed border-gray-300 rounded-lg text-center">
+                        <p className="text-gray-500">No projects yet</p>
+                        <button className="btn-secondary mt-2 text-sm">
+                          <Plus className="h-4 w-4 mr-1" />
+                          Add First Project
+                        </button>
+                      </div>
+                    )}
+                    
+                    {/* Filtered out projects message */}
+                    {isExpanded && filteredProjects.length === 0 && company.projects.length > 0 && (
+                      <div className="ml-4 p-4 border border-gray-200 rounded-lg text-center bg-gray-50">
+                        <p className="text-gray-500 text-sm">
+                          {company.projects.length} project{company.projects.length !== 1 ? 's' : ''} hidden by filters
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           ) : (
             <div className="text-center py-8">
-              <p className="text-muted">No leads found matching your criteria.</p>
+              <Building2 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-muted">No companies found matching your criteria.</p>
+              <button className="btn-primary mt-4">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Your First Company
+              </button>
             </div>
           )}
         </div>

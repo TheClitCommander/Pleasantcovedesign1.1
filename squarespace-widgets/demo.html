@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pleasant Cove Design - Member Portal Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background: #f8fafc;
+            color: #333;
+        }
+
+        .demo-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 24px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .demo-header h1 {
+            font-size: 28px;
+            margin-bottom: 8px;
+        }
+
+        .demo-header p {
+            opacity: 0.9;
+            font-size: 16px;
+        }
+
+        .demo-nav {
+            background: white;
+            padding: 16px 24px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: center;
+            gap: 24px;
+        }
+
+        .demo-nav button {
+            background: none;
+            border: 2px solid #e5e7eb;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .demo-nav button.active {
+            border-color: #667eea;
+            background: #667eea;
+            color: white;
+        }
+
+        .demo-nav button:hover:not(.active) {
+            border-color: #667eea;
+            color: #667eea;
+        }
+
+        .demo-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 32px 24px;
+        }
+
+        .demo-section {
+            display: none;
+        }
+
+        .demo-section.active {
+            display: block;
+        }
+
+        .demo-info {
+            background: #e0f2fe;
+            border: 1px solid #b3e5fc;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 24px;
+            font-size: 14px;
+            color: #0277bd;
+        }
+
+        .demo-info strong {
+            color: #01579b;
+        }
+
+        .widget-container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            margin-bottom: 32px;
+        }
+
+        .demo-footer {
+            background: #1f2937;
+            color: white;
+            padding: 24px;
+            text-align: center;
+            margin-top: 48px;
+        }
+
+        .demo-footer h3 {
+            margin-bottom: 16px;
+        }
+
+        .demo-footer p {
+            opacity: 0.8;
+            line-height: 1.6;
+        }
+
+        .demo-footer .setup-link {
+            display: inline-block;
+            margin-top: 16px;
+            background: #667eea;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+
+        .demo-footer .setup-link:hover {
+            background: #5a6fd8;
+        }
+
+        @media (max-width: 768px) {
+            .demo-nav {
+                flex-direction: column;
+                align-items: center;
+                gap: 12px;
+            }
+
+            .demo-nav button {
+                width: 200px;
+            }
+
+            .demo-container {
+                padding: 16px 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="demo-header">
+        <h1>🏖️ Pleasant Cove Design</h1>
+        <p>Member Portal Demo - See your widgets in action</p>
+    </div>
+
+    <div class="demo-nav">
+        <button class="active" onclick="showSection('booking')">📅 Book Consultation</button>
+        <button onclick="showSection('messages')">💬 Project Messages</button>
+        <button onclick="showSection('both')">📱 Both Widgets</button>
+    </div>
+
+    <div class="demo-container">
+        <!-- Booking Widget Section -->
+        <div id="booking-section" class="demo-section active">
+            <div class="demo-info">
+                <strong>Appointment Booking Demo:</strong> This widget allows clients to book consultations directly from your Squarespace member area. All appointments sync automatically with your admin dashboard. Try selecting a date and time slot!
+            </div>
+            
+            <div class="widget-container">
+                <!-- Appointment Booking Widget will be injected here -->
+                <iframe src="appointment-booking.html" width="100%" height="800" frameborder="0" style="border-radius: 12px;"></iframe>
+            </div>
+        </div>
+
+        <!-- Messaging Widget Section -->
+        <div id="messages-section" class="demo-section">
+            <div class="demo-info">
+                <strong>Project Messaging Demo:</strong> Real-time communication between you and your clients. Messages sync instantly with your admin dashboard. Supports file attachments, images, and documents. Try sending a message!
+            </div>
+            
+            <div class="widget-container">
+                <!-- Messaging Widget will be injected here -->
+                <iframe src="messaging-widget.html" width="100%" height="600" frameborder="0" style="border-radius: 12px;"></iframe>
+            </div>
+        </div>
+
+        <!-- Both Widgets Section -->
+        <div id="both-section" class="demo-section">
+            <div class="demo-info">
+                <strong>Complete Member Experience:</strong> This shows how both widgets would appear in your Squarespace member area. Clients can book appointments and communicate with you seamlessly, all integrated with your Pleasant Cove Design backend.
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;">
+                <div class="widget-container" style="margin-bottom: 0;">
+                    <iframe src="appointment-booking.html" width="100%" height="700" frameborder="0" style="border-radius: 12px;"></iframe>
+                </div>
+                <div class="widget-container" style="margin-bottom: 0;">
+                    <iframe src="messaging-widget.html" width="100%" height="700" frameborder="0" style="border-radius: 12px;"></iframe>
+                </div>
+            </div>
+            
+            <div class="demo-info">
+                💡 <strong>Pro Tip:</strong> In your actual Squarespace member area, you can place these on separate pages or combine them on a single dashboard page. The choice is yours!
+            </div>
+        </div>
+    </div>
+
+    <div class="demo-footer">
+        <h3>🚀 Ready to Set Up Your Member Portal?</h3>
+        <p>
+            These widgets connect directly to your Pleasant Cove Design backend, giving you complete control while providing clients with a professional, seamless experience. All appointments and messages flow directly into your admin dashboard.
+        </p>
+        <a href="SETUP_GUIDE.md" class="setup-link" target="_blank">
+            📋 View Setup Guide
+        </a>
+    </div>
+
+    <script>
+        // Demo navigation
+        function showSection(sectionName) {
+            // Hide all sections
+            document.querySelectorAll('.demo-section').forEach(section => {
+                section.classList.remove('active');
+            });
+            
+            // Remove active class from all buttons
+            document.querySelectorAll('.demo-nav button').forEach(button => {
+                button.classList.remove('active');
+            });
+            
+            // Show selected section
+            document.getElementById(sectionName + '-section').classList.add('active');
+            
+            // Mark button as active
+            event.target.classList.add('active');
+        }
+
+        // Auto-resize iframe based on content (if needed)
+        function resizeIframes() {
+            document.querySelectorAll('iframe').forEach(iframe => {
+                iframe.onload = function() {
+                    try {
+                        // This would work if same-origin
+                        const height = iframe.contentWindow.document.body.scrollHeight;
+                        iframe.style.height = height + 'px';
+                    } catch (e) {
+                        // Cross-origin, keep default height
+                        console.log('Cross-origin iframe, using default height');
+                    }
+                };
+            });
+        }
+
+        // Initialize demo
+        document.addEventListener('DOMContentLoaded', function() {
+            resizeIframes();
+            
+            // Show connection status
+            console.log('🎯 Pleasant Cove Design Member Portal Demo Loaded');
+            console.log('📋 These widgets connect to your backend at: http://localhost:5174');
+            console.log('🔧 Make sure your backend is running to test full functionality');
+        });
+
+        // Responsive grid adjustment
+        function adjustLayout() {
+            const bothSection = document.getElementById('both-section');
+            const grid = bothSection.querySelector('div[style*="grid-template-columns"]');
+            
+            if (window.innerWidth < 768) {
+                grid.style.gridTemplateColumns = '1fr';
+                grid.style.gap = '16px';
+            } else {
+                grid.style.gridTemplateColumns = '1fr 1fr';
+                grid.style.gap = '24px';
+            }
+        }
+
+        window.addEventListener('resize', adjustLayout);
+        adjustLayout(); // Initial call
+    </script>
+</body>
+</html> 

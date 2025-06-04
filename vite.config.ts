@@ -13,4 +13,15 @@ export default defineConfig({
     outDir: 'dist/client',
     emptyOutDir: true,
   },
+  optimizeDeps: {
+    include: [
+      'react-big-calendar',
+      'react-big-calendar/lib/addons/dragAndDrop',
+      'date-fns/format',
+      'date-fns/parse',
+      'date-fns/startOfWeek',
+      'date-fns/getDay',
+      'date-fns/locale/en-US'
+    ]
+  }
 }) 

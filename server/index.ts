@@ -10,18 +10,27 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 5174;
 
-// Enhanced CORS for Squarespace webhooks
+// Enhanced CORS for Squarespace webhooks and ngrok
 app.use(cors({
   origin: [
     'http://localhost:5173',
     'https://localhost:5173', 
+    'http://localhost:5174',
+    'https://localhost:5174',
     /\.squarespace\.com$/,
     /\.squarespace-cdn\.com$/,
-    /pleasantcove/
+    /pleasantcove/,
+    // ngrok support
+    /\.ngrok-free\.app$/,
+    /\.ngrok\.io$/,
+    // Current ngrok URL
+    'https://8e97-2603-7080-e501-3f6a-b468-b0d0-1bfd-2e5.ngrok-free.app',
+    // Allow any origin for development (remove in production)
+    true
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'ngrok-skip-browser-warning', 'User-Agent']
 }));
 
 // Parse JSON bodies with increased limit for webhook data

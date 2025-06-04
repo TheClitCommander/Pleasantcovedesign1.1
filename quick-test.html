@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>🔧 Quick Connection Test</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; }
+        .result { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 5px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Pleasant Cove Design - Connection Test</h1>
+        
+        <div class="info">
+            <h3>Testing Connection To:</h3>
+            <p><strong>Backend URL:</strong> https://8e97-2603-7080-e501-3f6a-b468-b0d0-1bfd-2e5.ngrok-free.app</p>
+            <p><strong>Project Token:</strong> OAqg-ktvuXETeLBbtx0qHNk0</p>
+        </div>
+
+        <h3>Test Steps:</h3>
+        <button onclick="testConnection()">1. Test Basic Connection</button>
+        <button onclick="testMessages()">2. Test Load Messages</button>
+        <button onclick="testSendMessage()">3. Test Send Message</button>
+        
+        <div id="results"></div>
+    </div>
+
+    <script>
+        const BACKEND_URL = 'https://8e97-2603-7080-e501-3f6a-b468-b0d0-1bfd-2e5.ngrok-free.app';
+        const TEST_TOKEN = 'OAqg-ktvuXETeLBbtx0qHNk0';
+        
+        function logResult(message, type = 'info') {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `result ${type}`;
+            div.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong>: ${message}`;
+            results.appendChild(div);
+            results.scrollTop = results.scrollHeight;
+        }
+
+        async function testConnection() {
+            logResult('🔍 Testing basic connection...', 'info');
+            try {
+                const response = await fetch(`${BACKEND_URL}/health`, {
+                    headers: {
+                        'ngrok-skip-browser-warning': 'true',
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    logResult(`✅ Connection successful! Server version: ${data.version}`, 'success');
+                } else {
+                    logResult(`❌ Connection failed: HTTP ${response.status}`, 'error');
+                }
+            } catch (error) {
+                logResult(`❌ Connection error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testMessages() {
+            logResult('📨 Testing load messages...', 'info');
+            try {
+                const url = `${BACKEND_URL}/api/public/project/${TEST_TOKEN}/messages`;
+                const response = await fetch(url, {
+                    headers: {
+                        'ngrok-skip-browser-warning': 'true',
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    logResult(`✅ Messages loaded! Found ${data.messages?.length || 0} messages`, 'success');
+                    logResult(`<pre>${JSON.stringify(data, null, 2)}</pre>`, 'success');
+                } else {
+                    logResult(`❌ Load messages failed: HTTP ${response.status}`, 'error');
+                }
+            } catch (error) {
+                logResult(`❌ Load messages error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testSendMessage() {
+            logResult('📤 Testing send message...', 'info');
+            try {
+                const url = `${BACKEND_URL}/api/public/project/${TEST_TOKEN}/messages`;
+                const messageData = {
+                    content: `Test message from quick-test.html at ${new Date().toLocaleTimeString()}`,
+                    senderName: 'Quick Test Client'
+                };
+                
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'ngrok-skip-browser-warning': 'true',
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(messageData)
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    logResult(`✅ Message sent successfully!`, 'success');
+                    logResult(`<pre>${JSON.stringify(data, null, 2)}</pre>`, 'success');
+                } else {
+                    logResult(`❌ Send message failed: HTTP ${response.status}`, 'error');
+                }
+            } catch (error) {
+                logResult(`❌ Send message error: ${error.message}`, 'error');
+            }
+        }
+
+        // Auto-run basic connection test on load
+        window.addEventListener('load', () => {
+            logResult('🚀 Quick Connection Test loaded', 'info');
+            setTimeout(testConnection, 1000);
+        });
+    </script>
+</body>
+</html> 

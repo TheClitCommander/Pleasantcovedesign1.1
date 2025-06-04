@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pleasant Cove Design - Client Portal</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+    
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+    
+    .header {
+      background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+      color: white;
+      padding: 40px;
+      text-align: center;
+    }
+    
+    .header h1 {
+      font-size: 2.5rem;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+    
+    .header p {
+      font-size: 1.1rem;
+      opacity: 0.9;
+    }
+    
+    .form-section {
+      padding: 40px;
+      background: white;
+    }
+    
+    .form-group {
+      margin-bottom: 25px;
+    }
+    
+    .form-group label {
+      display: block;
+      font-weight: 600;
+      color: #2c3e50;
+      margin-bottom: 8px;
+      font-size: 0.95rem;
+    }
+    
+    .form-group input,
+    .form-group textarea,
+    .form-group select {
+      width: 100%;
+      padding: 15px;
+      border: 2px solid #e0e6ed;
+      border-radius: 10px;
+      font-size: 1rem;
+      transition: all 0.3s ease;
+      background: #fafbfc;
+    }
+    
+    .form-group input:focus,
+    .form-group textarea:focus,
+    .form-group select:focus {
+      outline: none;
+      border-color: #667eea;
+      background: white;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+    
+    .form-group textarea {
+      min-height: 120px;
+      resize: vertical;
+    }
+    
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    
+    @media (max-width: 640px) {
+      .form-row {
+        grid-template-columns: 1fr;
+      }
+    }
+    
+    .submit-btn {
+      width: 100%;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 18px 30px;
+      border-radius: 12px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .submit-btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+    }
+    
+    .submit-btn:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+      transform: none;
+    }
+    
+    .loading {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+    
+    .loading.active {
+      display: flex;
+    }
+    
+    .spinner {
+      width: 20px;
+      height: 20px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-radius: 50%;
+      border-top-color: white;
+      animation: spin 1s ease-in-out infinite;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    .success-section {
+      display: none;
+      padding: 40px;
+      text-align: center;
+      background: linear-gradient(135deg, #56ab2f 0%, #a8e6cf 100%);
+      color: white;
+    }
+    
+    .success-section.active {
+      display: block;
+    }
+    
+    .success-icon {
+      width: 80px;
+      height: 80px;
+      margin: 0 auto 20px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2rem;
+    }
+    
+    .widget-container {
+      margin-top: 30px;
+      border-radius: 15px;
+      overflow: hidden;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    }
+    
+    .error-message {
+      background: #fee;
+      color: #c33;
+      padding: 15px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+      border-left: 4px solid #c33;
+      display: none;
+    }
+    
+    .error-message.active {
+      display: block;
+    }
+    
+    .info-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+    
+    .info-card {
+      background: #f8f9fa;
+      padding: 20px;
+      border-radius: 12px;
+      text-align: center;
+      border: 2px solid #e9ecef;
+    }
+    
+    .info-card-icon {
+      width: 50px;
+      height: 50px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 15px;
+      font-size: 1.5rem;
+    }
+    
+    .info-card h3 {
+      font-size: 1.1rem;
+      color: #2c3e50;
+      margin-bottom: 8px;
+    }
+    
+    .info-card p {
+      color: #6c757d;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <h1>🌊 Pleasant Cove Design</h1>
+      <p>Welcome! Let's start your project journey together</p>
+    </div>
+
+    <!-- Form Section -->
+    <div class="form-section" id="form-section">
+      <!-- Info Cards -->
+      <div class="info-cards">
+        <div class="info-card">
+          <div class="info-card-icon">📝</div>
+          <h3>Project Details</h3>
+          <p>Tell us about your vision and requirements</p>
+        </div>
+        <div class="info-card">
+          <div class="info-card-icon">💬</div>
+          <h3>Instant Messaging</h3>
+          <p>Get immediate access to your private chat portal</p>
+        </div>
+        <div class="info-card">
+          <div class="info-card-icon">🚀</div>
+          <h3>Quick Start</h3>
+          <p>Begin collaborating within minutes</p>
+        </div>
+      </div>
+
+      <!-- Error Message -->
+      <div class="error-message" id="error-message"></div>
+
+      <!-- Contact Form -->
+      <form id="lead-form">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="name">Full Name *</label>
+            <input type="text" id="name" name="name" required placeholder="Enter your full name">
+          </div>
+          <div class="form-group">
+            <label for="email">Email Address *</label>
+            <input type="email" id="email" name="email" required placeholder="your.email@example.com">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="phone">Phone Number</label>
+            <input type="tel" id="phone" name="phone" placeholder="(555) 123-4567">
+          </div>
+          <div class="form-group">
+            <label for="company">Company/Business Name</label>
+            <input type="text" id="company" name="company" placeholder="Your business name">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="project-type">Project Type</label>
+          <select id="project-type" name="project-type">
+            <option value="">Select project type...</option>
+            <option value="new-website">New Website Design</option>
+            <option value="website-redesign">Website Redesign</option>
+            <option value="ecommerce">E-commerce Store</option>
+            <option value="branding">Branding & Logo Design</option>
+            <option value="seo">SEO Optimization</option>
+            <option value="maintenance">Website Maintenance</option>
+            <option value="consultation">Design Consultation</option>
+            <option value="other">Other (specify in message)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="budget">Estimated Budget Range</label>
+          <select id="budget" name="budget">
+            <option value="">Select budget range...</option>
+            <option value="under-5k">Under $5,000</option>
+            <option value="5k-10k">$5,000 - $10,000</option>
+            <option value="10k-25k">$10,000 - $25,000</option>
+            <option value="25k-50k">$25,000 - $50,000</option>
+            <option value="over-50k">$50,000+</option>
+            <option value="discuss">Let's discuss</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="message">Project Description *</label>
+          <textarea id="message" name="message" required 
+            placeholder="Describe your project goals, timeline, and any specific requirements..."></textarea>
+        </div>
+
+        <button type="submit" class="submit-btn" id="submit-btn">
+          <span class="btn-text">Start My Project & Access Portal</span>
+          <div class="loading">
+            <div class="spinner"></div>
+            <span>Creating your portal...</span>
+          </div>
+        </button>
+      </form>
+    </div>
+
+    <!-- Success Section -->
+    <div class="success-section" id="success-section">
+      <div class="success-icon">✅</div>
+      <h2>Welcome to Your Private Portal!</h2>
+      <p>Your project has been created and your private communication portal is ready below.</p>
+      <p><strong>You can now start messaging directly with our team.</strong></p>
+      
+      <div class="widget-container" id="widget-container"></div>
+    </div>
+  </div>
+
+  <script>
+    // Configuration
+    const CONFIG = {
+      backendUrl: "https://8e97-2603-7080-e501-3f6a-b468-b0d0-1bfd-2e5.ngrok-free.app", // Updated to current ngrok URL
+      timeout: 10000, // 10 seconds
+      retryAttempts: 2
+    };
+
+    // DOM Elements
+    const formSection = document.getElementById("form-section");
+    const successSection = document.getElementById("success-section");
+    const leadForm = document.getElementById("lead-form");
+    const submitBtn = document.getElementById("submit-btn");
+    const btnText = submitBtn.querySelector(".btn-text");
+    const loading = submitBtn.querySelector(".loading");
+    const errorMessage = document.getElementById("error-message");
+    const widgetContainer = document.getElementById("widget-container");
+
+    // Utility Functions
+    function showError(message) {
+      errorMessage.textContent = message;
+      errorMessage.classList.add("active");
+      setTimeout(() => {
+        errorMessage.classList.remove("active");
+      }, 5000);
+    }
+
+    function setLoading(isLoading) {
+      if (isLoading) {
+        submitBtn.disabled = true;
+        btnText.style.display = "none";
+        loading.classList.add("active");
+      } else {
+        submitBtn.disabled = false;
+        btnText.style.display = "block";
+        loading.classList.remove("active");
+      }
+    }
+
+    function validateForm(formData) {
+      if (!formData.name.trim()) {
+        throw new Error("Please enter your full name");
+      }
+      if (!formData.email.trim()) {
+        throw new Error("Please enter your email address");
+      }
+      if (!formData.message.trim()) {
+        throw new Error("Please describe your project");
+      }
+      
+      // Email validation
+      const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailPattern.test(formData.email)) {
+        throw new Error("Please enter a valid email address");
+      }
+    }
+
+    async function submitWithRetry(url, data, attempts = CONFIG.retryAttempts) {
+      for (let i = 0; i < attempts; i++) {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), CONFIG.timeout);
+          
+          const response = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data),
+            signal: controller.signal
+          });
+          
+          clearTimeout(timeoutId);
+          
+          if (!response.ok) {
+            throw new Error(`Server error: ${response.status}`);
+          }
+          
+          return await response.json();
+        } catch (error) {
+          if (i === attempts - 1) throw error;
+          await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1))); // Exponential backoff
+        }
+      }
+    }
+
+    // Form Submission Handler
+    leadForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      
+      setLoading(true);
+      errorMessage.classList.remove("active");
+
+      try {
+        // Collect form data
+        const formData = {
+          name: document.getElementById("name").value.trim(),
+          email: document.getElementById("email").value.trim(),
+          phone: document.getElementById("phone").value.trim(),
+          company: document.getElementById("company").value.trim(),
+          message: document.getElementById("message").value.trim(),
+          service_type: document.getElementById("project-type").value,
+          budget: document.getElementById("budget").value,
+          source: "squarespace_client_portal"
+        };
+
+        // Validate form
+        validateForm(formData);
+
+        // Submit to backend
+        const response = await submitWithRetry(`${CONFIG.backendUrl}/api/new-lead`, formData);
+
+        if (!response.success || !response.projectToken) {
+          throw new Error("Failed to create project. Please try again.");
+        }
+
+        // Success! Show portal
+        const token = response.projectToken;
+        
+        // Hide form, show success
+        formSection.style.display = "none";
+        successSection.classList.add("active");
+
+        // Store token and email for session persistence
+        localStorage.setItem('pcd_projectToken', token);
+        localStorage.setItem('pcd_memberEmail', formData.email);
+
+        // Load messaging widget with proper token passing
+        widgetContainer.innerHTML = `
+          <iframe 
+            id="messaging-widget-iframe"
+            src="${CONFIG.backendUrl}/squarespace-widgets/messaging-widget.html?token=${token}&email=${encodeURIComponent(formData.email)}"
+            width="100%" 
+            height="600px" 
+            frameborder="0" 
+            style="border: none; border-radius: 15px;"
+            title="Pleasant Cove Design - Project Messages">
+          </iframe>
+        `;
+
+        // Wait for iframe to load, then pass token via postMessage
+        const iframe = document.getElementById('messaging-widget-iframe');
+        iframe.onload = function() {
+          console.log('✅ Messaging widget loaded, sending token:', token);
+          
+          // Pass token and email to iframe
+          iframe.contentWindow.postMessage({
+            type: 'SET_PROJECT_TOKEN',
+            token: token,
+            email: formData.email,
+            name: formData.name
+          }, '*');
+          
+          // Also set window variables for fallback
+          iframe.contentWindow.projectToken = token;
+          iframe.contentWindow.memberEmail = formData.email;
+        };
+
+        // Track successful conversion (for analytics)
+        if (typeof gtag !== 'undefined') {
+          gtag('event', 'lead_generated', {
+            'event_category': 'engagement',
+            'event_label': 'client_portal',
+            'value': 1
+          });
+        }
+
+      } catch (error) {
+        console.error("Form submission error:", error);
+        
+        if (error.name === 'AbortError') {
+          showError("Request timed out. Please check your connection and try again.");
+        } else if (error.message.includes("Server error")) {
+          showError("Server temporarily unavailable. Please try again in a moment.");
+        } else {
+          showError(error.message || "Something went wrong. Please try again.");
+        }
+      } finally {
+        setLoading(false);
+      }
+    });
+
+    // Enhanced UX: Auto-save form data
+    const inputs = document.querySelectorAll('input, textarea, select');
+    inputs.forEach(input => {
+      input.addEventListener('blur', () => {
+        localStorage.setItem(`pcd_${input.name}`, input.value);
+      });
+      
+      // Restore saved data
+      const saved = localStorage.getItem(`pcd_${input.name}`);
+      if (saved) input.value = saved;
+    });
+
+    // Clear saved data on successful submission
+    leadForm.addEventListener('submit', () => {
+      inputs.forEach(input => {
+        localStorage.removeItem(`pcd_${input.name}`);
+      });
+    });
+
+    // Real-time validation feedback
+    document.getElementById('email').addEventListener('input', (e) => {
+      const email = e.target.value;
+      const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      
+      if (email && !emailPattern.test(email)) {
+        e.target.style.borderColor = '#e74c3c';
+      } else {
+        e.target.style.borderColor = '#e0e6ed';
+      }
+    });
+
+    console.log('Pleasant Cove Design Client Portal - v2.0');
+    console.log('Backend:', CONFIG.backendUrl);
+  </script>
+</body>
+</html> 

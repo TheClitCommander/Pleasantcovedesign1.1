@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portal Session Logic Test</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background: #f5f5f5;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        
+        .section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        
+        .section h3 {
+            margin-top: 0;
+            color: #555;
+        }
+        
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: monospace;
+        }
+        
+        button:hover {
+            background: #0056b3;
+        }
+        
+        .status {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            white-space: pre-wrap;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        .warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔬 Portal Session Logic Test</h1>
+        
+        <div class="section">
+            <h3>📊 Session Status</h3>
+            <div id="sessionStatus" class="status info">Loading...</div>
+            <button onclick="checkSessionStatus()">🔄 Check Session Status</button>
+            <button onclick="clearAllSessions()">🧹 Clear All Sessions</button>
+        </div>
+        
+        <div class="section">
+            <h3>🏗️ Create Test Session</h3>
+            <button onclick="createValidSession()">Create Valid Session</button>
+            <button onclick="createIncompleteSession()">Create Incomplete Session</button>
+            <button onclick="createRealBackendSession()">Create Real Backend Session</button>
+            <div id="createResult" class="status"></div>
+        </div>
+        
+        <div class="section">
+            <h3>🎭 Simulate Portal Logic</h3>
+            <button onclick="simulatePortalInit()">Simulate Portal Initialization</button>
+            <button onclick="testSessionValidation()">Test Session Validation</button>
+            <div id="simulationResult" class="status"></div>
+        </div>
+        
+        <div class="section">
+            <h3>🚀 Portal Actions</h3>
+            <button onclick="openPortalInNewTab()">Open Portal in New Tab</button>
+            <button onclick="reloadPortalIframe()">Test in iFrame</button>
+            <div id="portalResult" class="status"></div>
+            <iframe id="portalFrame" style="width: 100%; height: 300px; border: 1px solid #ccc; margin-top: 10px; display: none;"></iframe>
+        </div>
+        
+        <div class="section">
+            <h3>📝 Debug Logs</h3>
+            <button onclick="clearLogs()">Clear Logs</button>
+            <div id="debugLogs" class="status info"></div>
+        </div>
+    </div>
+
+    <script>
+        const CONFIG = {
+            backendUrl: 'https://8e97-2603-7080-e501-3f6a-b468-b0d0-1bfd-2e5.ngrok-free.app'
+        };
+
+        let logs = [];
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}`;
+            console.log(logEntry);
+            logs.push(logEntry);
+            updateDebugLogs();
+            return logEntry;
+        }
+
+        function updateDebugLogs() {
+            const debugLogs = document.getElementById('debugLogs');
+            debugLogs.textContent = logs.join('\n');
+            debugLogs.scrollTop = debugLogs.scrollHeight;
+        }
+
+        function clearLogs() {
+            logs = [];
+            updateDebugLogs();
+        }
+
+        function checkSessionStatus() {
+            const status = document.getElementById('sessionStatus');
+            
+            try {
+                const sessionData = localStorage.getItem('pcd_client_session');
+                const parsed = sessionData ? JSON.parse(sessionData) : null;
+                
+                const analysis = {
+                    localStorage_raw: sessionData,
+                    localStorage_parsed: parsed,
+                    sessionStorage_raw: sessionStorage.getItem('pcd_client_session'),
+                    cookies: document.cookie,
+                    url: window.location.href,
+                    domain: window.location.hostname,
+                    timestamp: new Date().toISOString()
+                };
+                
+                log('📊 Session status checked');
+                
+                status.textContent = JSON.stringify(analysis, null, 2);
+                
+                if (parsed && parsed.projectToken && parsed.memberEmail) {
+                    status.className = 'status success';
+                    log('✅ Valid session found in localStorage');
+                } else if (parsed) {
+                    status.className = 'status warning';
+                    log('⚠️ Incomplete session found in localStorage');
+                } else {
+                    status.className = 'status error';
+                    log('❌ No session found in localStorage');
+                }
+                
+            } catch (error) {
+                status.textContent = `Error checking session: ${error.message}`;
+                status.className = 'status error';
+                log(`❌ Error checking session: ${error.message}`);
+            }
+        }
+
+        function clearAllSessions() {
+            localStorage.removeItem('pcd_client_session');
+            sessionStorage.removeItem('pcd_client_session');
+            log('🧹 All sessions cleared');
+            checkSessionStatus();
+        }
+
+        function createValidSession() {
+            const result = document.getElementById('createResult');
+            
+            const validSession = {
+                projectToken: 'test-token-' + Date.now(),
+                memberEmail: 'test@example.com',
+                memberName: 'Test User'
+            };
+            
+            localStorage.setItem('pcd_client_session', JSON.stringify(validSession));
+            
+            result.textContent = log(`✅ Valid session created:\n${JSON.stringify(validSession, null, 2)}`);
+            result.className = 'status success';
+            
+            checkSessionStatus();
+        }
+
+        function createIncompleteSession() {
+            const result = document.getElementById('createResult');
+            
+            const incompleteSession = {
+                memberEmail: 'incomplete@example.com'
+                // Missing projectToken and memberName
+            };
+            
+            localStorage.setItem('pcd_client_session', JSON.stringify(incompleteSession));
+            
+            result.textContent = log(`⚠️ Incomplete session created:\n${JSON.stringify(incompleteSession, null, 2)}`);
+            result.className = 'status warning';
+            
+            checkSessionStatus();
+        }
+
+        async function createRealBackendSession() {
+            const result = document.getElementById('createResult');
+            
+            try {
+                result.textContent = log('🔄 Creating real backend session...');
+                result.className = 'status info';
+                
+                const leadData = {
+                    name: 'Portal Test User',
+                    email: 'portal-test@example.com',
+                    phone: '555-PORTAL',
+                    message: 'Testing portal session logic',
+                    service_type: 'website',
+                    source: 'portal_test'
+                };
+                
+                const response = await fetch(`${CONFIG.backendUrl}/api/new-lead`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'ngrok-skip-browser-warning': 'true'
+                    },
+                    body: JSON.stringify(leadData)
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    const session = {
+                        projectToken: data.projectToken,
+                        memberEmail: leadData.email,
+                        memberName: leadData.name
+                    };
+                    
+                    localStorage.setItem('pcd_client_session', JSON.stringify(session));
+                    
+                    result.textContent = log(`✅ Real backend session created:\n${JSON.stringify(session, null, 2)}`);
+                    result.className = 'status success';
+                    
+                    checkSessionStatus();
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+            } catch (error) {
+                result.textContent = log(`❌ Failed to create backend session: ${error.message}`);
+                result.className = 'status error';
+            }
+        }
+
+        function simulatePortalInit() {
+            const result = document.getElementById('simulationResult');
+            
+            log('🎭 Simulating portal initialization...');
+            
+            // Simulate the exact logic from the smart portal
+            const savedData = localStorage.getItem('pcd_client_session');
+            let clientData = { projectToken: null, memberEmail: null, memberName: null };
+            
+            let simulation = {
+                step1_localStorage_check: savedData ? 'Found' : 'Not found',
+                step2_raw_data: savedData,
+                step3_parsed_data: null,
+                step4_validation: null,
+                step5_decision: null
+            };
+            
+            if (savedData) {
+                try {
+                    const parsed = JSON.parse(savedData);
+                    simulation.step3_parsed_data = parsed;
+                    
+                    if (parsed && parsed.projectToken && parsed.memberEmail) {
+                        clientData = parsed;
+                        simulation.step4_validation = 'Valid session';
+                        simulation.step5_decision = 'Show messaging section';
+                        
+                        result.textContent = log(`✅ Portal would show MESSAGING:\n${JSON.stringify(simulation, null, 2)}`);
+                        result.className = 'status success';
+                    } else {
+                        simulation.step4_validation = 'Invalid session (missing data)';
+                        simulation.step5_decision = 'Show onboarding section';
+                        
+                        result.textContent = log(`⚠️ Portal would show ONBOARDING (invalid):\n${JSON.stringify(simulation, null, 2)}`);
+                        result.className = 'status warning';
+                    }
+                } catch (error) {
+                    simulation.step4_validation = `Parse error: ${error.message}`;
+                    simulation.step5_decision = 'Show onboarding section';
+                    
+                    result.textContent = log(`❌ Portal would show ONBOARDING (parse error):\n${JSON.stringify(simulation, null, 2)}`);
+                    result.className = 'status error';
+                }
+            } else {
+                simulation.step4_validation = 'No session data';
+                simulation.step5_decision = 'Show onboarding section';
+                
+                result.textContent = log(`📝 Portal would show ONBOARDING (no session):\n${JSON.stringify(simulation, null, 2)}`);
+                result.className = 'status warning';
+            }
+        }
+
+        function testSessionValidation() {
+            const result = document.getElementById('simulationResult');
+            
+            const sessionData = localStorage.getItem('pcd_client_session');
+            
+            if (!sessionData) {
+                result.textContent = log('❌ No session to validate');
+                result.className = 'status error';
+                return;
+            }
+            
+            try {
+                const parsed = JSON.parse(sessionData);
+                
+                const validationTests = {
+                    has_projectToken: !!parsed.projectToken,
+                    has_memberEmail: !!parsed.memberEmail,
+                    has_memberName: !!parsed.memberName,
+                    projectToken_type: typeof parsed.projectToken,
+                    memberEmail_type: typeof parsed.memberEmail,
+                    memberName_type: typeof parsed.memberName,
+                    projectToken_length: parsed.projectToken ? parsed.projectToken.length : 0,
+                    memberEmail_valid: parsed.memberEmail ? parsed.memberEmail.includes('@') : false,
+                    overall_valid: !!(parsed.projectToken && parsed.memberEmail)
+                };
+                
+                result.textContent = log(`🧪 Session validation results:\n${JSON.stringify(validationTests, null, 2)}`);
+                
+                if (validationTests.overall_valid) {
+                    result.className = 'status success';
+                } else {
+                    result.className = 'status warning';
+                }
+                
+            } catch (error) {
+                result.textContent = log(`❌ Session validation failed: ${error.message}`);
+                result.className = 'status error';
+            }
+        }
+
+        function openPortalInNewTab() {
+            log('🚀 Opening portal in new tab...');
+            window.open('squarespace-widgets/smart-client-portal.html', '_blank');
+        }
+
+        function reloadPortalIframe() {
+            const result = document.getElementById('portalResult');
+            const iframe = document.getElementById('portalFrame');
+            
+            iframe.style.display = 'block';
+            iframe.src = 'squarespace-widgets/smart-client-portal.html';
+            
+            result.textContent = log('🔄 Portal loaded in iframe - check for session behavior');
+            result.className = 'status info';
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            log('🎯 Portal Session Logic Test - Ready!');
+            checkSessionStatus();
+        });
+    </script>
+</body>
+</html> 

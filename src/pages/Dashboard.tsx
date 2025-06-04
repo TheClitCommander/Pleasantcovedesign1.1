@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react'
-import { AlertCircle, Clock, DollarSign, Users, Calendar, Phone, Mail, TrendingUp } from 'lucide-react'
-// @ts-ignore
+import { AlertCircle, Clock, DollarSign, Users, Calendar, Phone, Mail, TrendingUp, ExternalLink } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import StatCard from '../components/StatCard'
-// @ts-ignore  
 import LeadCard from '../components/LeadCard'
+import InteractionTimeline from '../components/InteractionTimeline'
 import api from '../api'
 
 interface StatsResponse {
@@ -53,6 +53,7 @@ const Dashboard: React.FC = () => {
   const [activities, setActivities] = useState<Activity[]>([])
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [loading, setLoading] = useState(true)
+  const navigate = useNavigate()
 
   useEffect(() => {
     const fetchData = async () => {
@@ -86,6 +87,7 @@ const Dashboard: React.FC = () => {
           change: '+12%',
           changeType: 'positive' as const,
           icon: Users,
+          onClick: () => navigate('/leads')
         },
         {
           title: 'Total Appointments',
@@ -93,6 +95,7 @@ const Dashboard: React.FC = () => {
           change: `${appointments.filter(a => a.isAutoScheduled).length} from Squarespace`,
           changeType: 'positive' as const,
           icon: Calendar,
+          onClick: () => navigate('/schedule')
         },
         {
           title: 'Paid Revenue',
@@ -100,6 +103,7 @@ const Dashboard: React.FC = () => {
           change: '+8%',
           changeType: 'positive' as const,
           icon: DollarSign,
+          onClick: () => navigate('/progress')
         },
         {
           title: 'High Priority Leads',
@@ -107,6 +111,7 @@ const Dashboard: React.FC = () => {
           change: `Avg Score: ${stats.averageScore}`,
           changeType: 'neutral' as const,
           icon: AlertCircle,
+          onClick: () => navigate('/leads?filter=high-priority')
         },
       ]
     : []
@@ -148,6 +153,10 @@ const Dashboard: React.FC = () => {
     })
   }
 
+  const handleClientClick = (businessId: number) => {
+    navigate(`/admin/client/${businessId}`)
+  }
+
   if (loading) return (
     <div className="flex items-center justify-center min-h-64">
       <div className="text-lg">Loading dashboard…</div>
@@ -187,21 +196,30 @@ const Dashboard: React.FC = () => {
                   {upcomingAppointments.map((appointment) => {
                     const business = businesses.find(b => b.id === appointment.businessId)
                     return (
-                      <div key={appointment.id} className="border-l-4 border-primary-500 pl-4 py-2">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="font-medium text-foreground">
-                              {business?.name || `Business #${appointment.businessId}`}
-                            </p>
-                            <p className="text-sm text-muted">
+                      <div 
+                        key={appointment.id} 
+                        className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 cursor-pointer hover:shadow-md transition-all duration-200 hover:border-blue-300"
+                        onClick={() => handleClientClick(appointment.businessId)}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <h4 className="font-semibold text-foreground hover:text-primary-600 transition-colors">
+                                {business?.name || `Business #${appointment.businessId}`}
+                              </h4>
+                              <ExternalLink className="h-4 w-4 text-gray-400" />
+                            </div>
+                            <p className="text-sm text-muted mb-1">
                               {formatAppointmentTime(appointment.datetime)}
                             </p>
                             {appointment.notes && (
-                              <p className="text-xs text-muted mt-1">{appointment.notes}</p>
+                              <p className="text-xs text-muted bg-white/60 rounded px-2 py-1 mt-2">
+                                {appointment.notes}
+                              </p>
                             )}
                           </div>
-                          <div className="text-right">
-                            <span className={`text-xs px-2 py-1 rounded-full ${
+                          <div className="flex flex-col items-end gap-2">
+                            <span className={`text-xs px-3 py-1 rounded-full font-medium ${
                               appointment.isAutoScheduled 
                                 ? 'bg-blue-100 text-blue-700' 
                                 : 'bg-green-100 text-green-700'
@@ -209,12 +227,14 @@ const Dashboard: React.FC = () => {
                               {appointment.isAutoScheduled ? 'Squarespace' : 'Manual'}
                             </span>
                             {business?.phone && (
-                              <div className="mt-1">
-                                <a href={`tel:${business.phone}`} className="text-xs text-primary-600 hover:underline">
-                                  <Phone className="h-3 w-3 inline mr-1" />
-                                  Call
-                                </a>
-                              </div>
+                              <a 
+                                href={`tel:${business.phone}`} 
+                                className="text-xs text-primary-600 hover:text-primary-700 flex items-center gap-1 hover:underline"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <Phone className="h-3 w-3" />
+                                Call
+                              </a>
                             )}
                           </div>
                         </div>
@@ -223,7 +243,7 @@ const Dashboard: React.FC = () => {
                   })}
                 </div>
               ) : (
-                <p className="text-muted text-center py-4">No upcoming appointments</p>
+                <p className="text-muted text-center py-8">No upcoming appointments</p>
               )}
             </div>
           </div>
@@ -251,24 +271,7 @@ const Dashboard: React.FC = () => {
 
         {/* Right Column - Recent Activity */}
         <div className="lg:col-span-1">
-          <div className="bg-white rounded-xl shadow-sm border border-border">
-            <div className="p-6 border-b border-border">
-              <h3 className="text-lg font-semibold text-foreground flex items-center">
-                <Clock className="h-5 w-5 mr-2 text-primary-600" />
-                Recent Activity
-              </h3>
-            </div>
-            <div className="p-6">
-              <ul className="space-y-3">
-                {recentActivityTexts.map((activity, index) => (
-                  <li key={index} className="flex items-start text-sm">
-                    <div className="w-2 h-2 bg-primary-500 rounded-full mr-3 mt-2 flex-shrink-0"></div>
-                    <span className="text-muted">{activity}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
+          <InteractionTimeline limit={6} showBusinessName={true} />
         </div>
       </div>
 

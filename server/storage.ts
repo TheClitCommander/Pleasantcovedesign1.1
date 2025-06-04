@@ -1,8 +1,12 @@
 import { db } from "./db.js";
-import type { Business, NewBusiness, Activity, NewActivity } from "../shared/schema.js";
+import type { Business, NewBusiness, Activity, NewActivity, Company, NewCompany, Project, NewProject, ProjectMessage, ProjectFile } from "../shared/schema.js";
 
 // Mock schema objects for the in-memory database
 const businessesTable = { tableName: 'businesses' };
+const companiesTable = { tableName: 'companies' };
+const projectsTable = { tableName: 'projects' };
+const projectMessagesTable = { tableName: 'project_messages' };
+const projectFilesTable = { tableName: 'project_files' };
 const activitiesTable = { tableName: 'activities' };
 const campaignsTable = { tableName: 'campaigns' };
 const templatesTable = { tableName: 'templates' };
@@ -10,14 +14,22 @@ const appointmentsTable = { tableName: 'appointments' };
 const progressEntriesTable = { tableName: 'progress_entries' };
 
 export class Storage {
-  // Business operations
+  // Business operations (legacy compatibility)
   async createBusiness(data: any): Promise<Business> {
     const results: any[] = db.insert(businessesTable).values(data).returning();
     return results[0] as Business;
   }
 
-  async getBusinesses(): Promise<Business[]> {
-    const results: any[] = db.select().from(businessesTable).orderBy({});
+  async getBusinesses(tagFilter?: string): Promise<Business[]> {
+    let results: any[] = db.select().from(businessesTable).orderBy({});
+    
+    // Apply tag filtering if provided
+    if (tagFilter) {
+      results = results.filter(business => 
+        business.tags && business.tags.includes(tagFilter)
+      );
+    }
+    
     return results as Business[];
   }
 
@@ -35,7 +47,96 @@ export class Storage {
     db.delete(businessesTable).where({ id });
   }
 
-  // Activity operations
+  // Company operations
+  async createCompany(data: NewCompany): Promise<Company> {
+    const results: any[] = db.insert(companiesTable).values(data).returning();
+    return results[0] as Company;
+  }
+
+  async getCompanies(tagFilter?: string): Promise<Company[]> {
+    let results: any[] = db.select().from(companiesTable).orderBy({});
+    
+    // Apply tag filtering if provided
+    if (tagFilter) {
+      results = results.filter(company => 
+        company.tags && company.tags.includes(tagFilter)
+      );
+    }
+    
+    return results as Company[];
+  }
+
+  async getCompanyById(id: number): Promise<Company | null> {
+    const companies: any[] = db.select().from(companiesTable).where({ id });
+    return (companies[0] as Company) || null;
+  }
+
+  async updateCompany(id: number, data: Partial<Company>): Promise<Company | null> {
+    const results: any[] = db.update(companiesTable).set(data).where({ id }).returning();
+    return (results[0] as Company) || null;
+  }
+
+  async deleteCompany(id: number): Promise<void> {
+    db.delete(companiesTable).where({ id });
+  }
+
+  // Project operations
+  async createProject(data: NewProject): Promise<Project> {
+    const results: any[] = db.insert(projectsTable).values(data).returning();
+    return results[0] as Project;
+  }
+
+  async getProjects(filters?: {
+    status?: string;
+    stage?: string;
+    type?: string;
+    companyId?: number;
+  }): Promise<Project[]> {
+    let results: any[] = db.select().from(projectsTable).orderBy({});
+    
+    if (filters) {
+      if (filters.status) {
+        results = results.filter(project => project.status === filters.status);
+      }
+      if (filters.stage) {
+        results = results.filter(project => project.stage === filters.stage);
+      }
+      if (filters.type) {
+        results = results.filter(project => project.type === filters.type);
+      }
+      if (filters.companyId) {
+        results = results.filter(project => project.companyId === filters.companyId);
+      }
+    }
+    
+    return results as Project[];
+  }
+
+  async getProjectById(id: number): Promise<Project | null> {
+    const projects: any[] = db.select().from(projectsTable).where({ id });
+    return (projects[0] as Project) || null;
+  }
+
+  async getProjectsByCompany(companyId: number, statusFilter?: string): Promise<Project[]> {
+    let results: any[] = db.select().from(projectsTable).where({ companyId });
+    
+    if (statusFilter) {
+      results = results.filter(project => project.status === statusFilter);
+    }
+    
+    return results as Project[];
+  }
+
+  async updateProject(id: number, data: Partial<Project>): Promise<Project | null> {
+    const results: any[] = db.update(projectsTable).set(data).where({ id }).returning();
+    return (results[0] as Project) || null;
+  }
+
+  async deleteProject(id: number): Promise<void> {
+    db.delete(projectsTable).where({ id });
+  }
+
+  // Activity operations (updated for project awareness)
   async createActivity(data: NewActivity): Promise<Activity> {
     const results: any[] = db.insert(activitiesTable).values(data).returning();
     return results[0] as Activity;
@@ -48,6 +149,16 @@ export class Storage {
 
   async getActivitiesByBusinessId(businessId: number): Promise<Activity[]> {
     const results: any[] = db.select().from(activitiesTable).where({ businessId });
+    return results as Activity[];
+  }
+
+  async getActivitiesByCompany(companyId: number): Promise<Activity[]> {
+    const results: any[] = db.select().from(activitiesTable).where({ companyId });
+    return results as Activity[];
+  }
+
+  async getActivitiesByProject(projectId: number): Promise<Activity[]> {
+    const results: any[] = db.select().from(activitiesTable).where({ projectId });
     return results as Activity[];
   }
 
@@ -73,7 +184,7 @@ export class Storage {
     return results[0];
   }
 
-  // Appointment operations
+  // Appointment operations (updated for project awareness)
   async getAppointments() {
     const results: any[] = db.select().from(appointmentsTable).orderBy({});
     return results;
@@ -89,6 +200,16 @@ export class Storage {
     return results;
   }
 
+  async getAppointmentsByCompany(companyId: number) {
+    const results: any[] = db.select().from(appointmentsTable).where({ companyId });
+    return results;
+  }
+
+  async getAppointmentsByProject(projectId: number) {
+    const results: any[] = db.select().from(appointmentsTable).where({ projectId });
+    return results;
+  }
+
   async getAppointmentBySquarespaceId(squarespaceId: string) {
     const results: any[] = db.select().from(appointmentsTable).where({ squarespaceId });
     return results[0] || null;
@@ -97,6 +218,15 @@ export class Storage {
   async updateAppointment(id: number, data: any) {
     const results: any[] = db.update(appointmentsTable).set(data).where({ id }).returning();
     return results[0];
+  }
+
+  async getAppointmentById(id: number) {
+    const results: any[] = db.select().from(appointmentsTable).where({ id });
+    return results[0] || null;
+  }
+
+  async deleteAppointment(id: number) {
+    db.delete(appointmentsTable).where({ id });
   }
 
   // Progress tracking operations
@@ -200,6 +330,20 @@ export class Storage {
       .sort((a, b) => (b.score || 0) - (a.score || 0));
   }
 
+  // Get all unique tags from businesses
+  async getAllTags(): Promise<string[]> {
+    const businesses = await this.getBusinesses();
+    const allTags = new Set<string>();
+    
+    businesses.forEach(business => {
+      if (business.tags && Array.isArray(business.tags)) {
+        business.tags.forEach(tag => allTags.add(tag));
+      }
+    });
+    
+    return Array.from(allTags).sort();
+  }
+
   // Bulk operations
   async updateBusinessStage(businessId: number, stage: string) {
     return await this.updateBusiness(businessId, { stage });
@@ -211,6 +355,103 @@ export class Storage {
 
   async updateBusinessPriority(businessId: number, priority: string) {
     return await this.updateBusiness(businessId, { priority });
+  }
+
+  // ===================
+  // PROJECT MESSAGE OPERATIONS
+  // ===================
+
+  async getProjectMessages(projectId: number): Promise<ProjectMessage[]> {
+    const results: any[] = db.select().from(projectMessagesTable).where({ projectId });
+    return results as ProjectMessage[];
+  }
+
+  async createProjectMessage(data: Omit<ProjectMessage, 'id'>): Promise<ProjectMessage> {
+    const results: any[] = db.insert(projectMessagesTable).values(data).returning();
+    return results[0] as ProjectMessage;
+  }
+
+  async updateProjectMessage(id: number, data: Partial<ProjectMessage>): Promise<ProjectMessage | null> {
+    const results: any[] = db.update(projectMessagesTable).set(data).where({ id }).returning();
+    return (results[0] as ProjectMessage) || null;
+  }
+
+  async deleteProjectMessage(id: number): Promise<void> {
+    db.delete(projectMessagesTable).where({ id });
+  }
+
+  // ===================
+  // PROJECT FILE OPERATIONS
+  // ===================
+
+  async getProjectFiles(projectId: number): Promise<ProjectFile[]> {
+    const results: any[] = db.select().from(projectFilesTable).where({ projectId });
+    return results as ProjectFile[];
+  }
+
+  async createProjectFile(data: Omit<ProjectFile, 'id'>): Promise<ProjectFile> {
+    const results: any[] = db.insert(projectFilesTable).values(data).returning();
+    return results[0] as ProjectFile;
+  }
+
+  async updateProjectFile(id: number, data: Partial<ProjectFile>): Promise<ProjectFile | null> {
+    const results: any[] = db.update(projectFilesTable).set(data).where({ id }).returning();
+    return (results[0] as ProjectFile) || null;
+  }
+
+  async deleteProjectFile(id: number): Promise<void> {
+    db.delete(projectFilesTable).where({ id });
+  }
+
+  // ===================
+  // CLIENT PORTAL OPERATIONS
+  // ===================
+
+  async getProjectByToken(accessToken: string): Promise<(Project & { company: Company }) | null> {
+    const projectResults: any[] = db.select().from(projectsTable).where({ accessToken });
+    const project = projectResults[0] as Project;
+    
+    if (!project) {
+      return null;
+    }
+
+    // Get company information
+    const companyResults: any[] = db.select().from(companiesTable).where({ id: project.companyId });
+    const company = companyResults[0] as Company;
+
+    return {
+      ...project,
+      company
+    };
+  }
+
+  async getProjectSummaryByToken(accessToken: string): Promise<{
+    project: Project;
+    company: Company;
+    messages: ProjectMessage[];
+    files: ProjectFile[];
+    activities: Activity[];
+  } | null> {
+    const projectData = await this.getProjectByToken(accessToken);
+    
+    if (!projectData) {
+      return null;
+    }
+
+    const { company, ...project } = projectData;
+    
+    // Get all related data
+    const messages = await this.getProjectMessages(project.id!);
+    const files = await this.getProjectFiles(project.id!);
+    const activities = await this.getActivitiesByProject(project.id!);
+
+    return {
+      project,
+      company,
+      messages,
+      files,
+      activities: activities || []
+    };
   }
 }
 
