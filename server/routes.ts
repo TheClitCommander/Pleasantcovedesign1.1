@@ -4,15 +4,16 @@ import type { Business } from "../shared/schema.js";
 import { nanoid } from "nanoid";
 
 // Admin token for authentication
-const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "pleasantcove2024admin";
+const ADMIN_TOKEN = 'pleasantcove2024admin';
 
 // Utility function to generate unique project tokens
 function generateProjectToken(): string {
-  // Generate a more secure, longer token (24 characters)
-  // Using URL-safe characters only for easy embedding
-  const token = nanoid(24);
-  console.log(`🎯 Generated new project token: ${token}`);
-  return token;
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+  let result = '';
+  for (let i = 0; i < 24; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
 }
 
 // Real-time notification system
@@ -74,30 +75,20 @@ const PUBLIC_API_ROUTES = [
   "/api/scheduling/appointment-updated",
   "/api/scheduling/appointment-cancelled",
   "/api/new-lead",
+  "/api/acuity-appointment",
   "/api/public/project",
   "/health"
 ];
 
 // Admin auth middleware
 const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
-  const isPublicRoute = PUBLIC_API_ROUTES.some(route => req.path.startsWith(route));
+  const token = req.query.token || req.headers.authorization?.replace('Bearer ', '');
   
-  if (isPublicRoute) {
-    return next();
+  if (token !== 'pleasantcove2024admin') {
+    return res.status(401).json({ error: 'Unauthorized. Admin access required.' });
   }
-
-  const authHeader = req.headers.authorization;
-  const queryToken = req.query.token as string;
-  const providedToken = authHeader?.replace("Bearer ", "") || queryToken;
-
-  if (providedToken === ADMIN_TOKEN) {
-    return next();
-  }
-
-  res.status(401).json({ 
-    error: "Unauthorized", 
-    message: "Admin authentication required" 
-  });
+  
+  next();
 };
 
 export async function registerRoutes(app: Express): Promise<any> {
@@ -291,11 +282,6 @@ export async function registerRoutes(app: Express): Promise<any> {
         status = 'scheduled'
       } = appointmentData;
       
-      // Note: Pleasant Cove only offers two daily slots:
-      // 8:30 AM - 8:55 AM (25 minutes)
-      // 9:00 AM - 9:25 AM (25 minutes)
-      // Available 7 days a week, all year round
-      
       // Find or create business record
       let business = null;
       const existingBusinesses = await storage.searchBusinesses(email || phone || '');
@@ -363,9 +349,6 @@ export async function registerRoutes(app: Express): Promise<any> {
       console.log("Appointment Updated:", JSON.stringify(req.body, null, 2));
       
       const { id: squarespaceId, status, datetime, notes } = req.body;
-      
-      // Find appointment by Squarespace ID and update
-      // This would require enhanced storage methods to find by external ID
       
       res.status(200).json({ 
         success: true, 
@@ -515,182 +498,220 @@ export async function registerRoutes(app: Express): Promise<any> {
     }
   });
 
-  // Apply admin auth to all other API routes
-  app.use("/api", requireAdmin);
-
-  // Enhanced dashboard stats
-  app.get("/api/stats", async (req: Request, res: Response) => {
-    try {
-      const stats = await storage.getStats();
-      res.json(stats);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch stats" });
-    }
-  });
-
-  // Business operations
-  app.get("/api/businesses", async (req: Request, res: Response) => {
-    try {
-      const { tag } = req.query;
-      const businesses = await storage.getBusinesses(tag as string);
-      res.json(businesses);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch businesses" });
-    }
-  });
-
-  // Get all tags
-  app.get("/api/tags", async (req: Request, res: Response) => {
-    try {
-      const tags = await storage.getAllTags();
-      res.json(tags);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch tags" });
-    }
-  });
-
-  // Create new business/client
-  app.post("/api/businesses", async (req: Request, res: Response) => {
-    try {
-      const businessData = req.body;
-      
-      const business = await storage.createBusiness(businessData);
-      
-      // Log activity
-      await storage.createActivity({
-        type: 'business_created',
-        description: `New client created: ${business.name}`,
-        businessId: business.id!
-      });
-      
-      res.status(201).json(business);
-    } catch (error) {
-      console.error("Failed to create business:", error);
-      res.status(500).json({ error: "Failed to create business" });
-    }
-  });
-
-  // Update business/client
-  app.put("/api/businesses/:id", async (req: Request, res: Response) => {
-    try {
-      const businessId = parseInt(req.params.id);
-      const updateData = req.body;
-      
-      const business = await storage.updateBusiness(businessId, updateData);
-      
-      if (!business) {
-        return res.status(404).json({ error: "Business not found" });
-      }
-      
-      res.json(business);
-    } catch (error) {
-      console.error("Failed to update business:", error);
-      res.status(500).json({ error: "Failed to update business" });
-    }
-  });
-
-  // Create activity
-  app.post("/api/activities", async (req: Request, res: Response) => {
-    try {
-      const activityData = req.body;
-      
-      const activity = await storage.createActivity(activityData);
-      
-      res.status(201).json(activity);
-    } catch (error) {
-      console.error("Failed to create activity:", error);
-      res.status(500).json({ error: "Failed to create activity" });
-    }
-  });
-
   // ===================
-  // COMPANY OPERATIONS
+  // ACUITY SCHEDULING WEBHOOK (PUBLIC - no auth required)
   // ===================
   
-  // Get all companies
-  app.get("/api/companies", async (req: Request, res: Response) => {
+  app.post("/api/acuity-appointment", async (req: Request, res: Response) => {
     try {
-      const { tag } = req.query;
-      const companies = await storage.getCompanies(tag as string);
-      res.json(companies);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch companies" });
-    }
-  });
-
-  // Get company by ID
-  app.get("/api/companies/:id", async (req: Request, res: Response) => {
-    try {
-      const companyId = parseInt(req.params.id);
-      const company = await storage.getCompanyById(companyId);
+      console.log("=== ACUITY WEBHOOK RECEIVED ===");
+      console.log("Headers:", JSON.stringify(req.headers, null, 2));
+      console.log("Body:", JSON.stringify(req.body, null, 2));
+      console.log("Method:", req.method);
+      console.log("URL:", req.url);
+      console.log("==========================================");
       
-      if (!company) {
-        return res.status(404).json({ error: "Company not found" });
+      const webhookData = req.body;
+      
+      // Handle real Acuity webhook format (notification only)
+      if (webhookData.action && webhookData.id && !webhookData.email) {
+        console.log(`🔄 Real Acuity webhook - fetching appointment details for ID: ${webhookData.id}`);
+        
+        // Fetch full appointment details from Acuity API
+        const acuityUserId = process.env.ACUITY_USER_ID;
+        const acuityApiKey = process.env.ACUITY_API_KEY;
+        
+        if (!acuityUserId || !acuityApiKey) {
+          console.log("⚠️ Acuity credentials not configured. Cannot fetch appointment details.");
+          return res.status(200).json({ 
+            success: false, 
+            message: "Acuity credentials not configured" 
+          });
+        }
+        
+        try {
+          const authHeader = Buffer.from(`${acuityUserId}:${acuityApiKey}`).toString('base64');
+          const response = await fetch(`https://acuityscheduling.com/api/v1/appointments/${webhookData.id}`, {
+            headers: {
+              'Authorization': `Basic ${authHeader}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (!response.ok) {
+            console.log(`❌ Failed to fetch appointment details: ${response.status} ${response.statusText}`);
+            return res.status(200).json({ 
+              success: false, 
+              message: `Failed to fetch appointment: ${response.status}` 
+            });
+          }
+          
+          const appointmentDetails = await response.json();
+          console.log("✅ Fetched appointment details:", JSON.stringify(appointmentDetails, null, 2));
+          
+          // Use the fetched details for processing
+          webhookData.firstName = appointmentDetails.firstName;
+          webhookData.lastName = appointmentDetails.lastName;
+          webhookData.email = appointmentDetails.email;
+          webhookData.phone = appointmentDetails.phone;
+          webhookData.datetime = appointmentDetails.datetime;
+          webhookData.endTime = appointmentDetails.endTime;
+          webhookData.duration = appointmentDetails.duration;
+          webhookData.appointmentType = appointmentDetails.type;
+          webhookData.notes = appointmentDetails.notes;
+          
+        } catch (error) {
+          console.log("❌ Error fetching appointment details:", error);
+          return res.status(200).json({ 
+            success: false, 
+            message: "Error fetching appointment details" 
+          });
+        }
       }
       
-      res.json(company);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch company" });
-    }
-  });
-
-  // Get projects for a specific company
-  app.get("/api/companies/:id/projects", async (req: Request, res: Response) => {
-    try {
-      const companyId = parseInt(req.params.id);
-      const { status } = req.query;
+      // Extract appointment details (now either from original webhook or fetched from API)
+      const {
+        id: acuityId,
+        firstName,
+        lastName,
+        email,
+        phone,
+        datetime,
+        endTime,
+        duration,
+        appointmentType,
+        appointmentTypeID,
+        notes,
+        action = 'scheduled'
+      } = webhookData;
       
-      const projects = await storage.getProjectsByCompany(companyId, status as string);
-      res.json(projects);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch company projects" });
-    }
-  });
-
-  // Create new company
-  app.post("/api/companies", async (req: Request, res: Response) => {
-    try {
-      const companyData = req.body;
-      
-      const company = await storage.createCompany(companyData);
-      
-      // Log activity
-      await storage.createActivity({
-        type: 'company_created',
-        description: `New company created: ${company.name}`,
-        companyId: company.id!
-      });
-      
-      res.status(201).json(company);
-    } catch (error) {
-      console.error("Failed to create company:", error);
-      res.status(500).json({ error: "Failed to create company" });
-    }
-  });
-
-  // Update company
-  app.put("/api/companies/:id", async (req: Request, res: Response) => {
-    try {
-      const companyId = parseInt(req.params.id);
-      const updateData = req.body;
-      
-      const company = await storage.updateCompany(companyId, updateData);
-      
-      if (!company) {
-        return res.status(404).json({ error: "Company not found" });
+      // Validate required fields
+      if (!acuityId || !email) {
+        console.log("❌ Missing required fields: acuityId or email");
+        return res.status(400).json({ 
+          success: false, 
+          error: "Missing required fields: acuityId or email" 
+        });
       }
       
+      // Find existing client by email
+      const clientData = await storage.findClientByEmail(email);
+      let projectToken = null;
+      let companyId = null;
+      let projectId = null;
+      let businessId = null;
+      
+      if (clientData?.company && clientData?.project) {
+        // Use existing company/project
+        companyId = clientData.company.id;
+        projectId = clientData.project.id;
+        projectToken = clientData.project.accessToken;
+        
+        console.log(`✅ Found existing client: ${clientData.company.name} (Project Token: ${projectToken})`);
+      } else if (clientData?.business) {
+        // Legacy business system
+        businessId = clientData.business.id;
+        console.log(`✅ Found existing business: ${clientData.business.name}`);
+      } else {
+        // Create new company and project for this client
+        console.log(`🆕 Creating new client for email: ${email}`);
+        
+        projectToken = generateProjectToken();
+        
+        const newCompany = await storage.createCompany({
+          name: `${firstName} ${lastName}`.trim(),
+          email: email,
+          phone: phone || 'No phone provided',
+          address: 'To be updated',
+          city: 'To be updated',
+          state: 'To be updated',
+          industry: 'consultation',
+          website: ''
+        });
+        
+        const newProject = await storage.createProject({
+          companyId: newCompany.id!,
+          title: `${newCompany.name} - Consultation Project`,
+          type: 'consultation',
+          stage: 'scheduled',
+          status: 'active',
+          accessToken: projectToken,
+          notes: `Project created from Acuity appointment booking`,
+          totalAmount: 0,
+          paidAmount: 0
+        });
+        
+        companyId = newCompany.id;
+        projectId = newProject.id;
+        
+        console.log(`🎯 Created new client with project token: ${projectToken}`);
+        
+        // Log company creation activity
+        await storage.createActivity({
+          type: 'company_created',
+          description: `Company created from Acuity appointment: ${newCompany.name}`,
+          companyId: newCompany.id!,
+          projectId: newProject.id!
+        });
+      }
+      
+      // Prepare appointment data
+      const appointmentData = {
+        acuityId: acuityId.toString(),
+        email,
+        firstName,
+        lastName,
+        phone,
+        datetime,
+        endTime,
+        duration,
+        serviceType: appointmentType || 'consultation',
+        appointmentTypeId: appointmentTypeID?.toString(),
+        status: action === 'canceled' ? 'cancelled' : 'scheduled',
+        notes: notes || '',
+        isAutoScheduled: true,
+        webhookAction: action,
+        companyId,
+        projectId,
+        businessId
+      };
+      
+      // Create or update appointment
+      const appointment = await storage.createAcuityAppointment(appointmentData, projectToken || undefined);
+      
       // Log activity
-      await storage.createActivity({
-        type: 'company_updated',
-        description: `Company updated: ${company.name}`,
-        companyId: company.id!
+      const activityData: any = {
+        type: 'appointment_scheduled',
+        description: `Acuity appointment ${action}: ${firstName} ${lastName} - ${new Date(datetime).toLocaleDateString()}`,
+      };
+      
+      if (companyId) activityData.companyId = companyId;
+      if (projectId) activityData.projectId = projectId;
+      if (businessId) activityData.businessId = businessId;
+      
+      await storage.createActivity(activityData);
+      
+      // Add notification
+      addNotification({
+        type: 'appointment_booked',
+        title: action === 'canceled' ? 'Appointment Cancelled' : 'Acuity Appointment Booked!',
+        message: `${firstName} ${lastName} - ${new Date(datetime).toLocaleDateString()}`,
+        businessId: businessId || companyId || undefined
       });
       
-      res.json(company);
+      console.log(`✅ Acuity appointment processed: ${acuityId} for ${email} (Action: ${action})`);
+      
+      res.status(200).json({ 
+        success: true, 
+        appointmentId: appointment.id,
+        projectToken,
+        action,
+        message: "Acuity appointment processed successfully" 
+      });
+      
     } catch (error) {
-      console.error("Failed to update company:", error);
-      res.status(500).json({ error: "Failed to update company" });
+      console.error("Failed to process Acuity webhook:", error);
+      res.status(500).json({ error: "Failed to process Acuity appointment" });
     }
   });
 
@@ -1470,24 +1491,89 @@ export async function registerRoutes(app: Express): Promise<any> {
   // Appointments
   app.get("/api/appointments", async (req: Request, res: Response) => {
     try {
+      const { projectToken } = req.query;
+      
+      // If projectToken is provided, return only appointments for that client (PUBLIC ACCESS)
+      if (projectToken) {
+        const appointments = await storage.getAppointmentsByProjectToken(projectToken as string);
+        
+        // Enhance with minimal client info for display
+        const enhancedAppointments = appointments.map(appointment => ({
+          id: appointment.id,
+          datetime: appointment.datetime,
+          endTime: appointment.endTime,
+          duration: appointment.duration,
+          serviceType: appointment.serviceType,
+          status: appointment.status,
+          notes: appointment.notes,
+          firstName: appointment.firstName,
+          lastName: appointment.lastName,
+          email: appointment.email,
+          phone: appointment.phone,
+          webhookAction: appointment.webhookAction,
+          createdAt: appointment.createdAt,
+          updatedAt: appointment.updatedAt
+        }));
+        
+        return res.json(enhancedAppointments);
+      }
+      
+      // Admin access - return all appointments with full client information
       const appointments = await storage.getAppointments();
       const businesses = await storage.getBusinesses();
+      const companies = await storage.getCompanies();
       
-      // Create a map of business ID to business data for quick lookup
+      // Create maps for quick lookup
       const businessMap = new Map(businesses.map(b => [b.id, b]));
+      const companyMap = new Map(companies.map(c => [c.id, c]));
       
       // Enhance appointments with client information
       const enhancedAppointments = appointments.map(appointment => {
-        const business = businessMap.get(appointment.businessId);
+        let clientInfo = {
+          client_name: 'Unknown Client',
+          phone: 'No phone',
+          email: '',
+          businessType: 'unknown',
+          clientStage: 'unknown',
+          clientScore: 0,
+          clientPriority: 'medium'
+        };
+        
+        // Try to get info from company first (new system)
+        if (appointment.companyId) {
+          const company = companyMap.get(appointment.companyId);
+          if (company) {
+            clientInfo = {
+              client_name: company.name,
+              phone: company.phone || 'No phone',
+              email: company.email || '',
+              businessType: company.industry || 'unknown',
+              clientStage: 'unknown', // Companies don't have stages
+              clientScore: 0,
+              clientPriority: company.priority || 'medium'
+            };
+          }
+        }
+        
+        // Fallback to business (legacy system)
+        if (appointment.businessId && !appointment.companyId) {
+          const business = businessMap.get(appointment.businessId);
+          if (business) {
+            clientInfo = {
+              client_name: business.name,
+              phone: business.phone || 'No phone',
+              email: business.email || '',
+              businessType: business.businessType || 'unknown',
+              clientStage: business.stage || 'unknown',
+              clientScore: business.score || 0,
+              clientPriority: business.priority || 'medium'
+            };
+          }
+        }
+        
         return {
           ...appointment,
-          client_name: business?.name || 'Unknown Client',
-          phone: business?.phone || 'No phone',
-          email: business?.email || '',
-          businessType: business?.businessType || 'unknown',
-          clientStage: business?.stage || 'unknown',
-          clientScore: business?.score || 0,
-          clientPriority: business?.priority || 'medium'
+          ...clientInfo
         };
       });
       
@@ -1500,46 +1586,96 @@ export async function registerRoutes(app: Express): Promise<any> {
   // Create new appointment
   app.post("/api/appointments", async (req: Request, res: Response) => {
     try {
-      const { businessId, client_id, datetime, status, notes, isAutoScheduled } = req.body;
+      const { businessId, client_id, datetime, status, notes, isAutoScheduled, projectToken, serviceType, duration } = req.body;
       
-      // Use client_id if provided, otherwise fall back to businessId
-      const clientBusinessId = client_id || businessId || 1;
+      let clientBusinessId = client_id || businessId || 1;
+      let companyId = null;
+      let projectId = null;
       
-      const appointment = await storage.createAppointment({
-        businessId: clientBusinessId,
+      // If projectToken is provided, find the associated project/company
+      if (projectToken) {
+        try {
+          const projectData = await storage.getProjectByToken(projectToken);
+          if (projectData) {
+            companyId = projectData.companyId;
+            projectId = projectData.id;
+            // Don't use businessId for project-based appointments
+            clientBusinessId = null;
+          }
+        } catch (error) {
+          console.error("Error finding project by token:", error);
+        }
+      }
+      
+      // If no project found but we have businessId, use legacy system
+      if (!companyId && !clientBusinessId && businessId) {
+        clientBusinessId = businessId;
+      }
+      
+      const appointmentData: any = {
         datetime,
         status: status || 'scheduled',
         notes: notes || '',
-        isAutoScheduled: isAutoScheduled || false
-      });
+        isAutoScheduled: isAutoScheduled || false,
+        serviceType: serviceType || 'consultation',
+        duration: duration || 30
+      };
+      
+      // Add the appropriate ID
+      if (companyId && projectId) {
+        appointmentData.companyId = companyId;
+        appointmentData.projectId = projectId;
+        appointmentData.projectToken = projectToken;
+      } else if (clientBusinessId) {
+        appointmentData.businessId = clientBusinessId;
+      }
+      
+      const appointment = await storage.createAppointment(appointmentData);
       
       // Get client information for the response
-      const business = await storage.getBusinessById(clientBusinessId);
+      let clientInfo = null;
+      if (companyId) {
+        clientInfo = await storage.getCompanyById(companyId);
+      } else if (clientBusinessId) {
+        clientInfo = await storage.getBusinessById(clientBusinessId);
+      }
       
       // Log activity
-      await storage.createActivity({
-        type: 'appointment_scheduled',
-        description: `Manual appointment created: ${notes || 'Appointment'}`,
-        businessId: clientBusinessId
-      });
+      if (companyId && projectId) {
+        await storage.createActivity({
+          type: 'appointment_scheduled',
+          description: `Custom appointment created: ${serviceType} - ${notes || 'Appointment'}`,
+          companyId: companyId,
+          projectId: projectId
+        });
+      } else if (clientBusinessId) {
+        await storage.createActivity({
+          type: 'appointment_scheduled',
+          description: `Manual appointment created: ${notes || 'Appointment'}`,
+          businessId: clientBusinessId
+        });
+      }
       
       // Add notification
       addNotification({
         type: 'appointment_booked',
-        title: 'Manual Appointment Created',
-        message: `New appointment: ${business?.name || 'Unknown Client'} - ${new Date(datetime).toLocaleDateString()}`,
-        businessId: clientBusinessId
+        title: projectToken ? 'Client Appointment Booked' : 'Manual Appointment Created',
+        message: `New appointment: ${clientInfo?.name || 'Unknown Client'} - ${new Date(datetime).toLocaleDateString()}`,
+        businessId: clientBusinessId || companyId
       });
       
-      // Update business stage to 'scheduled' if it was pending
-      if (business && ['scraped', 'contacted', 'responded'].includes(business.stage || '')) {
-        await storage.updateBusiness(clientBusinessId, { stage: 'scheduled' });
+      // Update business stage to 'scheduled' if it was pending (legacy system only)
+      if (clientBusinessId) {
+        const business = await storage.getBusinessById(clientBusinessId);
+        if (business && ['scraped', 'contacted', 'responded'].includes(business.stage || '')) {
+          await storage.updateBusiness(clientBusinessId, { stage: 'scheduled' });
+        }
       }
       
       res.status(201).json({ 
         success: true, 
         appointment,
-        client: business,
+        client: clientInfo,
         message: "Appointment created successfully" 
       });
     } catch (error) {
@@ -1592,12 +1728,32 @@ export async function registerRoutes(app: Express): Promise<any> {
         return res.status(404).json({ error: "Appointment not found" });
       }
       
+      // Get the associated business before deleting
+      const business = await storage.getBusinessById(appointment.businessId);
+      
       await storage.deleteAppointment(appointmentId);
+      
+      // Check if this business has any other scheduled appointments
+      const allAppointments = await storage.getAppointments();
+      const hasOtherAppointments = allAppointments.some(apt => 
+        apt.businessId === appointment.businessId && 
+        apt.id !== appointmentId &&
+        apt.status === 'scheduled'
+      );
+      
+      // If no other appointments and business was in 'scheduled' stage, move back to pending
+      if (!hasOtherAppointments && business && business.stage === 'scheduled') {
+        await storage.updateBusiness(appointment.businessId, { 
+          stage: 'responded' // Move back to pending status
+        });
+        
+        console.log(`🔄 Business ${business.name} moved back to pending status after appointment deletion`);
+      }
       
       // Log activity
       await storage.createActivity({
         type: 'appointment_cancelled',
-        description: `Appointment deleted: ${appointment.notes || 'Appointment'}`,
+        description: `Appointment deleted: ${appointment.notes || 'Appointment'}${!hasOtherAppointments && business?.stage === 'scheduled' ? ' - Client moved back to pending' : ''}`,
         businessId: appointment.businessId
       });
       
@@ -1861,5 +2017,284 @@ export async function registerRoutes(app: Express): Promise<any> {
     `);
   });
 
+  // Book appointment with comprehensive intake form
+  app.post("/api/book-appointment", async (req: Request, res: Response) => {
+    try {
+      const {
+        firstName,
+        lastName,
+        email,
+        phone,
+        businessName,
+        services,
+        projectDescription,
+        budget,
+        timeline,
+        appointmentDate,
+        appointmentTime,
+        additionalNotes,
+        source,
+        timestamp
+      } = req.body;
+
+      console.log('=== COMPREHENSIVE APPOINTMENT BOOKING ===');
+      console.log('Data received:', {
+        name: `${firstName} ${lastName}`,
+        email,
+        services,
+        budget,
+        appointmentDate,
+        appointmentTime
+      });
+
+      // First, create or update the client/company record
+      let projectToken: string;
+      let companyId: number;
+      let projectId: number;
+
+      // Check if client already exists by searching companies
+      const companies = await storage.getCompanies();
+      const existingCompany = companies.find(c => c.email === email);
+      
+      if (existingCompany) {
+        console.log(`✅ Found existing client: ${existingCompany.name} (ID: ${existingCompany.id})`);
+        companyId = existingCompany.id!;
+        
+        // Get existing project for this company
+        const projects = await storage.getProjects();
+        const existingProject = projects.find(p => p.companyId === companyId);
+        
+        if (existingProject) {
+          projectToken = existingProject.accessToken!;
+          projectId = existingProject.id!;
+        } else {
+          // Create new project for existing company
+          projectToken = generateProjectToken();
+          const projectData = {
+            companyId,
+            title: `${firstName} ${lastName} - ${typeof services === 'string' ? services : services.join(', ')} Project`,
+            description: projectDescription,
+            type: 'website',
+            status: 'discovery',
+            stage: 'planning',
+            priority: 'medium',
+            accessToken: projectToken
+          };
+          
+          const newProject = await storage.createProject(projectData);
+          projectId = newProject.id!;
+          console.log(`✅ Created project: ${projectData.title} (ID: ${projectId})`);
+        }
+      } else {
+        console.log('🔄 Creating new client record...');
+        
+        // Generate new project token
+        projectToken = generateProjectToken();
+        
+        // Create company record
+        const companyData = {
+          name: businessName || `${firstName} ${lastName}`,
+          email: email,
+          phone: phone || '',
+          address: '',
+          city: '',
+          state: '',
+          industry: 'General',
+          status: 'active',
+          source: source || 'appointment_booking_widget'
+        };
+        
+        const newCompany = await storage.createCompany(companyData);
+        companyId = newCompany.id!;
+        console.log(`✅ Created company: ${companyData.name} (ID: ${companyId})`);
+        
+        // Create project record
+        const projectData = {
+          companyId,
+          title: `${firstName} ${lastName} - ${typeof services === 'string' ? services : services.join(', ')} Project`,
+          description: projectDescription,
+          type: 'website',
+          status: 'discovery',
+          stage: 'planning',
+          priority: 'medium',
+          accessToken: projectToken
+        };
+        
+        const newProject = await storage.createProject(projectData);
+        projectId = newProject.id!;
+        console.log(`✅ Created project: ${projectData.title} (ID: ${projectId})`);
+      }
+
+      // Create the appointment record
+      const appointmentData = {
+        businessId: companyId,
+        client_id: companyId,
+        projectToken,
+        datetime: new Date(`${appointmentDate}T${convertTo24Hour(appointmentTime)}`).toISOString(),
+        status: 'scheduled',
+        notes: `
+Initial Consultation Appointment
+
+Services Requested: ${typeof services === 'string' ? services : services.join(', ')}
+Budget: ${budget}
+Timeline: ${timeline || 'Not specified'}
+
+Project Description:
+${projectDescription}
+
+${additionalNotes ? `Additional Notes:\n${additionalNotes}` : ''}
+
+Contact Information:
+- Name: ${firstName} ${lastName}
+- Email: ${email}
+- Phone: ${phone}
+${businessName ? `- Business: ${businessName}` : ''}
+
+Booked via: ${source}
+        `.trim(),
+        serviceType: typeof services === 'string' ? services : services.join(', '),
+        duration: 30,
+        isAutoScheduled: true,
+        firstName,
+        lastName,
+        email,
+        phone
+      };
+
+      const appointment = await storage.createAppointment(appointmentData);
+      console.log(`✅ Created appointment: ID ${appointment.id}`);
+
+      // Create activity log
+      await storage.createActivity({
+        companyId,
+        projectId,
+        type: 'appointment_scheduled',
+        description: `Consultation appointment scheduled for ${new Date(appointmentData.datetime).toLocaleDateString()} at ${appointmentTime} - Services: ${typeof services === 'string' ? services : services.join(', ')}, Budget: ${budget}`
+      });
+
+      console.log('✅ Comprehensive appointment booking completed successfully');
+
+      // Send confirmation email
+      try {
+        await sendAppointmentConfirmationEmail({
+          to: email,
+          clientName: `${firstName} ${lastName}`,
+          appointmentDate,
+          appointmentTime,
+          services: typeof services === 'string' ? services : services.join(', '),
+          projectToken,
+          businessName: businessName || ''
+        });
+        console.log('📧 Confirmation email sent successfully');
+      } catch (emailError) {
+        console.error('⚠️ Failed to send confirmation email:', emailError);
+        // Don't fail the whole request if email fails
+      }
+
+      res.json({
+        success: true,
+        message: 'Appointment booked successfully',
+        appointmentId: appointment.id,
+        projectToken,
+        appointmentDetails: {
+          date: appointmentDate,
+          time: appointmentTime,
+          duration: 30,
+          services,
+          clientName: `${firstName} ${lastName}`,
+          email
+        }
+      });
+
+    } catch (error: any) {
+      console.error('Error booking comprehensive appointment:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to book appointment',
+        error: error.message
+      });
+    }
+  });
+
+  // Helper function to convert 12-hour time to 24-hour format
+  function convertTo24Hour(time12h: string): string {
+    const [time, modifier] = time12h.split(' ');
+    let [hours, minutes] = time.split(':');
+    
+    if (hours === '12') {
+      hours = '00';
+    }
+    
+    if (modifier === 'PM') {
+      hours = parseInt(hours, 10) + 12 + '';
+    }
+    
+    return `${hours.padStart(2, '0')}:${minutes}:00`;
+  }
+
   return app;
 } 
+
+// Email confirmation function
+interface EmailConfirmationData {
+  to: string;
+  clientName: string;
+  appointmentDate: string;
+  appointmentTime: string;
+  services: string;
+  projectToken: string;
+  businessName: string;
+}
+
+async function sendAppointmentConfirmationEmail(data: EmailConfirmationData): Promise<void> {
+  // For now, we'll log the email content to console
+  // In production, you would integrate with an email service like SendGrid, Nodemailer, etc.
+  
+  const emailContent = `
+=== APPOINTMENT CONFIRMATION EMAIL ===
+To: ${data.to}
+Subject: Appointment Confirmed - Pleasant Cove Design Consultation
+
+Dear ${data.clientName},
+
+Thank you for booking a consultation with Pleasant Cove Design! 
+
+APPOINTMENT DETAILS:
+📅 Date: ${new Date(data.appointmentDate).toLocaleDateString('en-US', { 
+    weekday: 'long', 
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric' 
+  })}
+🕒 Time: ${data.appointmentTime}
+⏱️ Duration: 30 minutes
+🎯 Services: ${data.services}
+${data.businessName ? `🏢 Business: ${data.businessName}` : ''}
+
+WHAT TO EXPECT:
+This 30-minute consultation will help us understand your project goals and outline a clear plan tailored to your business needs.
+
+PREPARATION:
+- Think about your current challenges
+- Consider your target audience
+- Have examples of designs you like ready to share
+
+If you need to reschedule or have any questions, please reply to this email or call us at (207) 380-5680.
+
+Best regards,
+The Pleasant Cove Design Team
+
+Project Reference: ${data.projectToken}
+=====================================
+  `;
+  
+  console.log(emailContent);
+  
+  // TODO: Replace with actual email sending logic
+  // Example with nodemailer:
+  // await emailService.send({
+  //   to: data.to,
+  //   subject: 'Appointment Confirmed - Pleasant Cove Design',
+  //   html: generateEmailTemplate(data)
+  // });
+}

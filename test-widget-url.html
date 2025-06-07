@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Widget URL Test</title>
+</head>
+<body>
+    <h1>API URL Test</h1>
+    <p>Open browser console (F12) and check the output:</p>
+    
+    <script>
+        function getApiUrl() {
+            // *** EXACT COPY FROM YOUR WIDGET ***
+            const TUNNEL_URL = 'https://aebf-2603-7080-e501-3f6a-940a-6a2a-8336-f079.ngrok-free.app';
+            const PRODUCTION_API_URL = 'https://your-production-api.com';
+            const LOCAL_API_URL = 'http://localhost:5174';
+            
+            // Detect environment
+            const hostname = window.location.hostname;
+            console.log('🌐 HOSTNAME DETECTED:', hostname);
+            console.log('📅 CODE VERSION: 2025-06-07-FIXED');
+            
+            const isLocal = hostname === 'localhost' || hostname === '127.0.0.1';
+            const isProduction = hostname === 'pleasantcovedesign.com' || hostname === 'www.pleasantcovedesign.com';
+            
+            // For Squarespace testing, always use the tunnel URL
+            if (isLocal) {
+                console.log('🏠 Using LOCAL API:', LOCAL_API_URL);
+                return LOCAL_API_URL;
+            } else if (isProduction) {
+                console.log('🚀 Using PRODUCTION API:', PRODUCTION_API_URL);
+                return PRODUCTION_API_URL;
+            } else {
+                console.log('🔧 Using TUNNEL URL:', TUNNEL_URL);
+                return TUNNEL_URL;
+            }
+        }
+
+        // Test the function
+        console.log('='.repeat(50));
+        console.log('🧪 TESTING getApiUrl() FUNCTION');
+        console.log('='.repeat(50));
+        
+        const apiUrl = getApiUrl();
+        console.log('▶️ FINAL RESULT: getApiUrl() =', apiUrl);
+        
+        // Display on page
+        document.body.innerHTML += `
+            <div style="background: #f0f0f0; padding: 20px; margin-top: 20px; border-radius: 8px;">
+                <h3>Results:</h3>
+                <p><strong>Current Hostname:</strong> ${window.location.hostname}</p>
+                <p><strong>API URL Returned:</strong> ${apiUrl}</p>
+                <p><strong>Expected for Squarespace:</strong> https://aebf-2603-7080-e501-3f6a-940a-6a2a-8336-f079.ngrok-free.app</p>
+                ${apiUrl.includes('ngrok-free.app') ? 
+                    '<p style="color: green;">✅ <strong>CORRECT!</strong> Widget will use ngrok URL</p>' : 
+                    '<p style="color: red;">❌ <strong>WRONG!</strong> Widget will use ' + apiUrl + '</p>'
+                }
+            </div>
+        `;
+        
+        console.log('='.repeat(50));
+    </script>
+</body>
+</html> 

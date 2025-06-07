@@ -174,6 +174,174 @@
             display: flex;
         }
 
+        /* Tab Navigation */
+        .pcd-tab-navigation {
+            display: flex;
+            background: #f8fafc;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .pcd-tab-btn {
+            flex: 1;
+            padding: 16px 24px;
+            background: transparent;
+            border: none;
+            font-size: 14px;
+            font-weight: 500;
+            color: #6b7280;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-bottom: 2px solid transparent;
+        }
+
+        .pcd-tab-btn.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+            background: white;
+        }
+
+        .pcd-tab-btn:hover:not(.active) {
+            color: #374151;
+            background: #f3f4f6;
+        }
+
+        /* Tab Content */
+        .pcd-tab-content {
+            display: none;
+            flex: 1;
+            flex-direction: column;
+        }
+
+        .pcd-tab-content.active {
+            display: flex;
+        }
+
+        /* Appointments Section */
+        .pcd-appointments-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+            background: #f8fafc;
+        }
+
+        .pcd-appointment-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 16px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            border: 1px solid #e5e7eb;
+            transition: all 0.2s;
+        }
+
+        .pcd-appointment-card:hover {
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .pcd-appointment-header {
+            display: flex;
+            justify-content: between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+        }
+
+        .pcd-appointment-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #374151;
+            margin: 0;
+        }
+
+        .pcd-appointment-status {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .pcd-appointment-status.scheduled {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .pcd-appointment-status.completed {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .pcd-appointment-status.cancelled {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .pcd-appointment-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .pcd-appointment-detail {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #6b7280;
+            font-size: 14px;
+        }
+
+        .pcd-appointment-detail svg {
+            width: 16px;
+            height: 16px;
+            color: #667eea;
+        }
+
+        .pcd-appointment-notes {
+            background: #f8fafc;
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 12px;
+            border-left: 3px solid #667eea;
+        }
+
+        .pcd-appointment-notes h4 {
+            margin: 0 0 8px 0;
+            font-size: 14px;
+            color: #374151;
+            font-weight: 500;
+        }
+
+        .pcd-appointment-notes p {
+            margin: 0;
+            color: #6b7280;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        .pcd-no-appointments {
+            text-align: center;
+            padding: 40px;
+            color: #6b7280;
+        }
+
+        .pcd-no-appointments svg {
+            width: 64px;
+            height: 64px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        .pcd-no-appointments h3 {
+            margin: 0 0 8px 0;
+            color: #374151;
+        }
+
+        .pcd-no-appointments p {
+            margin: 0;
+            font-size: 14px;
+        }
+
         .pcd-messages-container {
             flex: 1;
             overflow-y: auto;
@@ -380,6 +548,332 @@
                 font-size: 24px;
             }
         }
+
+        /* Appointments Section Styles */
+        .pcd-appointments-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .pcd-appointments-header h3 {
+            margin: 0;
+            font-size: 20px;
+            font-weight: 600;
+            color: #1f2937;
+        }
+
+        .pcd-book-new-btn {
+            display: flex;
+            align-items: center;
+            padding: 8px 16px;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-weight: 500;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .pcd-book-new-btn:hover {
+            background: #2563eb;
+            transform: translateY(-1px);
+        }
+
+        .pcd-appointments-loading {
+            text-align: center;
+            padding: 40px 20px;
+            color: #6b7280;
+        }
+
+        .pcd-loading-spinner {
+            width: 32px;
+            height: 32px;
+            border: 3px solid #f3f4f6;
+            border-top: 3px solid #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        .pcd-appointment-card {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 16px;
+            transition: all 0.15s;
+        }
+
+        .pcd-appointment-card:hover {
+            border-color: #3b82f6;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .pcd-appointment-date {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 8px;
+        }
+
+        .pcd-appointment-service {
+            color: #6b7280;
+            margin-bottom: 4px;
+        }
+
+        .pcd-appointment-duration {
+            color: #6b7280;
+            font-size: 14px;
+        }
+
+        /* Booking Widget Styles */
+        .pcd-booking-widget {
+            background: #fff;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            margin-top: 24px;
+            overflow: hidden;
+            animation: slideDown 0.3s ease-out;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .pcd-booking-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 24px;
+            border-bottom: 1px solid #e5e7eb;
+            background: #f9fafb;
+        }
+
+        .pcd-booking-header h4 {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 600;
+            color: #1f2937;
+        }
+
+        .pcd-close-booking {
+            width: 32px;
+            height: 32px;
+            border: none;
+            background: none;
+            border-radius: 6px;
+            font-size: 20px;
+            color: #6b7280;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .pcd-close-booking:hover {
+            background: #e5e7eb;
+            color: #374151;
+        }
+
+        .pcd-service-header {
+            padding: 24px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .pcd-service-header h5 {
+            margin: 0 0 8px 0;
+            font-size: 16px;
+            font-weight: 600;
+            color: #1f2937;
+        }
+
+        .pcd-service-duration {
+            color: #6b7280;
+            margin: 0 0 12px 0;
+            font-size: 14px;
+        }
+
+        .pcd-service-description {
+            color: #4b5563;
+            line-height: 1.6;
+            margin: 0;
+        }
+
+        .pcd-booking-calendar {
+            padding: 24px;
+        }
+
+        .pcd-date-nav {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+        }
+
+        .pcd-nav-btn {
+            width: 32px;
+            height: 32px;
+            border: 1px solid #d1d5db;
+            background: white;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: #6b7280;
+            font-size: 18px;
+            transition: all 0.15s;
+        }
+
+        .pcd-nav-btn:hover {
+            background: #f3f4f6;
+            border-color: #9ca3af;
+        }
+
+        .pcd-date-options {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            text-align: center;
+        }
+
+        .pcd-date-option {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .pcd-date-label {
+            font-size: 12px;
+            color: #6b7280;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+        }
+
+        .pcd-date-value {
+            font-weight: 600;
+            color: #1f2937;
+        }
+
+        .pcd-time-slots {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .pcd-time-slot {
+            padding: 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            background: white;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s;
+            text-align: center;
+            color: #374151;
+        }
+
+        .pcd-time-slot:hover {
+            border-color: #3b82f6;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+
+        .pcd-time-slot.unavailable {
+            background: #f9fafb;
+            color: #9ca3af;
+            border-color: #e5e7eb;
+            cursor: not-allowed;
+        }
+
+        .pcd-time-slot.unavailable:hover {
+            border-color: #e5e7eb;
+            background: #f9fafb;
+            color: #9ca3af;
+        }
+
+        .pcd-booking-actions {
+            text-align: center;
+        }
+
+        .pcd-btn {
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s;
+            border: none;
+            font-size: 14px;
+        }
+
+        .pcd-btn-secondary {
+            background: #f9fafb;
+            color: #374151;
+            border: 1px solid #d1d5db;
+        }
+
+        .pcd-btn-secondary:hover {
+            background: #f3f4f6;
+            border-color: #9ca3af;
+        }
+
+        .pcd-btn-primary {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .pcd-btn-primary:hover {
+            background: #2563eb;
+        }
+
+        .pcd-booking-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .pcd-booking-modal.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .pcd-booking-modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 32px;
+            max-width: 400px;
+            width: 90%;
+            text-align: center;
+            transform: scale(0.95);
+            transition: transform 0.3s ease;
+        }
+
+        .pcd-booking-modal.show .pcd-booking-modal-content {
+            transform: scale(1);
+        }
     </style>
 </head>
 <body>
@@ -452,39 +946,120 @@
 
         <!-- Messaging Section -->
         <div class="pcd-messaging-section" id="messaging-section">
-            <div class="pcd-messages-container" id="messages-container">
-                <div class="pcd-loading-messages" id="loading-messages">
-                    <div class="pcd-spinner"></div>
-                    Loading your conversation...
-                </div>
-                
-                <div class="pcd-empty-state" id="empty-state" style="display: none;">
-                    <svg class="pcd-empty-state-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <!-- Tab Navigation -->
+            <div class="pcd-tab-navigation">
+                <button class="pcd-tab-btn active" id="messages-tab" onclick="switchTab('messages')">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display: inline; margin-right: 8px;">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
                     </svg>
-                    <h3>Continue your conversation</h3>
-                    <p>Send a message to continue communicating with the Pleasant Cove Design team.</p>
-                </div>
-
-                <div id="messages-list"></div>
+                    Messages
+                </button>
+                <button class="pcd-tab-btn" id="appointments-tab" onclick="switchTab('appointments')">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display: inline; margin-right: 8px;">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                    </svg>
+                    Appointments
+                </button>
             </div>
 
-            <div class="pcd-message-input-container">
-                <form class="pcd-message-form" id="message-form" onsubmit="handleSendMessage(event)">
-                    <div class="pcd-input-wrapper">
-                        <textarea 
-                            id="message-input" 
-                            class="pcd-message-input" 
-                            placeholder="Type your message..."
-                            rows="1"
-                        ></textarea>
+            <!-- Messages Tab Content -->
+            <div class="pcd-tab-content active" id="messages-content">
+                <div class="pcd-messages-container" id="messages-container">
+                    <div class="pcd-loading-messages" id="loading-messages">
+                        <div class="pcd-spinner"></div>
+                        Loading your conversation...
                     </div>
-                    <button type="submit" class="pcd-send-btn" id="send-btn">
-                        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                    
+                    <div class="pcd-empty-state" id="empty-state" style="display: none;">
+                        <svg class="pcd-empty-state-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
                         </svg>
+                        <h3>Continue your conversation</h3>
+                        <p>Send a message to continue communicating with the Pleasant Cove Design team.</p>
+                    </div>
+
+                    <div id="messages-list"></div>
+                </div>
+
+                <div class="pcd-message-input-container">
+                    <form class="pcd-message-form" id="message-form" onsubmit="handleSendMessage(event)">
+                        <div class="pcd-input-wrapper">
+                            <textarea 
+                                id="message-input" 
+                                class="pcd-message-input" 
+                                placeholder="Type your message..."
+                                rows="1"
+                            ></textarea>
+                        </div>
+                        <button type="submit" class="pcd-send-btn" id="send-btn">
+                            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                            </svg>
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Appointments Tab Content -->
+            <div class="pcd-tab-content" id="appointments-content">
+                <div class="pcd-appointments-header">
+                    <h3>Your Appointments</h3>
+                    <button class="pcd-book-new-btn" onclick="showBookingWidget()">
+                        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="margin-right: 8px;">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                        </svg>
+                        Book New Appointment
                     </button>
-                </form>
+                </div>
+                
+                <div class="pcd-appointments-list" id="appointments-list">
+                    <div class="pcd-appointments-loading">
+                        <div class="pcd-loading-spinner"></div>
+                        <p>Loading your appointments...</p>
+                    </div>
+                </div>
+                
+                <!-- Booking Widget (hidden by default) -->
+                <div class="pcd-booking-widget" id="booking-widget" style="display: none;">
+                    <div class="pcd-booking-header">
+                        <h4>Book a New Appointment</h4>
+                        <button class="pcd-close-booking" onclick="hideBookingWidget()">×</button>
+                    </div>
+                    
+                    <div class="pcd-service-header">
+                        <h5>Consultation with Ben Dickinson</h5>
+                        <p class="pcd-service-duration">30 minutes</p>
+                        <p class="pcd-service-description">
+                            Schedule a follow-up consultation to discuss your project progress,
+                            review designs, or plan next steps.
+                        </p>
+                    </div>
+                    
+                    <div class="pcd-booking-calendar">
+                        <div class="pcd-date-nav">
+                            <button class="pcd-nav-btn" onclick="navigateBookingWeek('prev')">‹</button>
+                            <div class="pcd-date-options">
+                                <div class="pcd-date-option">
+                                    <span class="pcd-date-label">Tomorrow</span>
+                                    <span class="pcd-date-value" id="booking-tomorrow">Loading...</span>
+                                </div>
+                                <div class="pcd-date-option">
+                                    <span class="pcd-date-label">Next Week</span>
+                                    <span class="pcd-date-value" id="booking-next-week">Loading...</span>
+                                </div>
+                            </div>
+                            <button class="pcd-nav-btn" onclick="navigateBookingWeek('next')">›</button>
+                        </div>
+                        
+                        <div class="pcd-time-slots" id="booking-time-slots">
+                            <!-- Time slots will be dynamically generated -->
+                        </div>
+                        
+                        <div class="pcd-booking-actions">
+                            <button class="pcd-btn pcd-btn-secondary" onclick="hideBookingWidget()">Cancel</button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -1043,6 +1618,315 @@
         function hideEmptyState() {
             const emptyState = document.getElementById('empty-state');
             if (emptyState) emptyState.style.display = 'none';
+        }
+
+        // ===================
+        // APPOINTMENTS FUNCTIONALITY
+        // ===================
+
+        // Switch between tabs
+        function switchTab(tabName) {
+            console.log(`🔄 Switching to ${tabName} tab`);
+            
+            // Update tab buttons
+            document.querySelectorAll('.pcd-tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`${tabName}-tab`).classList.add('active');
+            
+            // Update tab content
+            document.querySelectorAll('.pcd-tab-content').forEach(content => content.classList.remove('active'));
+            document.getElementById(`${tabName}-content`).classList.add('active');
+            
+            // Load appointments if switching to appointments tab
+            if (tabName === 'appointments') {
+                loadAppointments();
+            }
+        }
+
+        // Load appointments for current client
+        async function loadAppointments() {
+            console.log('📅 Loading appointments for:', clientData.memberEmail);
+            
+            if (!clientData.projectToken) {
+                console.error('❌ No project token available for loading appointments');
+                showNoAppointments();
+                return;
+            }
+            
+            const loadingElement = document.getElementById('loading-appointments');
+            const noAppointmentsElement = document.getElementById('no-appointments');
+            const appointmentsList = document.getElementById('appointments-list');
+            
+            // Show loading state
+            loadingElement.style.display = 'flex';
+            noAppointmentsElement.style.display = 'none';
+            appointmentsList.innerHTML = '';
+            
+            try {
+                const url = `${CONFIG.backendUrl}/api/appointments?projectToken=${clientData.projectToken}`;
+                console.log('🔗 Fetching appointments from:', url);
+                
+                const response = await fetch(url, {
+                    headers: {
+                        'Accept': 'application/json',
+                        'ngrok-skip-browser-warning': 'true'
+                    }
+                });
+
+                if (response.ok) {
+                    const appointments = await response.json();
+                    console.log('✅ Appointments loaded:', appointments);
+                    
+                    if (appointments && appointments.length > 0) {
+                        renderAppointments(appointments);
+                        hideLoadingAppointments();
+                    } else {
+                        showNoAppointments();
+                    }
+                } else {
+                    console.error('❌ Failed to load appointments:', response.status);
+                    showNoAppointments();
+                }
+            } catch (error) {
+                console.error('❌ Error loading appointments:', error);
+                showNoAppointments();
+            } finally {
+                hideLoadingAppointments();
+            }
+        }
+
+        // Render appointments list
+        function renderAppointments(appointments) {
+            const appointmentsList = document.getElementById('appointments-list');
+            
+            // Sort appointments by date (newest first)
+            const sortedAppointments = appointments.sort((a, b) => 
+                new Date(b.datetime) - new Date(a.datetime)
+            );
+            
+            appointmentsList.innerHTML = sortedAppointments.map(renderAppointment).join('');
+        }
+
+        // Render single appointment
+        function renderAppointment(appointment) {
+            const appointmentDate = new Date(appointment.datetime);
+            const now = new Date();
+            const isUpcoming = appointmentDate > now;
+            const isPast = appointmentDate < now;
+            
+            const formattedDate = appointmentDate.toLocaleDateString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+            
+            const formattedTime = appointmentDate.toLocaleTimeString('en-US', {
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true
+            });
+            
+            const duration = appointment.duration ? `${appointment.duration} minutes` : 'Duration TBD';
+            const serviceType = appointment.serviceType || 'Consultation';
+            const status = appointment.status || 'scheduled';
+            
+            return `
+                <div class="pcd-appointment-card">
+                    <div class="pcd-appointment-header">
+                        <h3 class="pcd-appointment-title">${serviceType}</h3>
+                        <span class="pcd-appointment-status ${status}">${status}</span>
+                    </div>
+                    
+                    <div class="pcd-appointment-details">
+                        <div class="pcd-appointment-detail">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                            </svg>
+                            <span>${formattedDate}</span>
+                        </div>
+                        
+                        <div class="pcd-appointment-detail">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <span>${formattedTime}</span>
+                        </div>
+                        
+                        <div class="pcd-appointment-detail">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <span>${duration}</span>
+                        </div>
+                        
+                        ${appointment.email ? `
+                            <div class="pcd-appointment-detail">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207"></path>
+                                </svg>
+                                <span>${appointment.email}</span>
+                            </div>
+                        ` : ''}
+                    </div>
+                    
+                    ${appointment.notes ? `
+                        <div class="pcd-appointment-notes">
+                            <h4>Notes:</h4>
+                            <p>${escapeHtml(appointment.notes)}</p>
+                        </div>
+                    ` : ''}
+                    
+                    ${appointment.webhookAction && appointment.webhookAction !== 'scheduled' ? `
+                        <div class="pcd-appointment-notes">
+                            <h4>Status Update:</h4>
+                            <p>This appointment was ${appointment.webhookAction}.</p>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        // Show no appointments state
+        function showNoAppointments() {
+            const loadingElement = document.getElementById('loading-appointments');
+            const noAppointmentsElement = document.getElementById('no-appointments');
+            
+            loadingElement.style.display = 'none';
+            noAppointmentsElement.style.display = 'block';
+        }
+
+        // Hide loading appointments
+        function hideLoadingAppointments() {
+            const loadingElement = document.getElementById('loading-appointments');
+            loadingElement.style.display = 'none';
+        }
+
+        // ==================
+        // APPOINTMENT BOOKING FUNCTIONS
+        // ==================
+        
+        let bookingWeekOffset = 0;
+        let selectedBookingTime = null;
+        
+        function showBookingWidget() {
+            document.getElementById('booking-widget').style.display = 'block';
+            updateBookingDates();
+            generateBookingTimeSlots();
+            
+            // Scroll to booking widget
+            document.getElementById('booking-widget').scrollIntoView({ 
+                behavior: 'smooth', 
+                block: 'start' 
+            });
+        }
+        
+        function hideBookingWidget() {
+            document.getElementById('booking-widget').style.display = 'none';
+            bookingWeekOffset = 0;
+            selectedBookingTime = null;
+        }
+        
+        function updateBookingDates() {
+            const today = new Date();
+            const tomorrow = new Date(today);
+            tomorrow.setDate(today.getDate() + 1 + bookingWeekOffset * 7);
+            
+            const nextWeek = new Date(today);
+            nextWeek.setDate(today.getDate() + 7 + bookingWeekOffset * 7);
+
+            document.getElementById('booking-tomorrow').textContent = 
+                tomorrow.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+
+            document.getElementById('booking-next-week').textContent = 
+                nextWeek.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+        }
+        
+        function navigateBookingWeek(direction) {
+            bookingWeekOffset += direction === 'next' ? 1 : -1;
+            updateBookingDates();
+            generateBookingTimeSlots();
+        }
+        
+        function generateBookingTimeSlots() {
+            const slotsContainer = document.getElementById('booking-time-slots');
+            slotsContainer.innerHTML = '';
+            
+            // Sample time slots for both days
+            const timeSlots = [
+                { time: '9:00 AM', available: true },
+                { time: '10:00 AM', available: Math.random() > 0.3 },
+                { time: '11:00 AM', available: true },
+                { time: '2:00 PM', available: Math.random() > 0.3 },
+                { time: '3:00 PM', available: true },
+                { time: '4:00 PM', available: Math.random() > 0.3 }
+            ];
+            
+            timeSlots.forEach((slot, index) => {
+                const button = document.createElement('button');
+                button.className = 'pcd-time-slot' + (slot.available ? '' : ' unavailable');
+                button.textContent = slot.time;
+                
+                if (slot.available) {
+                    const today = new Date();
+                    const appointmentDate = new Date(today);
+                    appointmentDate.setDate(today.getDate() + (index < 3 ? 1 : 7) + bookingWeekOffset * 7);
+                    appointmentDate.setHours(parseInt(slot.time) + (slot.time.includes('PM') && !slot.time.startsWith('12') ? 12 : 0));
+                    appointmentDate.setMinutes(0);
+                    
+                    button.onclick = () => selectBookingTime(appointmentDate.toISOString(), slot.time);
+                }
+                
+                slotsContainer.appendChild(button);
+            });
+        }
+        
+        function selectBookingTime(datetime, timeLabel) {
+            selectedBookingTime = datetime;
+            
+            // Show confirmation
+            const confirmBooking = confirm(`Book appointment for ${timeLabel} on ${new Date(datetime).toLocaleDateString('en-US', {
+                weekday: 'long',
+                month: 'long',
+                day: 'numeric'
+            })}?`);
+            
+            if (confirmBooking) {
+                bookAppointment();
+            }
+        }
+        
+        async function bookAppointment() {
+            if (!selectedBookingTime) return;
+            
+            try {
+                showNotification('Booking your appointment...', 'info');
+                
+                const response = await fetch(`${CONFIG.backendUrl}/api/appointments`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        datetime: selectedBookingTime,
+                        status: 'scheduled',
+                        notes: 'Follow-up consultation booked via client portal',
+                        projectToken: clientData.projectToken,
+                        serviceType: 'Follow-up Consultation',
+                        duration: 30
+                    })
+                });
+
+                if (response.ok) {
+                    showNotification('Appointment booked successfully! 🎉', 'success');
+                    hideBookingWidget();
+                    loadAppointments(); // Refresh appointments list
+                } else {
+                    throw new Error('Failed to book appointment');
+                }
+            } catch (error) {
+                console.error('Error booking appointment:', error);
+                showNotification('Sorry, there was an error booking your appointment. Please try again.', 'error');
+            }
         }
 
         // Initialize when page loads

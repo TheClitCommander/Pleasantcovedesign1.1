@@ -134,11 +134,30 @@ export interface Appointment {
   companyId?: number; // NEW: company association
   projectId?: number; // NEW: specific project association
   businessId?: number; // legacy compatibility
+  projectToken?: string; // NEW: project token for privacy
+  
+  // Acuity-specific fields
+  acuityId?: string; // Acuity's appointment ID
+  email?: string; // Client email from Acuity
+  firstName?: string; // Client first name
+  lastName?: string; // Client last name
+  phone?: string; // Client phone
+  
   datetime: string;
-  status: string;
+  endTime?: string; // End time for appointment
+  duration?: number; // Duration in minutes
+  serviceType?: string; // Type of service booked
+  appointmentTypeId?: string; // Acuity appointment type ID
+  
+  status: string; // scheduled, completed, cancelled, rescheduled
   notes?: string;
   isAutoScheduled?: boolean;
-  squarespaceId?: string;
+  squarespaceId?: string; // For legacy Squarespace integration
+  
+  // Webhook tracking
+  webhookAction?: string; // scheduled, rescheduled, canceled, changed
+  acuityWebhookId?: string; // Acuity webhook delivery ID
+  
   createdAt?: string;
   updatedAt?: string;
 }

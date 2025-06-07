@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { AlertCircle, Clock, DollarSign, Users, Calendar, Phone, Mail, TrendingUp, ExternalLink } from 'lucide-react'
+import { AlertCircle, Clock, DollarSign, Users, Calendar, Phone, Mail, TrendingUp, ExternalLink, CalendarDays, Activity, Building2, CheckCircle, Zap } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import StatCard from '../components/StatCard'
 import LeadCard from '../components/LeadCard'
@@ -164,7 +164,7 @@ const Dashboard: React.FC = () => {
   )
 
   return (
-    <div className="space-y-8">
+    <div className="p-6 space-y-6">
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>

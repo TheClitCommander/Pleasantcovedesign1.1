@@ -11,8 +11,9 @@ import Settings from './pages/Settings'
 import Schedule from './pages/Schedule'
 import ClientProfile from './pages/ClientProfile'
 import Interactions from './pages/Interactions'
-import ClientPortal from './pages/ClientPortal'
+// import ClientPortal from './pages/ClientPortal'
 import ProjectInbox from './pages/ProjectInbox'
+import BookAppointment from './pages/BookAppointment'
 
 // Error boundary component
 class ErrorBoundary extends React.Component<
@@ -59,8 +60,11 @@ const App: React.FC = () => {
     <ErrorBoundary>
       <Router>
         <Routes>
+          {/* Public Routes */}
+          <Route path="/book" element={<BookAppointment />} />
+          
           {/* Client Portal Route - Public access with token */}
-          <Route path="/client/:token" element={<ClientPortal />} />
+          {/* <Route path="/client/:token" element={<ClientPortal />} /> */}
           
           {/* Admin Routes - All use Layout with Outlet */}
           <Route path="/" element={<Layout />}>

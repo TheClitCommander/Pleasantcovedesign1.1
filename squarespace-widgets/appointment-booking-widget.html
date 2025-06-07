@@ -1,0 +1,1761 @@
+<!--
+*** FIXED VERSION - UPDATED 2025-06-07 ***
+PLEASANT COVE DESIGN - APPOINTMENT BOOKING WIDGET
+=================================================
+
+BEFORE USING THIS WIDGET:
+
+1. Set up your backend server:
+   - Navigate to the 'backend' folder
+   - Run: npm install
+   - Create a .env file with your email settings
+   - Run: npm start
+
+2. For testing in Squarespace:
+   - Run: npx ngrok http 5174
+   - Copy the HTTPS URL (e.g., https://abc123.ngrok-free.app)
+   - Update the NGROK_API_URL in the getApiUrl() function below (around line 1465)
+
+3. For production:
+   - Deploy your backend to a cloud service (Heroku, Railway, etc.)
+   - Update PRODUCTION_API_URL in the getApiUrl() function
+   - Your production site will automatically use the production URL
+
+4. Copy this entire file and paste into a Squarespace Code Block (set to HTML)
+
+SUPPORT: pleasantcovedesign@gmail.com | (207) 380-5680
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Schedule an Appointment - Pleasant Cove Design</title>
+    <style>
+        /* SCOPED STYLES - Won't affect your site header */
+        .booking-widget-container * {
+            box-sizing: border-box;
+        }
+
+        .booking-widget-container {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background-color: #f8f9fa;
+            color: #2c3e50;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+        }
+
+        .booking-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .booking-widget {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .booking-header {
+            background: #000000;
+            color: white;
+            padding: 32px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .booking-header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            animation: pulse 4s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.1);
+            }
+        }
+
+        .booking-header h1 {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            position: relative;
+            z-index: 1;
+            color: white;
+            padding-bottom: 8px;
+        }
+
+        .booking-header p {
+            opacity: 0.95;
+            font-size: 16px;
+            position: relative;
+            z-index: 1;
+            max-width: 600px;
+            margin: 0 auto;
+            line-height: 1.5;
+        }
+
+        .booking-form-container {
+            padding: 40px;
+        }
+
+        .booking-step {
+            display: none;
+            animation: slideIn 0.4s ease;
+        }
+
+        .booking-step.active {
+            display: block;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .step-indicator {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 40px;
+            position: relative;
+        }
+
+        .step-dot {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #e5e5e5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 8px;
+            font-weight: 600;
+            font-size: 14px;
+            color: #666;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .step-dot.active {
+            background: #000000;
+            color: white;
+            transform: scale(1.1);
+        }
+
+        .step-dot.completed {
+            background: #28a745;
+            color: white;
+        }
+
+        .step-dot:not(:last-child)::after {
+            content: '';
+            position: absolute;
+            right: -16px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 16px;
+            height: 2px;
+            background: #e5e5e5;
+            transition: all 0.3s ease;
+        }
+
+        .step-dot.completed:not(:last-child)::after {
+            background: #28a745;
+        }
+
+        .form-group {
+            margin-bottom: 24px;
+        }
+
+        .form-row {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .form-row .form-group {
+            flex: 1;
+            margin-bottom: 0;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            font-size: 14px;
+            color: #374151;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            background: white;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #000000;
+            box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .services-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            margin-top: 8px;
+        }
+
+        .service-option {
+            padding: 16px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+            background: white;
+        }
+
+        .service-option:hover {
+            border-color: #000000;
+            background: #f8f9fa;
+        }
+
+        .service-option.selected {
+            border-color: #000000;
+            background: #000000;
+            color: white;
+        }
+
+        .service-option h4 {
+            margin: 0 0 8px 0;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .service-option p {
+            margin: 0;
+            font-size: 14px;
+            opacity: 0.8;
+        }
+
+        .calendar-container {
+            margin-bottom: 32px;
+        }
+
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            padding: 0 8px;
+        }
+
+        .calendar-nav {
+            background: none;
+            border: none;
+            font-size: 20px;
+            padding: 8px;
+            cursor: pointer;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+        }
+
+        .calendar-nav:hover {
+            background: #f3f4f6;
+        }
+
+        .calendar-month {
+            font-size: 20px;
+            font-weight: 600;
+            color: #1f2937;
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 8px;
+            margin-bottom: 24px;
+        }
+
+        .calendar-day {
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+            background: #f8f9fa;
+        }
+
+        .calendar-day:hover {
+            background: #e5e7eb;
+        }
+
+        .calendar-day.selected {
+            background: #000000;
+            color: white;
+        }
+
+        .calendar-day.unavailable {
+            color: #9ca3af;
+            cursor: not-allowed;
+            background: #f3f4f6;
+        }
+
+        .calendar-day.unavailable:hover {
+            background: #f3f4f6;
+        }
+
+        .time-slots {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 12px;
+        }
+
+        .time-option {
+            padding: 16px;
+            text-align: center;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            background: white;
+        }
+
+        .time-option:hover {
+            border-color: #000000;
+            background: #f8f9fa;
+        }
+
+        .time-option.selected {
+            background: #000000;
+            color: white;
+            border-color: #000000;
+        }
+
+        .confirmation-summary {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            border: 1px solid #e5e7eb;
+        }
+
+        .confirmation-summary h3 {
+            margin: 0 0 16px 0;
+            color: #1f2937;
+            font-size: 18px;
+        }
+
+        .summary-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .summary-item:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+
+        .summary-label {
+            font-weight: 600;
+            color: #374151;
+        }
+
+        .summary-value {
+            color: #6b7280;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 12px;
+            justify-content: space-between;
+            margin-top: 32px;
+        }
+
+        .btn {
+            padding: 16px 32px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 120px;
+        }
+
+        .btn-primary {
+            background: #000000;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #1f2937;
+            transform: translateY(-2px);
+        }
+
+        .btn-primary:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: #f3f4f6;
+            color: #374151;
+            border: 2px solid #e5e7eb;
+        }
+
+        .btn-secondary:hover {
+            background: #e5e7eb;
+            border-color: #d1d5db;
+        }
+
+        .success-message {
+            text-align: center;
+            padding: 40px;
+            display: none;
+        }
+
+        .success-icon {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 24px;
+            background: #10b981;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 40px;
+        }
+
+        .error-message {
+            background: #fef2f2;
+            color: #dc2626;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-top: 16px;
+            border: 1px solid #fecaca;
+            display: none;
+        }
+
+        .form-group input.error,
+        .form-group select.error,
+        .form-group textarea.error {
+            border-color: #dc2626;
+            background-color: #fef2f2;
+            box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+        }
+
+        .field-error {
+            color: #dc2626;
+            font-size: 12px;
+            margin-top: 4px;
+            display: none;
+            background-color: #fef2f2;
+            padding: 4px 8px;
+            border-radius: 4px;
+            border: 1px solid #fecaca;
+        }
+
+        .field-error.show {
+            display: block;
+        }
+
+        .step-progress {
+            text-align: center;
+            margin-bottom: 24px;
+            color: #6b7280;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .honeypot {
+            position: absolute;
+            left: -9999px;
+            top: -9999px;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #ffffff40;
+            border-top: 2px solid #ffffff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .time-option.unavailable {
+            background: #f3f4f6;
+            color: #9ca3af;
+            cursor: not-allowed;
+            border-color: #e5e7eb;
+        }
+
+        .time-option.unavailable:hover {
+            background: #f3f4f6;
+            border-color: #e5e7eb;
+        }
+
+        .validation-checkmark {
+            color: #10b981;
+            font-size: 12px;
+            margin-left: 8px;
+            display: none;
+        }
+
+        .form-group input:valid:not(:placeholder-shown) + .validation-checkmark,
+        .form-group select:valid + .validation-checkmark {
+            display: inline;
+        }
+
+        .loading-message {
+            text-align: center;
+            color: #6b7280;
+            padding: 20px;
+            font-style: italic;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .booking-container {
+                padding: 12px;
+            }
+
+            .booking-form-container {
+                padding: 24px;
+            }
+
+            .form-row {
+                flex-direction: column;
+                gap: 0;
+            }
+
+            .services-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .time-slots {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .button-group {
+                flex-direction: column;
+            }
+
+            .btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="booking-widget-container">
+        <div class="booking-container">
+            <div class="booking-widget">
+                <div class="booking-header">
+                    <h1>Schedule an Appointment</h1>
+                    <p>This 30-minute consultation is designed to help you take the first step toward building or improving your online presence. We offer two daily appointment slots at 8:30 AM and 9:00 AM, available 7 days a week.</p>
+                </div>
+
+                <div class="booking-form-container">
+                    <!-- Step Indicator -->
+                    <div class="step-indicator" role="tablist" aria-label="Booking steps">
+                        <div class="step-dot active" data-step="1" role="tab" aria-selected="true" aria-label="Step 1: Contact Information">1</div>
+                        <div class="step-dot" data-step="2" role="tab" aria-selected="false" aria-label="Step 2: Project Details">2</div>
+                        <div class="step-dot" data-step="3" role="tab" aria-selected="false" aria-label="Step 3: Select Date & Time">3</div>
+                        <div class="step-dot" data-step="4" role="tab" aria-selected="false" aria-label="Step 4: Confirmation">4</div>
+                    </div>
+
+                    <!-- Step Progress Text -->
+                    <div class="step-progress" id="stepProgress">Step 1 of 4: Contact Information</div>
+
+                    <!-- Honeypot Field (Bot Protection) -->
+                    <input type="text" name="website" class="honeypot" tabindex="-1" autocomplete="off">
+
+                    <!-- Step 1: Contact Information -->
+                    <div class="booking-step active" id="step-1" role="tabpanel" aria-labelledby="step-1-tab">
+                        <h2>Contact Information</h2>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="firstName">First Name *</label>
+                                <input type="text" id="firstName" name="firstName" required autocomplete="given-name" aria-required="true">
+                                <span class="validation-checkmark">✓</span>
+                                <div class="field-error" id="firstName-error">Please enter your first name</div>
+                            </div>
+                            <div class="form-group">
+                                <label for="lastName">Last Name *</label>
+                                <input type="text" id="lastName" name="lastName" required autocomplete="family-name" aria-required="true">
+                                <span class="validation-checkmark">✓</span>
+                                <div class="field-error" id="lastName-error">Please enter your last name</div>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="email">Email Address *</label>
+                                <input type="email" id="email" name="email" required autocomplete="email" aria-required="true">
+                                <span class="validation-checkmark">✓</span>
+                                <div class="field-error" id="email-error">Please enter a valid email address</div>
+                            </div>
+                            <div class="form-group">
+                                <label for="phone">Phone Number *</label>
+                                <input type="tel" id="phone" name="phone" required autocomplete="tel" aria-required="true" pattern="[\+]?[\d\s\(\)\-\.]{10,}">
+                                <span class="validation-checkmark">✓</span>
+                                <div class="field-error" id="phone-error">Please enter a valid phone number</div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="businessName">Business Name</label>
+                            <input type="text" id="businessName" name="businessName" autocomplete="organization">
+                            <span class="validation-checkmark">✓</span>
+                        </div>
+                    </div>
+
+                    <!-- Step 2: Project Details -->
+                    <div class="booking-step" id="step-2" role="tabpanel" aria-labelledby="step-2-tab">
+                        <h2>Project Details</h2>
+                        <div class="form-group">
+                            <label>Services Needed *</label>
+                            <div class="services-grid" role="group" aria-required="true">
+                                <div class="service-option" data-service="website" role="checkbox" aria-checked="false" tabindex="0">
+                                    <h4>Website Design</h4>
+                                    <p>Custom website development</p>
+                                </div>
+                                <div class="service-option" data-service="redesign" role="checkbox" aria-checked="false" tabindex="0">
+                                    <h4>Website Redesign</h4>
+                                    <p>Refresh your existing site</p>
+                                </div>
+                                <div class="service-option" data-service="ecommerce" role="checkbox" aria-checked="false" tabindex="0">
+                                    <h4>E-commerce</h4>
+                                    <p>Online store development</p>
+                                </div>
+                                <div class="service-option" data-service="branding" role="checkbox" aria-checked="false" tabindex="0">
+                                    <h4>Branding</h4>
+                                    <p>Logo and brand identity</p>
+                                </div>
+                                <div class="service-option" data-service="seo" role="checkbox" aria-checked="false" tabindex="0">
+                                    <h4>SEO</h4>
+                                    <p>Search optimization</p>
+                                </div>
+                                <div class="service-option" data-service="other" role="checkbox" aria-checked="false" tabindex="0">
+                                    <h4>Other</h4>
+                                    <p>Tell us what you need</p>
+                                </div>
+                            </div>
+                            <div class="field-error" id="services-error">Please select at least one service</div>
+                        </div>
+                        <div class="form-group">
+                            <label for="projectDescription">Project Description *</label>
+                            <textarea id="projectDescription" name="projectDescription" placeholder="Tell us about your project goals, timeline, and any specific requirements..." required aria-required="true"></textarea>
+                            <div class="field-error" id="projectDescription-error">Please provide a project description</div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="budget">Budget Range *</label>
+                                <select id="budget" name="budget" required aria-required="true">
+                                    <option value="">Select your budget</option>
+                                    <option value="under-5k">Under $5,000</option>
+                                    <option value="5k-10k">$5,000 - $10,000</option>
+                                    <option value="10k-25k">$10,000 - $25,000</option>
+                                    <option value="25k-50k">$25,000 - $50,000</option>
+                                    <option value="50k-plus">$50,000+</option>
+                                </select>
+                                <span class="validation-checkmark">✓</span>
+                                <div class="field-error" id="budget-error">Please select your budget range</div>
+                            </div>
+                            <div class="form-group">
+                                <label for="timeline">Timeline *</label>
+                                <select id="timeline" name="timeline" required aria-required="true">
+                                    <option value="">Select timeline</option>
+                                    <option value="asap">ASAP</option>
+                                    <option value="1-month">Within 1 month</option>
+                                    <option value="2-3-months">2-3 months</option>
+                                    <option value="6-months">6+ months</option>
+                                    <option value="exploring">Just exploring</option>
+                                </select>
+                                <span class="validation-checkmark">✓</span>
+                                <div class="field-error" id="timeline-error">Please select your timeline</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 3: Date & Time Selection -->
+                    <div class="booking-step" id="step-3" role="tabpanel" aria-labelledby="step-3-tab">
+                        <h2>Select Date & Time</h2>
+                        <p style="text-align: center; color: #6b7280; margin-bottom: 20px;">Available 7 days a week • Two appointment slots daily</p>
+                        <div class="calendar-container">
+                            <div class="calendar-header">
+                                <button class="calendar-nav" id="prevMonthBtn" aria-label="Previous month">&lt;</button>
+                                <div class="calendar-month" id="currentMonth" aria-live="polite"></div>
+                                <button class="calendar-nav" id="nextMonthBtn" aria-label="Next month">&gt;</button>
+                            </div>
+                            <div class="calendar-grid" id="calendarGrid" role="grid" aria-label="Calendar"></div>
+                        </div>
+                        <div class="form-group">
+                            <label>Available Times *</label>
+                            <div class="time-slots" id="timeSlots" role="radiogroup" aria-required="true">
+                                <!-- Time slots will be dynamically generated -->
+                                <div class="loading-message">Loading available times...</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 4: Confirmation -->
+                    <div class="booking-step" id="step-4" role="tabpanel" aria-labelledby="step-4-tab">
+                        <h2>Confirm Your Appointment</h2>
+                        <div class="confirmation-summary" id="confirmationSummary">
+                            <h3>Appointment Summary</h3>
+                            <!-- Summary will be populated by JavaScript -->
+                        </div>
+                        <div class="form-group">
+                            <label for="additionalNotes">Additional Notes</label>
+                            <textarea id="additionalNotes" name="additionalNotes" placeholder="Any additional information or questions you'd like to share..."></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Success Message -->
+                    <div class="success-message" id="successMessage">
+                        <div class="success-icon">✓</div>
+                        <h2>Appointment Confirmed!</h2>
+                        <p>Thank you for booking your consultation. We'll send you a confirmation email shortly with all the details.</p>
+                    </div>
+
+                    <!-- Navigation Buttons -->
+                    <div class="button-group" id="navigationButtons">
+                        <button type="button" class="btn btn-secondary" id="backButton" onclick="window.prevStep()" style="display: none;">Back</button>
+                        <button type="button" class="btn btn-primary" id="nextButton" onclick="window.nextStep()">Next</button>
+                    </div>
+
+                    <!-- Error Message -->
+                    <div class="error-message" id="errorMessage" role="alert" aria-live="assertive"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let currentStep = 1;
+        let selectedServices = [];
+        let selectedDate = null;
+        let selectedTime = null;
+        let currentDate = new Date();
+        let formStartTime = Date.now();
+
+        // Form data object
+        const formData = {
+            firstName: '',
+            lastName: '',
+            email: '',
+            phone: '',
+            businessName: '',
+            services: [],
+            projectDescription: '',
+            budget: '',
+            timeline: '',
+            appointmentDate: '',
+            appointmentTime: '',
+            additionalNotes: ''
+        };
+
+        // Initialize the form
+        document.addEventListener('DOMContentLoaded', function() {
+            updateCalendar();
+            updateStepIndicator();
+            showStep(1);
+            
+            // Add event delegation for service options
+            document.addEventListener('click', function(e) {
+                if (e.target.closest('.service-option')) {
+                    const serviceOption = e.target.closest('.service-option');
+                    const serviceType = serviceOption.getAttribute('data-service');
+                    if (serviceType) {
+                        selectService(serviceType, serviceOption);
+                    }
+                }
+            });
+            
+            // Add calendar navigation listeners
+            const prevMonthBtn = document.getElementById('prevMonthBtn');
+            const nextMonthBtn = document.getElementById('nextMonthBtn');
+            
+            if (prevMonthBtn) {
+                prevMonthBtn.addEventListener('click', function() {
+                    changeMonth(-1);
+                });
+            }
+            
+            if (nextMonthBtn) {
+                nextMonthBtn.addEventListener('click', function() {
+                    changeMonth(1);
+                });
+            }
+        });
+
+        // ==================
+        // STEP NAVIGATION
+        // ==================
+        
+        // Make functions global for inline onclick
+        window.nextStep = function() {
+            console.log('Next button clicked - moving from step', currentStep, 'to', currentStep + 1);
+            
+            hideError();
+            
+            // **STEP 1: Collect form data FIRST (so validation sees current values)**
+            collectAllFormData();
+            
+            // **STEP 2: Now validate using the up-to-date formData**
+            if (!validateCurrentStep()) {
+                console.log('❌ Validation failed for step', currentStep);
+                return;
+            }
+            
+            // **STEP 3: Advance to next step**
+            if (currentStep < 4) {
+                currentStep++;
+                showStep(currentStep);
+                updateStepIndicator();
+                updateButtons();
+                console.log('Now on step', currentStep);
+            } else {
+                submitAppointment();
+            }
+        }
+
+        // Collect all form data from all steps
+        function collectAllFormData() {
+            console.log('🔄 Collecting all form data...');
+            
+            // **SCOPED SELECTORS: Only look inside the booking widget!**
+            const widgetRoot = document.querySelector('.booking-widget-container');
+            if (!widgetRoot) {
+                console.error('❌ Widget container not found!');
+                return;
+            }
+            
+            // Step 1 data - scoped to widget container
+            const firstNameEl = widgetRoot.querySelector('#firstName');
+            const lastNameEl = widgetRoot.querySelector('#lastName');
+            const emailEl = widgetRoot.querySelector('#email');
+            const phoneEl = widgetRoot.querySelector('#phone');
+            const businessNameEl = widgetRoot.querySelector('#businessName');
+            
+            console.log('🔍 Step 1 Elements found (SCOPED):', {
+                firstName: !!firstNameEl,
+                lastName: !!lastNameEl,
+                email: !!emailEl,
+                phone: !!phoneEl,
+                businessName: !!businessNameEl
+            });
+            
+            console.log('🔍 Step 1 Raw values (SCOPED):', {
+                firstName: firstNameEl ? firstNameEl.value : 'ELEMENT NOT FOUND',
+                lastName: lastNameEl ? lastNameEl.value : 'ELEMENT NOT FOUND', 
+                email: emailEl ? emailEl.value : 'ELEMENT NOT FOUND',
+                phone: phoneEl ? phoneEl.value : 'ELEMENT NOT FOUND',
+                businessName: businessNameEl ? businessNameEl.value : 'ELEMENT NOT FOUND'
+            });
+            
+            formData.firstName = firstNameEl ? firstNameEl.value.trim() : '';
+            formData.lastName = lastNameEl ? lastNameEl.value.trim() : '';
+            formData.email = emailEl ? emailEl.value.trim() : '';
+            formData.phone = phoneEl ? phoneEl.value.trim() : '';
+            formData.businessName = businessNameEl ? businessNameEl.value.trim() : '';
+            
+            // Step 2 data - scoped to widget container  
+            formData.services = [...selectedServices];
+            const descriptionEl = widgetRoot.querySelector('#projectDescription');
+            const budgetEl = widgetRoot.querySelector('#budget');
+            const timelineEl = widgetRoot.querySelector('#timeline');
+            
+            formData.projectDescription = descriptionEl ? descriptionEl.value.trim() : '';
+            formData.budget = budgetEl ? budgetEl.value : '';
+            formData.timeline = timelineEl ? timelineEl.value : '';
+            
+            // Step 3 data
+            formData.appointmentDate = selectedDate || '';
+            formData.appointmentTime = selectedTime || '';
+            
+            // Step 4 data - scoped to widget container
+            const notesEl = widgetRoot.querySelector('#additionalNotes');
+            formData.additionalNotes = notesEl ? notesEl.value.trim() : '';
+            
+            console.log('📋 Final collected form data (SCOPED):', {
+                firstName: formData.firstName,
+                lastName: formData.lastName,
+                email: formData.email,
+                phone: formData.phone,
+                businessName: formData.businessName,
+                services: formData.services,
+                projectDescription: formData.projectDescription ? formData.projectDescription.substring(0, 50) + '...' : '',
+                budget: formData.budget,
+                timeline: formData.timeline,
+                appointmentDate: formData.appointmentDate,
+                appointmentTime: formData.appointmentTime,
+                additionalNotes: formData.additionalNotes ? formData.additionalNotes.substring(0, 50) + '...' : ''
+            });
+        }
+
+        window.prevStep = function() {
+            if (currentStep > 1) {
+                currentStep--;
+                showStep(currentStep);
+                updateStepIndicator();
+                updateButtons();
+            }
+        }
+
+        function updateStepIndicator() {
+            const dots = document.querySelectorAll('.step-dot');
+            const stepProgress = document.getElementById('stepProgress');
+            
+            const stepTitles = [
+                'Step 1 of 4: Contact Information',
+                'Step 2 of 4: Project Details', 
+                'Step 3 of 4: Select Date & Time',
+                'Step 4 of 4: Confirmation'
+            ];
+            
+            stepProgress.textContent = stepTitles[currentStep - 1];
+            
+            dots.forEach((dot, index) => {
+                const stepNumber = index + 1;
+                dot.classList.remove('active', 'completed');
+                
+                if (stepNumber === currentStep) {
+                    dot.classList.add('active');
+                    dot.setAttribute('aria-selected', 'true');
+                } else if (stepNumber < currentStep) {
+                    dot.classList.add('completed');
+                    dot.setAttribute('aria-selected', 'false');
+                } else {
+                    dot.setAttribute('aria-selected', 'false');
+                }
+            });
+        }
+
+        function updateButtons() {
+            const backButton = document.getElementById('backButton');
+            const nextButton = document.getElementById('nextButton');
+            
+            // Show/hide back button
+            if (currentStep === 1) {
+                backButton.style.display = 'none';
+            } else {
+                backButton.style.display = 'inline-flex';
+            }
+            
+            // Update next button text
+            if (currentStep === 4) {
+                nextButton.innerHTML = '<span class="loading-spinner" style="display: none;"></span>Confirm Appointment';
+            } else {
+                nextButton.textContent = 'Next';
+            }
+        }
+
+        // ==================
+        // SIMPLE VALIDATION FUNCTIONS
+        // ==================
+        
+        function validateStep1() {
+            console.log('🔍 Validating Step 1...');
+            
+            // **SCOPED SELECTORS: Only look inside the booking widget!**
+            const widgetRoot = document.querySelector('.booking-widget-container');
+            if (!widgetRoot) {
+                console.error('❌ Widget container not found during validation!');
+                return false;
+            }
+            
+            const firstNameEl = widgetRoot.querySelector('#firstName');
+            const lastNameEl = widgetRoot.querySelector('#lastName');
+            const emailEl = widgetRoot.querySelector('#email');
+            const phoneEl = widgetRoot.querySelector('#phone');
+            
+            const firstName = firstNameEl ? firstNameEl.value.trim() : '';
+            const lastName = lastNameEl ? lastNameEl.value.trim() : '';
+            const email = emailEl ? emailEl.value.trim() : '';
+            const phone = phoneEl ? phoneEl.value.trim() : '';
+            
+            console.log('📝 Step 1 validation values (SCOPED):', {
+                firstName: firstName,
+                lastName: lastName,
+                email: email,
+                phone: phone
+            });
+            
+            let valid = true;
+            clearFieldErrors();
+            
+            if (!firstName) {
+                showFieldError('firstName', 'Please enter your first name');
+                valid = false;
+            }
+            if (!lastName) {
+                showFieldError('lastName', 'Please enter your last name');
+                valid = false;
+            }
+            if (!email) {
+                showFieldError('email', 'Please enter your email address');
+                valid = false;
+            } else if (emailEl && !emailEl.checkValidity()) {
+                showFieldError('email', 'Please enter a valid email address');
+                valid = false;
+            }
+            if (!phone) {
+                showFieldError('phone', 'Please enter your phone number');
+                valid = false;
+            }
+            
+            console.log('✅ Step 1 validation result:', valid);
+            return valid;
+        }
+        
+        function validateStep2() {
+            console.log('🔍 Validating Step 2...');
+            
+            // Check actual selectedServices array, not formData.services
+            const services = selectedServices;
+            const descriptionEl = document.getElementById('projectDescription');
+            const budgetEl = document.getElementById('budget');
+            const timelineEl = document.getElementById('timeline');
+            
+            console.log('📍 Step 2 DOM Elements found:', {
+                descriptionEl: !!descriptionEl,
+                budgetEl: !!budgetEl,
+                timelineEl: !!timelineEl
+            });
+            
+            if (!descriptionEl || !budgetEl || !timelineEl) {
+                console.error('❌ Step 2 DOM elements not found!');
+                showError('Form error: Please refresh the page and try again.');
+                return false;
+            }
+            
+            const description = descriptionEl.value ? descriptionEl.value.trim() : '';
+            const budget = budgetEl.value || '';
+            const timeline = timelineEl.value || '';
+            
+            console.log('📝 Step 2 Values:', {
+                services: services.length,
+                selectedServices: services,
+                description: description.length,
+                budget,
+                timeline
+            });
+            
+            clearFieldErrors();
+            
+            let isValid = true;
+            
+            if (services.length === 0) {
+                console.log('❌ Services validation failed');
+                showError('Please select at least one service');
+                isValid = false;
+            }
+            
+            if (!description || description.length < 10) {
+                console.log('❌ Description validation failed');
+                showFieldError('projectDescription', 'Please provide a detailed project description (at least 10 characters)');
+                isValid = false;
+            }
+            
+            if (!budget) {
+                console.log('❌ Budget validation failed');
+                showFieldError('budget', 'Please select your budget range');
+                isValid = false;
+            }
+            
+            if (!timeline) {
+                console.log('❌ Timeline validation failed');
+                showFieldError('timeline', 'Please select your timeline');
+                isValid = false;
+            }
+            
+            console.log('✅ Step 2 validation result:', isValid);
+            return isValid;
+        }
+        
+        function validateStep3() {
+            console.log('🔍 Validating Step 3...');
+            
+            // Check actual selected values, not formData
+            const date = selectedDate;
+            const time = selectedTime;
+            
+            console.log('📝 Step 3 Values:', {
+                selectedDate: date,
+                selectedTime: time
+            });
+            
+            let isValid = true;
+            
+            if (!date) {
+                console.log('❌ Date validation failed');
+                showError('Please select an appointment date');
+                isValid = false;
+            }
+            
+            if (!time) {
+                console.log('❌ Time validation failed');
+                showError('Please select an appointment time');
+                isValid = false;
+            }
+            
+            console.log('✅ Step 3 validation result:', isValid);
+            return isValid;
+        }
+        
+        function showFieldError(fieldId, message) {
+            console.log(`🚨 Showing field error for ${fieldId}: ${message}`);
+            
+            // **SCOPED SELECTORS: Only look inside the booking widget!**
+            const widgetRoot = document.querySelector('.booking-widget-container');
+            if (!widgetRoot) {
+                console.error('❌ Widget container not found during error display!');
+                return;
+            }
+            
+            const field = widgetRoot.querySelector('#' + fieldId);
+            const errorDiv = widgetRoot.querySelector('#' + fieldId + '-error');
+            
+            console.log(`🔍 Error elements found (SCOPED):`, {
+                field: !!field,
+                errorDiv: !!errorDiv,
+                errorDivId: fieldId + '-error'
+            });
+            
+            if (!field) {
+                console.error(`❌ Field element not found: ${fieldId}`);
+                return;
+            }
+            
+            field.classList.add('error');
+            if (errorDiv) {
+                errorDiv.textContent = message;
+                errorDiv.classList.add('show');
+                console.log(`✅ Error displayed for ${fieldId} (SCOPED)`);
+            } else {
+                console.warn(`⚠️ Error div not found for field: ${fieldId}`);
+            }
+        }
+        
+        function clearFieldErrors() {
+            console.log('🧹 Clearing all field errors');
+            document.querySelectorAll('.error').forEach(el => el.classList.remove('error'));
+            document.querySelectorAll('.field-error').forEach(el => el.classList.remove('show'));
+            hideError();
+        }
+
+        function validateCurrentStep() {
+            if (currentStep === 1) {
+                return validateStep1();
+            } else if (currentStep === 2) {
+                return validateStep2();
+            } else if (currentStep === 3) {
+                return validateStep3();
+            } else if (currentStep === 4) {
+                return checkBotProtection();
+            }
+            return true;
+        }
+
+        // ==================
+        // SERVICE SELECTION
+        // ==================
+        
+        function selectService(serviceType, element) {
+            const index = selectedServices.indexOf(serviceType);
+            
+            if (index > -1) {
+                // Deselect service
+                selectedServices.splice(index, 1);
+                element.classList.remove('selected');
+                element.setAttribute('aria-checked', 'false');
+            } else {
+                // Select service
+                selectedServices.push(serviceType);
+                element.classList.add('selected');
+                element.setAttribute('aria-checked', 'true');
+            }
+        }
+
+        // ==================
+        // CALENDAR FUNCTIONS
+        // ==================
+        
+        function updateCalendar() {
+            const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                'July', 'August', 'September', 'October', 'November', 'December'];
+            
+            const monthYear = `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
+            document.getElementById('currentMonth').textContent = monthYear;
+            
+            const grid = document.getElementById('calendarGrid');
+            grid.innerHTML = '';
+            
+            const today = new Date();
+            const firstDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+            const lastDay = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+            const startDate = new Date(firstDay);
+            startDate.setDate(startDate.getDate() - firstDay.getDay());
+            
+            for (let i = 0; i < 42; i++) {
+                const cellDate = new Date(startDate);
+                cellDate.setDate(startDate.getDate() + i);
+                
+                const dayEl = document.createElement('div');
+                dayEl.className = 'calendar-day';
+                dayEl.textContent = cellDate.getDate();
+                dayEl.setAttribute('role', 'gridcell');
+                dayEl.setAttribute('tabindex', '0');
+                
+                const isCurrentMonth = cellDate.getMonth() === currentDate.getMonth();
+                const isPast = cellDate < today.setHours(0, 0, 0, 0);
+                
+                if (!isCurrentMonth || isPast) {
+                    dayEl.classList.add('unavailable');
+                    dayEl.setAttribute('aria-disabled', 'true');
+                } else {
+                    dayEl.onclick = () => selectDate(cellDate, dayEl);
+                    dayEl.onkeydown = (e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            selectDate(cellDate, dayEl);
+                        }
+                    };
+                }
+                
+                grid.appendChild(dayEl);
+            }
+        }
+
+        function selectDate(date, element) {
+            // Remove previous selection
+            document.querySelectorAll('.calendar-day').forEach(day => {
+                day.classList.remove('selected');
+                day.setAttribute('aria-selected', 'false');
+            });
+            
+            // Add selection to clicked element
+            element.classList.add('selected');
+            element.setAttribute('aria-selected', 'true');
+            
+            selectedDate = date.toISOString().split('T')[0];
+            
+            // Clear previously selected time when date changes
+            selectedTime = null;
+            
+            // Generate time slots for the selected date
+            generateTimeSlots(selectedDate);
+        }
+
+        function changeMonth(direction) {
+            currentDate.setMonth(currentDate.getMonth() + direction);
+            updateCalendar();
+            
+            // Clear selected date if changing months
+            selectedDate = null;
+            document.querySelectorAll('.calendar-day').forEach(day => {
+                day.classList.remove('selected');
+                day.setAttribute('aria-selected', 'false');
+            });
+        }
+
+        // ==================
+        // TIME SELECTION
+        // ==================
+        
+        function selectTime(time, element) {
+            // Remove previous selection
+            document.querySelectorAll('.time-option').forEach(option => {
+                option.classList.remove('selected');
+                option.setAttribute('aria-checked', 'false');
+            });
+            
+            // Add selection to clicked element
+            element.classList.add('selected');
+            element.setAttribute('aria-checked', 'true');
+            
+            selectedTime = time;
+        }
+
+        // Generate available time slots for the selected date
+        function generateTimeSlots(date) {
+            const timeSlotsContainer = document.getElementById('timeSlots');
+            timeSlotsContainer.innerHTML = '<div class="loading-message">Loading available times...</div>';
+            
+            // Only two time slots available
+            const defaultTimeSlots = ['8:30 AM', '9:00 AM'];
+            
+            // Clear loading message and show time slots
+            setTimeout(function() {
+                timeSlotsContainer.innerHTML = '';
+                
+                // Generate time slot elements
+                defaultTimeSlots.forEach(function(time) {
+                    const timeOption = document.createElement('div');
+                    timeOption.className = 'time-option';
+                    timeOption.textContent = time;
+                    timeOption.setAttribute('role', 'radio');
+                    timeOption.setAttribute('aria-checked', 'false');
+                    timeOption.setAttribute('tabindex', '0');
+                    
+                    timeOption.onclick = function() {
+                        selectTime(time, timeOption);
+                    };
+                    timeOption.onkeydown = function(e) {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            selectTime(time, timeOption);
+                        }
+                    };
+                    
+                    timeSlotsContainer.appendChild(timeOption);
+                });
+            }, 100); // Small delay to show loading state
+        }
+
+        // ==================
+        // CONFIRMATION SUMMARY
+        // ==================
+        
+        function showStep(step) {
+            // Hide all steps
+            document.querySelectorAll('.booking-step').forEach(s => s.classList.remove('active'));
+            
+            // Show the current step
+            const currentStepEl = document.getElementById(`step-${step}`);
+            if (currentStepEl) {
+                currentStepEl.classList.add('active');
+            }
+            
+            // Update the current step number
+            currentStep = step;
+            
+            // Update step indicator
+            updateStepIndicator();
+            
+            // Update buttons
+            updateButtons();
+            
+            // **Restore form values from formData**
+            restoreFormValues();
+            
+            // Step-specific initialization
+            if (step === 3) {
+                // Initialize calendar and time slots
+                const timeSlotsContainer = document.getElementById('timeSlots');
+                if (selectedDate) {
+                    // If we already have a selected date, show its time slots
+                    generateTimeSlots(selectedDate);
+                } else {
+                    // Otherwise show the default message
+                    timeSlotsContainer.innerHTML = '<p style="text-align: center; color: #6b7280;">Please select a date to see available times</p>';
+                }
+            } else if (step === 4) {
+                // Update confirmation summary
+                populateConfirmationSummary();
+            }
+        }
+        
+        // Restore form values from formData object
+        function restoreFormValues() {
+            console.log('🔄 Restoring form values...');
+            
+            // **SCOPED SELECTORS: Only look inside the booking widget!**
+            const widgetRoot = document.querySelector('.booking-widget-container');
+            if (!widgetRoot) {
+                console.error('❌ Widget container not found during restoration!');
+                return;
+            }
+            
+            // Step 1 fields - scoped to widget container
+            const firstNameEl = widgetRoot.querySelector('#firstName');
+            const lastNameEl = widgetRoot.querySelector('#lastName');
+            const emailEl = widgetRoot.querySelector('#email');
+            const phoneEl = widgetRoot.querySelector('#phone');
+            const businessNameEl = widgetRoot.querySelector('#businessName');
+            
+            if (firstNameEl && formData.firstName) firstNameEl.value = formData.firstName;
+            if (lastNameEl && formData.lastName) lastNameEl.value = formData.lastName;
+            if (emailEl && formData.email) emailEl.value = formData.email;
+            if (phoneEl && formData.phone) phoneEl.value = formData.phone;
+            if (businessNameEl && formData.businessName) businessNameEl.value = formData.businessName;
+            
+            // Step 2 fields - scoped to widget container
+            const descriptionEl = widgetRoot.querySelector('#projectDescription');
+            const budgetEl = widgetRoot.querySelector('#budget');
+            const timelineEl = widgetRoot.querySelector('#timeline');
+            
+            if (descriptionEl && formData.projectDescription) descriptionEl.value = formData.projectDescription;
+            if (budgetEl && formData.budget) budgetEl.value = formData.budget;
+            if (timelineEl && formData.timeline) timelineEl.value = formData.timeline;
+            
+            // Step 4 fields - scoped to widget container
+            const notesEl = widgetRoot.querySelector('#additionalNotes');
+            if (notesEl && formData.additionalNotes) notesEl.value = formData.additionalNotes;
+            
+            console.log('✅ Form values restored (SCOPED)');
+        }
+        
+        function populateConfirmationSummary() {
+            console.log('📋 Populating confirmation summary...');
+            
+            const summaryContainer = document.getElementById('confirmationSummary');
+            
+            // Build the summary HTML dynamically
+            const summaryHTML = `
+                <h3>Appointment Summary</h3>
+                <div class="summary-item">
+                    <span class="summary-label">Name:</span>
+                    <span class="summary-value">${formData.firstName} ${formData.lastName}</span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">Email:</span>
+                    <span class="summary-value">${formData.email}</span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">Phone:</span>
+                    <span class="summary-value">${formData.phone}</span>
+                </div>
+                ${formData.businessName ? `
+                <div class="summary-item">
+                    <span class="summary-label">Business:</span>
+                    <span class="summary-value">${formData.businessName}</span>
+                </div>
+                ` : ''}
+                <div class="summary-item">
+                    <span class="summary-label">Services:</span>
+                    <span class="summary-value">${formData.services.join(', ')}</span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">Project Description:</span>
+                    <span class="summary-value">${formData.projectDescription}</span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">Budget Range:</span>
+                    <span class="summary-value">${formData.budget}</span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">Timeline:</span>
+                    <span class="summary-value">${formData.timeline}</span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">Appointment Date:</span>
+                    <span class="summary-value">${formData.appointmentDate}</span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">Appointment Time:</span>
+                    <span class="summary-value">${formData.appointmentTime}</span>
+                </div>
+            `;
+            
+            summaryContainer.innerHTML = summaryHTML;
+            
+            console.log('✅ Confirmation summary populated');
+        }
+
+        // ==================
+        // API CONFIGURATION
+        // ==================
+        
+        function getApiUrl() {
+            // *** TESTING VERSION - 2025-06-07 ***
+            // *** ALWAYS USE NGROK FOR TESTING - EVEN ON PRODUCTION DOMAIN ***
+            const TUNNEL_URL = 'https://aebf-2603-7080-e501-3f6a-940a-6a2a-8336-f079.ngrok-free.app';
+            
+            // FOR PRODUCTION: Replace with your deployed backend URL
+            const PRODUCTION_API_URL = 'https://your-production-api.com';
+            
+            // Development URL (when testing locally)
+            const LOCAL_API_URL = 'http://localhost:5174';
+            
+            // Detect environment
+            const hostname = window.location.hostname;
+            console.log('🌐 HOSTNAME DETECTED:', hostname);
+            console.log('📅 CODE VERSION: 2025-06-07-TESTING');
+            
+            const isLocal = hostname === 'localhost' || hostname === '127.0.0.1';
+            
+            // *** TEMPORARY FOR TESTING: Always use ngrok tunnel ***
+            // *** Change this back when you deploy a real production API ***
+            console.log('🔧 Using TUNNEL URL for testing:', TUNNEL_URL);
+            return TUNNEL_URL;
+            
+            // *** PRODUCTION CODE (commented out for testing) ***
+            // const isProduction = hostname === 'pleasantcovedesign.com' || hostname === 'www.pleasantcovedesign.com';
+            // if (isLocal) {
+            //     console.log('🏠 Using LOCAL API:', LOCAL_API_URL);
+            //     return LOCAL_API_URL;
+            // } else if (isProduction) {
+            //     console.log('🚀 Using PRODUCTION API:', PRODUCTION_API_URL);
+            //     return PRODUCTION_API_URL;
+            // } else {
+            //     console.log('🔧 Using TUNNEL URL:', TUNNEL_URL);
+            //     return TUNNEL_URL;
+            // }
+        }
+
+        // ==================
+        // FORM SUBMISSION
+        // ==================
+        
+        async function submitAppointment() {
+            try {
+                const nextButton = document.getElementById('nextButton');
+                const spinner = nextButton.querySelector('.loading-spinner');
+                
+                // Show loading state
+                nextButton.disabled = true;
+                if (spinner) {
+                    spinner.style.display = 'inline-block';
+                }
+                nextButton.innerHTML = '<span class="loading-spinner"></span>Booking...';
+                hideError();
+
+                const appointmentData = {
+                    firstName: formData.firstName,
+                    lastName: formData.lastName,
+                    email: formData.email,
+                    phone: formData.phone,
+                    businessName: formData.businessName,
+                    services: formData.services, // Keep as array for CRM system
+                    projectDescription: formData.projectDescription,
+                    budget: formData.budget,
+                    timeline: formData.timeline,
+                    appointmentDate: formData.appointmentDate,
+                    appointmentTime: formData.appointmentTime,
+                    additionalNotes: formData.additionalNotes,
+                    source: 'squarespace_appointment_widget',
+                    timestamp: new Date().toISOString()
+                };
+
+                console.log('Submitting appointment to CRM system:', appointmentData);
+
+                const apiUrl = getApiUrl();
+                console.log('▶️ getApiUrl() =', apiUrl);
+                console.log('🌐 Current hostname:', window.location.hostname);
+
+                const response = await fetch(`${apiUrl}/api/book-appointment`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'ngrok-skip-browser-warning': 'true'
+                    },
+                    body: JSON.stringify(appointmentData)
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    console.log('Appointment booked successfully:', result);
+                    
+                    // Check if the API response indicates success
+                    if (result.success === true || result.status === 'success') {
+                        showSuccess();
+                        
+                        // If the API returns appointment details, you can use them
+                        if (result.appointmentId) {
+                            console.log('Appointment ID:', result.appointmentId);
+                            sessionStorage.setItem('lastAppointmentId', result.appointmentId);
+                        }
+                    } else {
+                        // API returned an error message - show specific error
+                        const apiError = result.message || result.error || 'Booking failed. Please try again.';
+                        showError(apiError);
+                        return; // Don't throw - we handled the error
+                    }
+                } else {
+                    // Server returned non-2xx status
+                    const errorText = await response.text();
+                    console.error('Server error:', response.status, errorText);
+                    
+                    let errorMessage = `Server error (${response.status})`;
+                    try {
+                        const errorData = JSON.parse(errorText);
+                        errorMessage = errorData.message || errorMessage;
+                    } catch (e) {
+                        // Not JSON, use status-based message
+                        if (response.status === 404) {
+                            errorMessage = 'Service not found. Please check your configuration.';
+                        } else if (response.status >= 500) {
+                            errorMessage = 'Server error. Please try again later.';
+                        }
+                    }
+                    
+                    showError(errorMessage);
+                    return; // Don't throw - we handled the error
+                }
+            } catch (error) {
+                console.error('Network/fetch error:', error);
+                
+                // Only show "Connection Error" for actual network failures
+                let errorMessage = '';
+                
+                if (error.message.includes('Failed to fetch') || 
+                    error.message.includes('NetworkError') || 
+                    error.message.includes('fetch') ||
+                    error.name === 'TypeError') {
+                    
+                    errorMessage = `
+                    ⚠️ <strong>Connection Error</strong><br><br>
+                    
+                    <strong>For Testing in Squarespace:</strong><br>
+                    1. Your local server must be running on localhost:5174<br>
+                    2. Use ngrok to create a public tunnel:<br>
+                    &nbsp;&nbsp;&nbsp;<code>npx ngrok http 5174</code><br>
+                    3. Update the widget code with your ngrok URL<br><br>
+                    
+                    <strong>For Production:</strong><br>
+                    Deploy your backend to a cloud service (Heroku, Vercel, etc.)<br><br>
+                    
+                    <strong>Alternative:</strong><br>
+                    Contact us directly at (207) 380-5680 or pleasantcovedesign@gmail.com
+                    `;
+                } else {
+                    // For other errors, show a simple message
+                    errorMessage = 'Unable to book appointment. Please try again or contact us at (207) 380-5680.';
+                }
+                
+                showError(errorMessage);
+            } finally {
+                // Always reset button state
+                const nextButton = document.getElementById('nextButton');
+                nextButton.disabled = false;
+                nextButton.innerHTML = '<span class="loading-spinner" style="display: none;"></span>Confirm Appointment';
+            }
+        }
+
+        function showSuccess() {
+            // Hide all steps and navigation
+            document.querySelectorAll('.booking-step').forEach(step => {
+                step.style.display = 'none';
+            });
+            document.getElementById('navigationButtons').style.display = 'none';
+            document.querySelector('.step-indicator').style.display = 'none';
+            
+            // Show success message
+            document.getElementById('successMessage').style.display = 'block';
+        }
+
+        function showError(message) {
+            const errorEl = document.getElementById('errorMessage');
+            if (errorEl) {
+                errorEl.innerHTML = message;
+                errorEl.style.display = 'block';
+            }
+        }
+
+        function hideError() {
+            const errorEl = document.getElementById('errorMessage');
+            if (errorEl) {
+                errorEl.style.display = 'none';
+            }
+        }
+
+        // ==================
+        // KEYBOARD NAVIGATION
+        // ==================
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && e.target.classList.contains('service-option')) {
+                e.preventDefault();
+                e.target.click();
+            }
+            
+            if (e.key === 'Enter' && e.target.classList.contains('time-option')) {
+                e.preventDefault();
+                e.target.click();
+            }
+        });
+
+        // ==================
+        // BOT PROTECTION
+        // ==================
+        
+        function checkBotProtection() {
+            // Check honeypot field
+            const honeypot = document.querySelector('input[name="website"]');
+            if (honeypot && honeypot.value !== '') {
+                console.log('Bot detected via honeypot');
+                return false;
+            }
+            
+            // Check form completion time (too fast = likely bot)
+            if (formStartTime && (Date.now() - formStartTime) < 10000) {
+                console.log('Form completed too quickly - possible bot');
+                showError('Please take your time to fill out the form properly.');
+                return false;
+            }
+            
+            return true;
+        }
+    </script>
+</body>
+</html>

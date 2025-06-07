@@ -229,6 +229,70 @@ export class Storage {
     db.delete(appointmentsTable).where({ id });
   }
 
+  // ===================
+  // ACUITY APPOINTMENT OPERATIONS
+  // ===================
+
+  async getAppointmentsByProjectToken(projectToken: string) {
+    const results: any[] = db.select().from(appointmentsTable).where({ projectToken });
+    return results;
+  }
+
+  async getAppointmentByAcuityId(acuityId: string) {
+    const results: any[] = db.select().from(appointmentsTable).where({ acuityId });
+    return results[0] || null;
+  }
+
+  async createAcuityAppointment(appointmentData: any, projectToken?: string) {
+    // Prevent duplicates by checking Acuity ID
+    const existing = await this.getAppointmentByAcuityId(appointmentData.acuityId);
+    if (existing) {
+      console.log(`🔄 Acuity appointment ${appointmentData.acuityId} already exists, updating...`);
+      return await this.updateAppointment(existing.id, {
+        ...appointmentData,
+        projectToken,
+        updatedAt: new Date().toISOString()
+      });
+    }
+
+    // Create new appointment
+    const data = {
+      ...appointmentData,
+      projectToken,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    const results: any[] = db.insert(appointmentsTable).values(data).returning();
+    return results[0];
+  }
+
+  async findClientByEmail(email: string): Promise<{ 
+    company?: Company, 
+    project?: Project, 
+    business?: Business 
+  } | null> {
+    // Try to find by company email first (new system)
+    const companies: any[] = db.select().from(companiesTable).where({ email });
+    if (companies.length > 0) {
+      const company = companies[0] as Company;
+      
+      // Get the first project for this company
+      const projects: any[] = db.select().from(projectsTable).where({ companyId: company.id });
+      const project = projects[0] as Project;
+      
+      return { company, project };
+    }
+
+    // Fallback to business table (legacy system)
+    const businesses: any[] = db.select().from(businessesTable).where({ email });
+    if (businesses.length > 0) {
+      return { business: businesses[0] as Business };
+    }
+
+    return null;
+  }
+
   // Progress tracking operations
   async getProgressEntries() {
     const results: any[] = db.select().from(progressEntriesTable).orderBy({});
@@ -452,6 +516,26 @@ export class Storage {
       files,
       activities: activities || []
     };
+  }
+
+  async getAppointmentsByProjectToken(projectToken: string) {
+    const results: any[] = db.select().from(appointmentsTable).where({ projectToken });
+    return results;
+  }
+
+  async getAppointmentsByProject(projectId: number) {
+    const results: any[] = db.select().from(appointmentsTable).where({ projectId });
+    return results;
+  }
+
+  async getAppointmentsByCompany(companyId: number) {
+    const results: any[] = db.select().from(appointmentsTable).where({ companyId });
+    return results;
+  }
+
+  async getProjectByToken(token: string) {
+    const results: any[] = db.select().from(projectsTable).where({ accessToken: token });
+    return results[0] || null;
   }
 }
 
