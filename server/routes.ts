@@ -2,6 +2,7 @@ import express, { type Request, Response, NextFunction, Express } from "express"
 import { storage } from "./storage.js";
 import type { Business } from "../shared/schema.js";
 import { nanoid } from "nanoid";
+import nodemailer from 'nodemailer';
 
 // Admin token for authentication
 const ADMIN_TOKEN = 'pleasantcove2024admin';
@@ -2595,7 +2596,23 @@ interface EmailConfirmationData {
   projectToken: string;
   businessName: string;
   appointmentId?: number; // Optional appointment ID for action links
-}
+  }
+
+// Create Gmail SMTP transporter
+const createEmailTransporter = () => {
+  if (!process.env.GMAIL_EMAIL || !process.env.GMAIL_APP_PASSWORD) {
+    console.log('📧 Gmail credentials not configured, falling back to console logging');
+    return null;
+  }
+  
+  return nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: process.env.GMAIL_EMAIL,
+      pass: process.env.GMAIL_APP_PASSWORD
+    }
+  });
+};
 
 async function sendAppointmentConfirmationEmail(data: EmailConfirmationData): Promise<void> {
   // Build URLs for client actions
@@ -2749,32 +2766,27 @@ The Pleasant Cove Design Team
     </html>
   `;
   
-  // TODO: Replace with actual email service
-  // For now, keep console logging but prepare for real email integration
+  // Send real email via Gmail SMTP
+  const transporter = createEmailTransporter();
   
-  // Uncomment when ready to integrate with real email service:
-  /*
-  try {
-    // Example with SendGrid:
-    // await sgMail.send({
-    //   to: data.to,
-    //   from: 'no-reply@pleasantcovedesign.com',
-    //   subject: '✅ Appointment Confirmed - Pleasant Cove Design',
-    //   html: htmlContent
-    // });
-    
-    // Example with Nodemailer:
-    // await transporter.sendMail({
-    //   from: '"Pleasant Cove Design" <no-reply@pleasantcovedesign.com>',
-    //   to: data.to,
-    //   subject: '✅ Appointment Confirmed - Pleasant Cove Design',
-    //   html: htmlContent
-    // });
-    
-    console.log('📧 Email sent successfully via email service');
-  } catch (error) {
-    console.error('📧 Email service failed, falling back to console log:', error);
-    // Fallback to console logging so appointments don't fail
+  if (transporter) {
+    try {
+      await transporter.sendMail({
+        from: process.env.EMAIL_FROM || '"Pleasant Cove Design" <pleasantcovedesign@gmail.com>',
+        to: data.to,
+        subject: '✅ Appointment Confirmed - Pleasant Cove Design',
+        html: htmlContent,
+        text: emailContent // Fallback plain text version
+      });
+      
+      console.log(`📧 Email sent successfully to ${data.to} via Gmail SMTP`);
+      return; // Exit early on successful email send
+    } catch (error) {
+      console.error('📧 Gmail SMTP failed, falling back to console log:', error);
+      // Continue to console logging as fallback
+    }
   }
-  */
+  
+  // Fallback: Console logging (if Gmail not configured or failed)
+  console.log('📧 Falling back to console logging:');
 }
