@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  pleasantcove-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5174:5174"
+    environment:
+      - NODE_ENV=production
+      - PORT=5174
+      - GMAIL_EMAIL=${GMAIL_EMAIL}
+      - GMAIL_APP_PASSWORD=${GMAIL_APP_PASSWORD}
+      - EMAIL_FROM=${EMAIL_FROM}
+      - CLIENT_PORTAL_URL=${CLIENT_PORTAL_URL}
+      - ACUITY_USER_ID=${ACUITY_USER_ID}
+      - ACUITY_API_KEY=${ACUITY_API_KEY}
+    volumes:
+      - ./websitewizard.db:/app/websitewizard.db
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5174/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3 

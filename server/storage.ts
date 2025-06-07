@@ -518,25 +518,6 @@ export class Storage {
     };
   }
 
-  async getAppointmentsByProjectToken(projectToken: string) {
-    const results: any[] = db.select().from(appointmentsTable).where({ projectToken });
-    return results;
-  }
-
-  async getAppointmentsByProject(projectId: number) {
-    const results: any[] = db.select().from(appointmentsTable).where({ projectId });
-    return results;
-  }
-
-  async getAppointmentsByCompany(companyId: number) {
-    const results: any[] = db.select().from(appointmentsTable).where({ companyId });
-    return results;
-  }
-
-  async getProjectByToken(token: string) {
-    const results: any[] = db.select().from(projectsTable).where({ accessToken: token });
-    return results[0] || null;
-  }
 }
 
 // Export singleton instance

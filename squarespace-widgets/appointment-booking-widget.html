@@ -1527,40 +1527,35 @@ SUPPORT: pleasantcovedesign@gmail.com | (207) 380-5680
         // ==================
         
         function getApiUrl() {
-            // *** TESTING VERSION - 2025-06-07 ***
-            // *** ALWAYS USE NGROK FOR TESTING - EVEN ON PRODUCTION DOMAIN ***
-            const TUNNEL_URL = 'https://aebf-2603-7080-e501-3f6a-940a-6a2a-8336-f079.ngrok-free.app';
+            // *** PRODUCTION VERSION - 2025-06-07 ***
+            // AUTO-DETECTS ENVIRONMENT AND USES CORRECT API URL
             
-            // FOR PRODUCTION: Replace with your deployed backend URL
-            const PRODUCTION_API_URL = 'https://your-production-api.com';
+            // Production Railway URL (will be updated after deployment)
+            const PRODUCTION_API_URL = 'https://pleasantcovedesign-production.up.railway.app';
             
-            // Development URL (when testing locally)
+            // Development URLs
             const LOCAL_API_URL = 'http://localhost:5174';
+            const NGROK_URL = 'https://aebf-2603-7080-e501-3f6a-940a-6a2a-8336-f079.ngrok-free.app';
             
             // Detect environment
             const hostname = window.location.hostname;
             console.log('🌐 HOSTNAME DETECTED:', hostname);
-            console.log('📅 CODE VERSION: 2025-06-07-TESTING');
+            console.log('📅 CODE VERSION: 2025-06-07-PRODUCTION-READY');
             
             const isLocal = hostname === 'localhost' || hostname === '127.0.0.1';
+            const isProduction = hostname === 'pleasantcovedesign.com' || hostname === 'www.pleasantcovedesign.com' || hostname.includes('squarespace');
             
-            // *** TEMPORARY FOR TESTING: Always use ngrok tunnel ***
-            // *** Change this back when you deploy a real production API ***
-            console.log('🔧 Using TUNNEL URL for testing:', TUNNEL_URL);
-            return TUNNEL_URL;
-            
-            // *** PRODUCTION CODE (commented out for testing) ***
-            // const isProduction = hostname === 'pleasantcovedesign.com' || hostname === 'www.pleasantcovedesign.com';
-            // if (isLocal) {
-            //     console.log('🏠 Using LOCAL API:', LOCAL_API_URL);
-            //     return LOCAL_API_URL;
-            // } else if (isProduction) {
-            //     console.log('🚀 Using PRODUCTION API:', PRODUCTION_API_URL);
-            //     return PRODUCTION_API_URL;
-            // } else {
-            //     console.log('🔧 Using TUNNEL URL:', TUNNEL_URL);
-            //     return TUNNEL_URL;
-            // }
+            if (isLocal) {
+                console.log('🏠 Using LOCAL API:', LOCAL_API_URL);
+                return LOCAL_API_URL;
+            } else if (isProduction) {
+                console.log('🚀 Using PRODUCTION API:', PRODUCTION_API_URL);
+                return PRODUCTION_API_URL;
+            } else {
+                // Fallback to ngrok for testing
+                console.log('🔧 Using NGROK URL for testing:', NGROK_URL);
+                return NGROK_URL;
+            }
         }
 
         // ==================
