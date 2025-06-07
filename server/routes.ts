@@ -1767,6 +1767,355 @@ export async function registerRoutes(app: Express): Promise<any> {
     }
   });
 
+  // ===================
+  // CLIENT APPOINTMENT MANAGEMENT (PUBLIC - No Auth Required)
+  // ===================
+  
+  // Client reschedule page (PUBLIC - accessed via email link)
+  app.get("/api/appointments/:id/reschedule", async (req: Request, res: Response) => {
+    try {
+      const appointmentId = parseInt(req.params.id);
+      const { token } = req.query;
+      
+      // Verify appointment exists and token matches
+      const appointment = await storage.getAppointmentById(appointmentId);
+      if (!appointment) {
+        return res.status(404).json({ error: "Appointment not found" });
+      }
+      
+      // For client access, check if they have a project token or direct appointment access
+      if (token) {
+        const project = await storage.getProjectByToken(token as string);
+        if (!project || project.companyId !== appointment.companyId) {
+          return res.status(403).json({ error: "Unauthorized access to appointment" });
+        }
+      }
+      
+      // Return reschedule form data
+      res.json({
+        success: true,
+        appointment: {
+          id: appointment.id,
+          datetime: appointment.datetime,
+          serviceType: appointment.serviceType,
+          duration: appointment.duration,
+          status: appointment.status
+        },
+        availableSlots: [
+          // Could integrate with your calendar API here
+          // For now, return some example slots
+          { date: '2025-06-10', time: '8:30 AM', available: true },
+          { date: '2025-06-10', time: '9:00 AM', available: true },
+          { date: '2025-06-11', time: '8:30 AM', available: true },
+          { date: '2025-06-11', time: '9:00 AM', available: false },
+          { date: '2025-06-12', time: '8:30 AM', available: true },
+          { date: '2025-06-12', time: '9:00 AM', available: true }
+        ]
+      });
+    } catch (error) {
+      console.error("Failed to fetch reschedule options:", error);
+      res.status(500).json({ error: "Failed to load reschedule options" });
+    }
+  });
+  
+  // Client reschedule appointment (PUBLIC - accessed via email link)
+  app.post("/api/appointments/:id/reschedule", async (req: Request, res: Response) => {
+    try {
+      const appointmentId = parseInt(req.params.id);
+      const { token, newDateTime } = req.body;
+      
+      // Verify appointment exists
+      const appointment = await storage.getAppointmentById(appointmentId);
+      if (!appointment) {
+        return res.status(404).json({ error: "Appointment not found" });
+      }
+      
+      // Verify client access
+      if (token) {
+        const project = await storage.getProjectByToken(token);
+        if (!project || project.companyId !== appointment.companyId) {
+          return res.status(403).json({ error: "Unauthorized access to appointment" });
+        }
+      }
+      
+      // Update appointment
+      const updatedAppointment = await storage.updateAppointment(appointmentId, {
+        datetime: newDateTime,
+        status: 'scheduled' // Keep as scheduled after reschedule
+      });
+      
+      // Log activity
+      await storage.createActivity({
+        type: 'appointment_rescheduled',
+        description: `Client rescheduled appointment to ${new Date(newDateTime).toLocaleDateString()} at ${new Date(newDateTime).toLocaleTimeString()}`,
+        companyId: appointment.companyId,
+        projectId: appointment.projectId
+      });
+      
+      res.json({
+        success: true,
+        message: "Appointment rescheduled successfully",
+        appointment: updatedAppointment
+      });
+      
+    } catch (error) {
+      console.error("Failed to reschedule appointment:", error);
+      res.status(500).json({ error: "Failed to reschedule appointment" });
+    }
+  });
+  
+  // Client cancel appointment (PUBLIC - accessed via email link)
+  app.post("/api/appointments/:id/cancel", async (req: Request, res: Response) => {
+    try {
+      const appointmentId = parseInt(req.params.id);
+      const { token, reason } = req.body;
+      
+      // Verify appointment exists
+      const appointment = await storage.getAppointmentById(appointmentId);
+      if (!appointment) {
+        return res.status(404).json({ error: "Appointment not found" });
+      }
+      
+      // Verify client access
+      if (token) {
+        const project = await storage.getProjectByToken(token);
+        if (!project || project.companyId !== appointment.companyId) {
+          return res.status(403).json({ error: "Unauthorized access to appointment" });
+        }
+      }
+      
+      // Update appointment status to cancelled
+      const cancelledAppointment = await storage.updateAppointment(appointmentId, {
+        status: 'cancelled',
+        notes: appointment.notes + `\n\nCancelled by client. Reason: ${reason || 'No reason provided'}`
+      });
+      
+      // Log activity
+      await storage.createActivity({
+        type: 'appointment_cancelled',
+        description: `Client cancelled appointment. Reason: ${reason || 'No reason provided'}`,
+        companyId: appointment.companyId,
+        projectId: appointment.projectId
+      });
+      
+      // Add notification for admin
+      addNotification({
+        type: 'appointment_booked', // Could add cancellation type
+        title: 'Appointment Cancelled by Client',
+        message: `Appointment cancelled for ${new Date(appointment.datetime).toLocaleDateString()}. Reason: ${reason || 'No reason provided'}`,
+        businessId: appointment.companyId
+      });
+      
+      res.json({
+        success: true,
+        message: "Appointment cancelled successfully",
+        appointment: cancelledAppointment
+      });
+      
+    } catch (error) {
+      console.error("Failed to cancel appointment:", error);
+      res.status(500).json({ error: "Failed to cancel appointment" });
+    }
+  });
+  
+  // Client dashboard by project token (PUBLIC - accessed via email link)
+  app.get("/api/client-dashboard/:token", async (req: Request, res: Response) => {
+    try {
+      const { token } = req.params;
+      
+      // Find project by token
+      const project = await storage.getProjectByToken(token);
+      if (!project) {
+        return res.status(404).json({ error: "Invalid access token" });
+      }
+      
+      // Get company information
+      const company = await storage.getCompanyById(project.companyId);
+      
+      // Get appointments for this project/company
+      const appointments = await storage.getAppointmentsByProjectToken(token);
+      
+      // Get project messages
+      const messages = await storage.getProjectMessages(project.id!);
+      
+      res.json({
+        success: true,
+        client: {
+          name: company?.name,
+          email: company?.email,
+          phone: company?.phone
+        },
+        project: {
+          id: project.id,
+          title: project.title,
+          status: project.status,
+          stage: project.stage,
+          token: project.accessToken
+        },
+        appointments: appointments.map(apt => ({
+          id: apt.id,
+          datetime: apt.datetime,
+          duration: apt.duration,
+          serviceType: apt.serviceType,
+          status: apt.status,
+          notes: apt.notes
+        })),
+        messages: messages || [],
+        totalAppointments: appointments.length,
+        upcomingAppointments: appointments.filter(apt => 
+          apt.status === 'scheduled' && new Date(apt.datetime) > new Date()
+        ).length
+      });
+      
+    } catch (error) {
+      console.error("Failed to load client dashboard:", error);
+      res.status(500).json({ error: "Failed to load client dashboard" });
+    }
+  });
+  
+  // Client cancel appointment page (PUBLIC - accessed via email link)
+  app.get("/cancel-appointment/:id", async (req: Request, res: Response) => {
+    try {
+      const appointmentId = parseInt(req.params.id);
+      const { token } = req.query;
+      
+      // Verify appointment exists
+      const appointment = await storage.getAppointmentById(appointmentId);
+      if (!appointment) {
+        return res.status(404).send(`
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>Appointment Not Found</title>
+            <style>body { font-family: system-ui; text-align: center; padding: 2rem; }</style>
+          </head>
+          <body>
+            <h1>❌ Appointment Not Found</h1>
+            <p>The appointment you're looking for doesn't exist or has already been cancelled.</p>
+          </body>
+          </html>
+        `);
+      }
+      
+      // Check if already cancelled
+      if (appointment.status === 'cancelled') {
+        return res.send(`
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>Already Cancelled</title>
+            <style>body { font-family: system-ui; text-align: center; padding: 2rem; }</style>
+          </head>
+          <body>
+            <h1>ℹ️ Already Cancelled</h1>
+            <p>This appointment has already been cancelled.</p>
+          </body>
+          </html>
+        `);
+      }
+      
+      // Show cancellation form
+      res.send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Cancel Appointment - Pleasant Cove Design</title>
+          <style>
+            body { font-family: system-ui; max-width: 600px; margin: 2rem auto; padding: 2rem; background: #f5f5f5; }
+            .container { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+            .header { text-align: center; margin-bottom: 2rem; }
+            .appointment-info { background: #f8f9fa; padding: 1rem; border-radius: 6px; margin: 1rem 0; }
+            .form-group { margin: 1rem 0; }
+            label { display: block; margin-bottom: 0.5rem; font-weight: 600; }
+            textarea { width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; font-family: inherit; }
+            .buttons { display: flex; gap: 1rem; margin-top: 2rem; }
+            .btn { padding: 0.75rem 1.5rem; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; text-decoration: none; display: inline-block; text-align: center; }
+            .btn-danger { background: #dc3545; color: white; }
+            .btn-secondary { background: #6c757d; color: white; }
+            .btn:hover { opacity: 0.9; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>❌ Cancel Appointment</h1>
+              <p>Pleasant Cove Design</p>
+            </div>
+            
+            <div class="appointment-info">
+              <h3>📋 Appointment Details</h3>
+              <p><strong>Date:</strong> ${new Date(appointment.datetime).toLocaleDateString()}</p>
+              <p><strong>Time:</strong> ${new Date(appointment.datetime).toLocaleTimeString()}</p>
+              <p><strong>Service:</strong> ${appointment.serviceType || 'Consultation'}</p>
+            </div>
+            
+            <p>We're sorry to see you need to cancel your appointment. If you'd like to reschedule instead, please contact us at <strong>(207) 380-5680</strong>.</p>
+            
+            <form id="cancelForm">
+              <div class="form-group">
+                <label for="reason">Reason for cancellation (optional):</label>
+                <textarea id="reason" name="reason" rows="4" placeholder="Let us know why you need to cancel so we can improve our service..."></textarea>
+              </div>
+              
+              <div class="buttons">
+                <button type="submit" class="btn btn-danger">Confirm Cancellation</button>
+                <a href="mailto:pleasantcovedesign@gmail.com" class="btn btn-secondary">Contact Us Instead</a>
+              </div>
+            </form>
+          </div>
+          
+          <script>
+            document.getElementById('cancelForm').onsubmit = async (e) => {
+              e.preventDefault();
+              
+              const reason = document.getElementById('reason').value;
+              const submitBtn = e.target.querySelector('.btn-danger');
+              submitBtn.textContent = 'Cancelling...';
+              submitBtn.disabled = true;
+              
+              try {
+                const response = await fetch('/api/appointments/${appointmentId}/cancel', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ 
+                    token: '${token}', 
+                    reason: reason 
+                  })
+                });
+                
+                if (response.ok) {
+                  document.querySelector('.container').innerHTML = \`
+                    <div class="header">
+                      <h1>✅ Appointment Cancelled</h1>
+                      <p>Your appointment has been successfully cancelled.</p>
+                      <p>We hope to work with you in the future!</p>
+                      <div style="margin-top: 2rem;">
+                        <p><strong>Contact us:</strong></p>
+                        <p>📧 pleasantcovedesign@gmail.com</p>
+                        <p>📱 (207) 380-5680</p>
+                      </div>
+                    </div>
+                  \`;
+                } else {
+                  throw new Error('Failed to cancel appointment');
+                }
+              } catch (error) {
+                submitBtn.textContent = 'Confirm Cancellation';
+                submitBtn.disabled = false;
+                alert('Sorry, there was an error cancelling your appointment. Please call us at (207) 380-5680.');
+              }
+            };
+          </script>
+        </body>
+        </html>
+      `);
+      
+    } catch (error) {
+      console.error("Failed to load cancel page:", error);
+      res.status(500).send('Error loading cancellation page');
+    }
+  });
+
   // Client search endpoint for appointment scheduling
   app.get("/api/clients/search", async (req: Request, res: Response) => {
     try {
@@ -2183,7 +2532,8 @@ Booked via: ${source}
           appointmentTime,
           services: typeof services === 'string' ? services : services.join(', '),
           projectToken,
-          businessName: businessName || ''
+          businessName: businessName || '',
+          appointmentId: appointment.id // Include appointment ID for action links
         });
         console.log('📧 Confirmation email sent successfully');
       } catch (emailError) {
@@ -2244,22 +2594,32 @@ interface EmailConfirmationData {
   services: string;
   projectToken: string;
   businessName: string;
+  appointmentId?: number; // Optional appointment ID for action links
 }
 
 async function sendAppointmentConfirmationEmail(data: EmailConfirmationData): Promise<void> {
-  // For now, we'll log the email content to console
-  // In production, you would integrate with an email service like SendGrid, Nodemailer, etc.
+  // Build URLs for client actions
+  const baseUrl = process.env.CLIENT_PORTAL_URL || 'http://localhost:5174';
+  const appointmentId = data.appointmentId || ''; // We'll need to pass this
+  
+  // Client dashboard and appointment management links
+  const dashboardUrl = `${baseUrl}/api/client-dashboard/${data.projectToken}`;
+  const rescheduleUrl = `${baseUrl}/api/appointments/${appointmentId}/reschedule?token=${data.projectToken}`;
+  const cancelUrl = `${baseUrl}/cancel-appointment/${appointmentId}?token=${data.projectToken}`;
   
   const emailContent = `
 === APPOINTMENT CONFIRMATION EMAIL ===
 To: ${data.to}
-Subject: Appointment Confirmed - Pleasant Cove Design Consultation
+Subject: ✅ Appointment Confirmed - Pleasant Cove Design
 
 Dear ${data.clientName},
 
-Thank you for booking a consultation with Pleasant Cove Design! 
+🎉 Your consultation with Pleasant Cove Design is confirmed!
 
-APPOINTMENT DETAILS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 APPOINTMENT DETAILS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 📅 Date: ${new Date(data.appointmentDate).toLocaleDateString('en-US', { 
     weekday: 'long', 
     year: 'numeric', 
@@ -2271,30 +2631,150 @@ APPOINTMENT DETAILS:
 🎯 Services: ${data.services}
 ${data.businessName ? `🏢 Business: ${data.businessName}` : ''}
 
-WHAT TO EXPECT:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎯 WHAT TO EXPECT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 This 30-minute consultation will help us understand your project goals and outline a clear plan tailored to your business needs.
 
-PREPARATION:
-- Think about your current challenges
-- Consider your target audience
-- Have examples of designs you like ready to share
+📝 PREPARATION CHECKLIST:
+• Think about your current challenges and goals
+• Consider your target audience and competitors  
+• Have examples of designs you like ready to share
+• Prepare any questions about timeline and budget
 
-If you need to reschedule or have any questions, please reply to this email or call us at (207) 380-5680.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔗 MANAGE YOUR APPOINTMENT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📊 Client Dashboard: ${dashboardUrl}
+   View your project status, messages, and appointments
+
+📅 Reschedule: ${rescheduleUrl}
+   Need to change your appointment time?
+
+❌ Cancel: ${cancelUrl}
+   Cancel if you can't make it
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📞 CONTACT INFORMATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📧 Email: pleasantcovedesign@gmail.com
+📱 Phone: (207) 380-5680
+
+We're excited to work with you and help bring your vision to life!
 
 Best regards,
 The Pleasant Cove Design Team
 
-Project Reference: ${data.projectToken}
+🔐 Project Reference: ${data.projectToken}
 =====================================
   `;
   
   console.log(emailContent);
   
-  // TODO: Replace with actual email sending logic
-  // Example with nodemailer:
-  // await emailService.send({
-  //   to: data.to,
-  //   subject: 'Appointment Confirmed - Pleasant Cove Design',
-  //   html: generateEmailTemplate(data)
-  // });
+  // Enhanced HTML version for actual email sending
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #000; color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+        .content { background: #fff; padding: 30px; border: 1px solid #ddd; }
+        .appointment-details { background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; }
+        .action-buttons { margin: 30px 0; text-align: center; }
+        .btn { display: inline-block; padding: 12px 24px; margin: 0 10px 10px 0; text-decoration: none; border-radius: 6px; font-weight: 600; text-align: center; }
+        .btn-primary { background: #000; color: white; }
+        .btn-secondary { background: #6c757d; color: white; }
+        .btn-danger { background: #dc3545; color: white; }
+        .footer { background: #f8f9fa; padding: 20px; text-align: center; border-radius: 0 0 8px 8px; color: #6c757d; font-size: 14px; }
+        .checklist { background: #e7f3ff; padding: 15px; border-left: 4px solid #0066cc; margin: 15px 0; }
+        .checklist ul { margin: 0; padding-left: 20px; }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1>✅ Appointment Confirmed!</h1>
+        <p>Pleasant Cove Design Consultation</p>
+      </div>
+      
+      <div class="content">
+        <p>Dear <strong>${data.clientName}</strong>,</p>
+        <p>🎉 Your consultation with Pleasant Cove Design is confirmed!</p>
+        
+        <div class="appointment-details">
+          <h3>📋 Appointment Details</h3>
+          <p><strong>📅 Date:</strong> ${new Date(data.appointmentDate).toLocaleDateString('en-US', { 
+            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
+          })}</p>
+          <p><strong>🕒 Time:</strong> ${data.appointmentTime}</p>
+          <p><strong>⏱️ Duration:</strong> 30 minutes</p>
+          <p><strong>🎯 Services:</strong> ${data.services}</p>
+          ${data.businessName ? `<p><strong>🏢 Business:</strong> ${data.businessName}</p>` : ''}
+        </div>
+        
+        <div class="checklist">
+          <h4>📝 Preparation Checklist:</h4>
+          <ul>
+            <li>Think about your current challenges and goals</li>
+            <li>Consider your target audience and competitors</li>
+            <li>Have examples of designs you like ready to share</li>
+            <li>Prepare questions about timeline and budget</li>
+          </ul>
+        </div>
+        
+        <div class="action-buttons">
+          <h3>🔗 Manage Your Appointment</h3>
+          <a href="${dashboardUrl}" class="btn btn-primary">📊 View Dashboard</a>
+          <a href="${rescheduleUrl}" class="btn btn-secondary">📅 Reschedule</a>
+          <a href="${cancelUrl}" class="btn btn-danger">❌ Cancel</a>
+        </div>
+        
+        <p>We're excited to work with you and help bring your vision to life!</p>
+        
+        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd;">
+          <h4>📞 Contact Information</h4>
+          <p>📧 <strong>Email:</strong> pleasantcovedesign@gmail.com</p>
+          <p>📱 <strong>Phone:</strong> (207) 380-5680</p>
+        </div>
+      </div>
+      
+      <div class="footer">
+        <p>🔐 Project Reference: ${data.projectToken}</p>
+        <p>© 2025 Pleasant Cove Design. All rights reserved.</p>
+      </div>
+    </body>
+    </html>
+  `;
+  
+  // TODO: Replace with actual email service
+  // For now, keep console logging but prepare for real email integration
+  
+  // Uncomment when ready to integrate with real email service:
+  /*
+  try {
+    // Example with SendGrid:
+    // await sgMail.send({
+    //   to: data.to,
+    //   from: 'no-reply@pleasantcovedesign.com',
+    //   subject: '✅ Appointment Confirmed - Pleasant Cove Design',
+    //   html: htmlContent
+    // });
+    
+    // Example with Nodemailer:
+    // await transporter.sendMail({
+    //   from: '"Pleasant Cove Design" <no-reply@pleasantcovedesign.com>',
+    //   to: data.to,
+    //   subject: '✅ Appointment Confirmed - Pleasant Cove Design',
+    //   html: htmlContent
+    // });
+    
+    console.log('📧 Email sent successfully via email service');
+  } catch (error) {
+    console.error('📧 Email service failed, falling back to console log:', error);
+    // Fallback to console logging so appointments don't fail
+  }
+  */
 }
