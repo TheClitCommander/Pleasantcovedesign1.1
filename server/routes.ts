@@ -2665,6 +2665,72 @@ Booked via: ${source}
     }
   });
 
+  // Get availability for a specific date (for widget real-time checking)
+  app.get("/api/availability/:date", async (req: Request, res: Response) => {
+    try {
+      const { date } = req.params;
+      
+      // Define business hours - only two slots available daily
+      const allSlots = ['8:30 AM', '9:00 AM'];
+      
+      // Get existing appointments for this date
+      const appointments = await storage.getAppointments();
+      const appointmentsForDate = appointments.filter(apt => {
+        if (apt.status === 'cancelled') return false; // Ignore cancelled appointments
+        
+        const appointmentDate = new Date(apt.datetime);
+        const requestedDate = new Date(date);
+        
+        // Check if appointment is on the same date
+        return appointmentDate.toDateString() === requestedDate.toDateString();
+      });
+      
+      // Extract booked time slots from appointments
+      const bookedSlots: string[] = [];
+      appointmentsForDate.forEach(apt => {
+        const appointmentTime = new Date(apt.datetime);
+        
+        // Convert to Eastern Time and format as 12-hour time
+        const easternTime = new Date(appointmentTime.getTime() - (4 * 60 * 60 * 1000)); // Assuming EDT (UTC-4)
+        const hours = easternTime.getHours();
+        const minutes = easternTime.getMinutes();
+        
+        let timeString = '';
+        if (hours === 8 && minutes === 30) {
+          timeString = '8:30 AM';
+        } else if (hours === 9 && minutes === 0) {
+          timeString = '9:00 AM';
+        }
+        
+        if (timeString && !bookedSlots.includes(timeString)) {
+          bookedSlots.push(timeString);
+        }
+      });
+      
+      // Calculate available slots
+      const availableSlots = allSlots.filter(slot => !bookedSlots.includes(slot));
+      
+      console.log(`📅 Availability check for ${date}:`);
+      console.log(`   Available: [${availableSlots.join(', ')}]`);
+      console.log(`   Booked: [${bookedSlots.join(', ')}]`);
+      
+      res.json({
+        success: true,
+        date: date,
+        availableSlots: availableSlots,
+        bookedSlots: bookedSlots
+      });
+      
+    } catch (error) {
+      console.error('Error checking availability:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Failed to check availability',
+        error: 'Internal server error'
+      });
+    }
+  });
+
   return app;
 } 
 
