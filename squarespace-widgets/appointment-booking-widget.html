@@ -1297,6 +1297,8 @@ SUPPORT: pleasantcovedesign@gmail.com | (207) 380-5680
         }
 
         async function selectDate(date, element) {
+            console.log('📅 selectDate called with date:', date);
+            
             // Remove previous selection
             document.querySelectorAll('.calendar-day').forEach(day => {
                 day.classList.remove('selected');
@@ -1308,12 +1310,16 @@ SUPPORT: pleasantcovedesign@gmail.com | (207) 380-5680
             element.setAttribute('aria-selected', 'true');
             
             selectedDate = date.toISOString().split('T')[0];
+            console.log('📅 selectedDate set to:', selectedDate);
             
             // Clear previously selected time when date changes
             selectedTime = null;
+            console.log('⏰ selectedTime cleared');
             
             // Generate time slots for the selected date (now async with real-time availability)
+            console.log('🔄 About to call generateTimeSlots...');
             await generateTimeSlots(selectedDate);
+            console.log('✅ generateTimeSlots completed');
         }
 
         function changeMonth(direction) {
@@ -1348,12 +1354,15 @@ SUPPORT: pleasantcovedesign@gmail.com | (207) 380-5680
 
         // Generate available time slots for the selected date with real-time availability checking
         async function generateTimeSlots(date) {
+            console.log('🔍 generateTimeSlots called for date:', date);
             const timeSlotsContainer = document.getElementById('timeSlots');
             timeSlotsContainer.innerHTML = '<div class="loading-message">Checking availability...</div>';
             
             try {
                 // Call the availability API to get real-time slot availability
                 const apiUrl = getApiUrl();
+                console.log('🌐 Making availability API call to:', `${apiUrl}/api/availability/${date}`);
+                
                 const availabilityResponse = await fetch(`${apiUrl}/api/availability/${date}`, {
                     method: 'GET',
                     headers: {
@@ -1361,20 +1370,36 @@ SUPPORT: pleasantcovedesign@gmail.com | (207) 380-5680
                     }
                 });
                 
+                console.log('📡 Availability API response status:', availabilityResponse.status);
+                
                 let availableSlots = ['8:30 AM', '9:00 AM']; // Default fallback
                 
                 if (availabilityResponse.ok) {
                     const availabilityData = await availabilityResponse.json();
-                    if (availabilityData.success && availabilityData.availableSlots) {
+                    console.log('📊 Availability API response data:', availabilityData);
+                    
+                    if (availabilityData.success && Array.isArray(availabilityData.availableSlots)) {
                         availableSlots = availabilityData.availableSlots;
                         console.log(`📅 Available slots for ${date}:`, availableSlots);
                         
                         if (availabilityData.bookedSlots && availabilityData.bookedSlots.length > 0) {
                             console.log(`🚫 Booked slots for ${date}:`, availabilityData.bookedSlots);
                         }
+                        
+                        // IMPORTANT: Don't use fallback if API returns valid empty array
+                        if (availableSlots.length === 0) {
+                            console.log('❌ No slots available for this date');
+                        }
+                    } else {
+                        console.warn('⚠️ Invalid availability response format:', availabilityData);
+                        console.warn('⚠️ Falling back to default slots');
+                        // Keep default fallback slots
                     }
                 } else {
-                    console.warn('⚠️ Could not fetch availability, showing all slots');
+                    const errorText = await availabilityResponse.text();
+                    console.error('❌ Availability API error:', availabilityResponse.status, errorText);
+                    console.warn('⚠️ Could not fetch availability, showing default slots');
+                    // Keep default fallback slots
                 }
                 
                 // Clear loading message
@@ -1412,6 +1437,7 @@ SUPPORT: pleasantcovedesign@gmail.com | (207) 380-5680
                 
             } catch (error) {
                 console.error('❌ Error checking availability:', error);
+                console.error('❌ Error details:', error.message, error.stack);
                 
                 // Fallback: show all slots if API fails
                 timeSlotsContainer.innerHTML = '';
@@ -1473,8 +1499,11 @@ SUPPORT: pleasantcovedesign@gmail.com | (207) 380-5680
                 // Initialize calendar and time slots
                 const timeSlotsContainer = document.getElementById('timeSlots');
                 if (selectedDate) {
-                    // If we already have a selected date, show its time slots
-                    generateTimeSlots(selectedDate);
+                    // If we already have a selected date, show its time slots (async call)
+                    generateTimeSlots(selectedDate).catch(error => {
+                        console.error('Error generating time slots:', error);
+                        timeSlotsContainer.innerHTML = '<p style="text-align: center; color: #dc2626;">Error loading available times. Please try again.</p>';
+                    });
                 } else {
                     // Otherwise show the default message
                     timeSlotsContainer.innerHTML = '<p style="text-align: center; color: #6b7280;">Please select a date to see available times</p>';

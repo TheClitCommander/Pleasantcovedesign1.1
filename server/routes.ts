@@ -3,6 +3,12 @@ import { storage } from "./storage.js";
 import type { Business } from "../shared/schema.js";
 import { nanoid } from "nanoid";
 import nodemailer from 'nodemailer';
+import multer from 'multer';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Admin token for authentication
 const ADMIN_TOKEN = 'pleasantcove2024admin';
@@ -465,7 +471,7 @@ export async function registerRoutes(app: Express): Promise<any> {
   app.post("/api/public/project/:token/messages", async (req: Request, res: Response) => {
     try {
       const { token } = req.params;
-      const { content, senderName } = req.body;
+      const { content, senderName, attachments } = req.body;
       
       if (!token || !content || !senderName) {
         return res.status(400).json({ error: "Token, content, and sender name are required" });
@@ -481,7 +487,8 @@ export async function registerRoutes(app: Express): Promise<any> {
         projectId: projectData.id!,
         senderType: 'client',
         senderName,
-        content
+        content,
+        attachments: attachments || []
       });
 
       // Log activity for admin
@@ -496,6 +503,106 @@ export async function registerRoutes(app: Express): Promise<any> {
     } catch (error) {
       console.error("Failed to create client message:", error);
       res.status(500).json({ error: "Failed to send message" });
+    }
+  });
+
+  // ===================
+  // FILE UPLOAD API (PUBLIC - for messaging attachments)
+  // ===================
+  
+  // Configure multer for file uploads
+  const uploadDir = path.join(__dirname, '../uploads');
+  
+  // Create storage configuration
+  const storage_multer = multer.diskStorage({
+    destination: function (req, file, cb) {
+      // Ensure uploads directory exists
+      const fs = require('fs');
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+      cb(null, uploadDir);
+    },
+    filename: function (req, file, cb) {
+      // Generate unique filename with timestamp
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      const ext = path.extname(file.originalname);
+      const name = path.basename(file.originalname, ext);
+      cb(null, `${name}-${uniqueSuffix}${ext}`);
+    }
+  });
+  
+  // File filter for security - More permissive for better compatibility
+  const fileFilter = (req: any, file: any, cb: any) => {
+    console.log('🔍 File filter check:', {
+      originalname: file.originalname,
+      mimetype: file.mimetype,
+      size: file.size
+    });
+    
+    // Get file extension
+    const ext = path.extname(file.originalname).toLowerCase();
+    
+    // Blocked file types for security
+    const blockedExtensions = ['.exe', '.bat', '.cmd', '.com', '.scr', '.pif', '.vbs', '.js', '.jar'];
+    const blockedMimeTypes = [
+      'application/x-executable',
+      'application/x-msdownload',
+      'application/x-msdos-program'
+    ];
+    
+    // Check for blocked extensions
+    if (blockedExtensions.includes(ext)) {
+      console.log('❌ File blocked by extension:', ext);
+      return cb(new Error(`File type ${ext} not allowed for security reasons`), false);
+    }
+    
+    // Check for blocked MIME types
+    if (blockedMimeTypes.includes(file.mimetype)) {
+      console.log('❌ File blocked by MIME type:', file.mimetype);
+      return cb(new Error(`File type ${file.mimetype} not allowed for security reasons`), false);
+    }
+    
+    // Allow most files - we're using a blocklist approach for better compatibility
+    console.log('✅ File approved for upload');
+    cb(null, true);
+  };
+  
+  const upload = multer({ 
+    storage: storage_multer,
+    fileFilter: fileFilter,
+    limits: {
+      fileSize: 10 * 1024 * 1024 // 10MB limit
+    }
+  });
+  
+  // File upload endpoint (PUBLIC)
+  app.post("/api/upload", upload.single('file'), async (req: Request, res: Response) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No file provided" });
+      }
+      
+      const fileUrl = `/uploads/${req.file.filename}`;
+      
+      console.log('📎 File uploaded successfully:', {
+        filename: req.file.filename,
+        originalname: req.file.originalname,
+        size: req.file.size,
+        mimetype: req.file.mimetype,
+        url: fileUrl
+      });
+      
+      res.json({
+        success: true,
+        fileUrl: fileUrl,
+        filename: req.file.originalname,
+        size: req.file.size,
+        mimetype: req.file.mimetype
+      });
+    } catch (error) {
+      console.error("File upload error:", error);
+      res.status(500).json({ error: "Failed to upload file" });
     }
   });
 

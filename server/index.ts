@@ -57,6 +57,10 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 const buildPath = path.join(__dirname, '../dist/client');
 app.use(express.static(buildPath));
 
+// Serve uploaded files from uploads directory
+const uploadsPath = path.join(__dirname, '../uploads');
+app.use('/uploads', express.static(uploadsPath));
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.json({ 
