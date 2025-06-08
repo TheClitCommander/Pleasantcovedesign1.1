@@ -4,6 +4,7 @@ import type { Business } from "../shared/schema.js";
 import { nanoid } from "nanoid";
 import nodemailer from 'nodemailer';
 import multer from 'multer';
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -517,7 +518,6 @@ export async function registerRoutes(app: Express): Promise<any> {
   const storage_multer = multer.diskStorage({
     destination: function (req, file, cb) {
       // Ensure uploads directory exists
-      const fs = require('fs');
       if (!fs.existsSync(uploadDir)) {
         fs.mkdirSync(uploadDir, { recursive: true });
       }
