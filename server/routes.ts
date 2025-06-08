@@ -2615,12 +2615,23 @@ const createEmailTransporter = () => {
 };
 
 async function sendAppointmentConfirmationEmail(data: EmailConfirmationData): Promise<void> {
-  // Build URLs for client actions
-  const baseUrl = process.env.CLIENT_PORTAL_URL || 'http://localhost:5174';
+  // Build URLs for client actions - Auto-detect environment
+  let baseUrl: string;
+  
+  if (process.env.NODE_ENV === 'production') {
+    // Production Railway URL
+    baseUrl = 'https://pleasantcovedesign-production.up.railway.app';
+  } else if (process.env.CLIENT_PORTAL_URL) {
+    // Custom URL from environment
+    baseUrl = process.env.CLIENT_PORTAL_URL;
+  } else {
+    // Local development
+    baseUrl = 'http://localhost:5174';
+  }
+  
   const appointmentId = data.appointmentId || ''; // We'll need to pass this
   
-  // Client dashboard and appointment management links
-  const dashboardUrl = `${baseUrl}/api/client-dashboard/${data.projectToken}`;
+  // Client appointment management links (removed dashboard as requested)
   const rescheduleUrl = `${baseUrl}/api/appointments/${appointmentId}/reschedule?token=${data.projectToken}`;
   const cancelUrl = `${baseUrl}/cancel-appointment/${appointmentId}?token=${data.projectToken}`;
   
@@ -2663,9 +2674,6 @@ This 30-minute consultation will help us understand your project goals and outli
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🔗 MANAGE YOUR APPOINTMENT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-📊 Client Dashboard: ${dashboardUrl}
-   View your project status, messages, and appointments
 
 📅 Reschedule: ${rescheduleUrl}
    Need to change your appointment time?
@@ -2744,7 +2752,6 @@ The Pleasant Cove Design Team
         
         <div class="action-buttons">
           <h3>🔗 Manage Your Appointment</h3>
-          <a href="${dashboardUrl}" class="btn btn-primary">📊 View Dashboard</a>
           <a href="${rescheduleUrl}" class="btn btn-secondary">📅 Reschedule</a>
           <a href="${cancelUrl}" class="btn btn-danger">❌ Cancel</a>
         </div>
