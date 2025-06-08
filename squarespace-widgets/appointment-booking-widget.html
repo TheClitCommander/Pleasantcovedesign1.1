@@ -1528,33 +1528,30 @@ SUPPORT: pleasantcovedesign@gmail.com | (207) 380-5680
         
         function getApiUrl() {
             // *** PRODUCTION VERSION - 2025-06-07 ***
-            // AUTO-DETECTS ENVIRONMENT AND USES CORRECT API URL
+            // UPDATED: More reliable environment detection with Railway as primary
             
-            // Production Railway URL (will be updated after deployment)
+            // Production Railway URL (confirmed working ✅)
             const PRODUCTION_API_URL = 'https://pleasantcovedesign-production.up.railway.app';
             
-            // Development URLs
+            // Development URLs (only for local testing)
             const LOCAL_API_URL = 'http://localhost:5174';
-            const NGROK_URL = 'https://aebf-2603-7080-e501-3f6a-940a-6a2a-8336-f079.ngrok-free.app';
             
             // Detect environment
             const hostname = window.location.hostname;
             console.log('🌐 HOSTNAME DETECTED:', hostname);
-            console.log('📅 CODE VERSION: 2025-06-07-PRODUCTION-READY');
+            console.log('📅 CODE VERSION: 2025-06-07-RAILWAY-OPTIMIZED');
             
             const isLocal = hostname === 'localhost' || hostname === '127.0.0.1';
-            const isProduction = hostname === 'pleasantcovedesign.com' || hostname === 'www.pleasantcovedesign.com' || hostname.includes('squarespace');
             
             if (isLocal) {
-                console.log('🏠 Using LOCAL API:', LOCAL_API_URL);
+                console.log('🏠 Using LOCAL API for testing:', LOCAL_API_URL);
                 return LOCAL_API_URL;
-            } else if (isProduction) {
-                console.log('🚀 Using PRODUCTION API:', PRODUCTION_API_URL);
-                return PRODUCTION_API_URL;
             } else {
-                // Fallback to ngrok for testing
-                console.log('🔧 Using NGROK URL for testing:', NGROK_URL);
-                return NGROK_URL;
+                // For ALL non-local environments (Squarespace, production sites, etc.)
+                // Always use the Railway URL since it's confirmed working
+                console.log('🚀 Using PRODUCTION RAILWAY API:', PRODUCTION_API_URL);
+                console.log('📍 This ensures appointments appear in your /schedule dashboard');
+                return PRODUCTION_API_URL;
             }
         }
 
@@ -1634,11 +1631,25 @@ SUPPORT: pleasantcovedesign@gmail.com | (207) 380-5680
                     let errorMessage = `Server error (${response.status})`;
                     try {
                         const errorData = JSON.parse(errorText);
-                        errorMessage = errorData.message || errorMessage;
+                        
+                        // Handle specific error cases
+                        if (response.status === 409 && errorData.error === 'TIME_SLOT_UNAVAILABLE') {
+                            // Double booking error - show user-friendly message with alternatives
+                            const alternatives = errorData.availableAlternatives || [];
+                            const altText = alternatives.length > 0 
+                                ? `<br><br><strong>Available alternatives:</strong> ${alternatives.join(' or ')}`
+                                : '';
+                            
+                            errorMessage = `⚠️ <strong>Time Slot Unavailable</strong><br><br>${errorData.message}${altText}<br><br>Please go back and select a different time slot.`;
+                        } else {
+                            errorMessage = errorData.message || errorMessage;
+                        }
                     } catch (e) {
                         // Not JSON, use status-based message
                         if (response.status === 404) {
                             errorMessage = 'Service not found. Please check your configuration.';
+                        } else if (response.status === 409) {
+                            errorMessage = 'This time slot is already booked. Please select a different time.';
                         } else if (response.status >= 500) {
                             errorMessage = 'Server error. Please try again later.';
                         }

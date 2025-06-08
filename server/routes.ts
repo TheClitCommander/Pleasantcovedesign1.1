@@ -2367,6 +2367,64 @@ export async function registerRoutes(app: Express): Promise<any> {
     `);
   });
 
+  // Helper function to create properly timezone-aware appointment datetime
+  function createAppointmentDateTime(appointmentDate: string, appointmentTime: string): string {
+    // Pleasant Cove Design is in Maine (Eastern Time)
+    // Convert the appointment time from Eastern Time to UTC for storage
+    const time24 = convertTo24Hour(appointmentTime);
+    
+    // Determine if it's EDT (UTC-4) or EST (UTC-5) based on the date
+    const appointmentDateObj = new Date(appointmentDate);
+    const isEDT = isDaylightSavingTime(appointmentDateObj);
+    const utcOffset = isEDT ? 4 : 5; // EDT is UTC-4, EST is UTC-5
+    
+    // Create the datetime and convert to UTC
+    const [year, month, day] = appointmentDate.split('-');
+    const [hours, minutes] = time24.split(':');
+    
+    // Create in UTC by adding the Eastern Time offset
+    const utcDateTime = new Date(Date.UTC(
+      parseInt(year),
+      parseInt(month) - 1, // Month is 0-indexed
+      parseInt(day),
+      parseInt(hours) + utcOffset, // Add offset to convert Eastern to UTC
+      parseInt(minutes)
+    ));
+    
+    return utcDateTime.toISOString();
+  }
+
+  // Helper function to determine if a date is in Daylight Saving Time (EDT)
+  function isDaylightSavingTime(date: Date): boolean {
+    // DST in US: Second Sunday in March to First Sunday in November
+    const year = date.getFullYear();
+    
+    // Second Sunday in March
+    const march = new Date(year, 2, 1); // March 1st
+    const dstStart = new Date(year, 2, (14 - march.getDay()) % 7 + 7);
+    
+    // First Sunday in November  
+    const november = new Date(year, 10, 1); // November 1st
+    const dstEnd = new Date(year, 10, (7 - november.getDay()) % 7);
+    
+    return date >= dstStart && date < dstEnd;
+  }
+
+  // Helper function to convert 12-hour time to 24-hour format  
+  function convertTo24Hour(time12h: string): string {
+    const [time, modifier] = time12h.split(' ');
+    let [hours, minutes] = time.split(':');
+    
+    // Handle 12 AM (midnight) and 12 PM (noon) cases
+    if (hours === '12') {
+      hours = modifier === 'AM' ? '00' : '12';
+    } else if (modifier === 'PM') {
+      hours = (parseInt(hours, 10) + 12).toString();
+    }
+    
+    return `${hours.padStart(2, '0')}:${minutes}:00`;
+  }
+
   // Book appointment with comprehensive intake form
   app.post("/api/book-appointment", async (req: Request, res: Response) => {
     try {
@@ -2396,6 +2454,46 @@ export async function registerRoutes(app: Express): Promise<any> {
         appointmentDate,
         appointmentTime
       });
+
+      // **CHECK AVAILABILITY FIRST - Prevent double booking**
+      console.log('🔍 Checking appointment availability...');
+      const requestedDateTime = createAppointmentDateTime(appointmentDate, appointmentTime);
+      
+      // Check for existing appointments at the same date/time
+      const existingAppointments = await storage.getAppointments();
+      const conflictingAppointment = existingAppointments.find(apt => {
+        if (apt.status === 'cancelled') return false; // Ignore cancelled appointments
+        
+        const existingDateTime = new Date(apt.datetime);
+        const requestedDateTimeObj = new Date(requestedDateTime);
+        
+        // Check if appointments are at the same time (within 30 minute window)
+        const timeDiff = Math.abs(existingDateTime.getTime() - requestedDateTimeObj.getTime());
+        const thirtyMinutes = 30 * 60 * 1000; // 30 minutes in milliseconds
+        
+        return timeDiff < thirtyMinutes;
+      });
+      
+      if (conflictingAppointment) {
+        console.log('❌ Time slot conflict detected');
+        console.log('Conflicting appointment:', {
+          id: conflictingAppointment.id,
+          datetime: conflictingAppointment.datetime,
+          status: conflictingAppointment.status
+        });
+        
+        return res.status(409).json({
+          success: false,
+          message: `Sorry, the ${appointmentTime} time slot on ${new Date(appointmentDate).toLocaleDateString()} is already booked. Please choose a different time.`,
+          error: 'TIME_SLOT_UNAVAILABLE',
+          availableAlternatives: [
+            '8:30 AM',
+            '9:00 AM'
+          ].filter(time => time !== appointmentTime) // Suggest the other time slot
+        });
+      }
+      
+      console.log('✅ Time slot is available, proceeding with booking...');
 
       // First, create or update the client/company record
       let projectToken: string;
@@ -2475,12 +2573,12 @@ export async function registerRoutes(app: Express): Promise<any> {
         console.log(`✅ Created project: ${projectData.title} (ID: ${projectId})`);
       }
 
-      // Create the appointment record
+      // Create the appointment record with proper timezone handling
       const appointmentData = {
         companyId,        // ✅ Use new CRM structure
         projectId,        // ✅ Link to project
         projectToken,     // ✅ For client access
-        datetime: new Date(`${appointmentDate}T${convertTo24Hour(appointmentTime)}`).toISOString(),
+        datetime: createAppointmentDateTime(appointmentDate, appointmentTime),
         status: 'scheduled',
         notes: `
 Initial Consultation Appointment
@@ -2566,22 +2664,6 @@ Booked via: ${source}
       });
     }
   });
-
-  // Helper function to convert 12-hour time to 24-hour format
-  function convertTo24Hour(time12h: string): string {
-    const [time, modifier] = time12h.split(' ');
-    let [hours, minutes] = time.split(':');
-    
-    if (hours === '12') {
-      hours = '00';
-    }
-    
-    if (modifier === 'PM') {
-      hours = parseInt(hours, 10) + 12 + '';
-    }
-    
-    return `${hours.padStart(2, '0')}:${minutes}:00`;
-  }
 
   return app;
 } 
