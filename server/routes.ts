@@ -2075,11 +2075,11 @@ export async function registerRoutes(app: Express): Promise<any> {
               submitBtn.disabled = true;
               
               try {
-                const response = await fetch('/api/appointments/${appointmentId}/cancel', {
+                const response = await fetch(\`/api/appointments/${appointmentId}/cancel\`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ 
-                    token: '${token}', 
+                    token: \`${token}\`, 
                     reason: reason 
                   })
                 });
@@ -2477,9 +2477,9 @@ export async function registerRoutes(app: Express): Promise<any> {
 
       // Create the appointment record
       const appointmentData = {
-        businessId: companyId,
-        client_id: companyId,
-        projectToken,
+        companyId,        // ✅ Use new CRM structure
+        projectId,        // ✅ Link to project
+        projectToken,     // ✅ For client access
         datetime: new Date(`${appointmentDate}T${convertTo24Hour(appointmentTime)}`).toISOString(),
         status: 'scheduled',
         notes: `
