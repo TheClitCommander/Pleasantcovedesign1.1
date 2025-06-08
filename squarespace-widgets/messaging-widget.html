@@ -429,8 +429,12 @@
                         placeholder="Type your message..."
                         rows="1"
                     ></textarea>
-                    <!-- File upload temporarily disabled -->
-                    <input type="file" id="file-input" class="pcd-file-input" multiple accept="image/*,.pdf,.doc,.docx,.txt" style="display: none !important;">
+                    <button type="button" class="pcd-file-input-btn" onclick="document.getElementById('file-input').click()">
+                        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path>
+                        </svg>
+                    </button>
+                    <input type="file" id="file-input" class="pcd-file-input" multiple accept="image/*,.pdf,.doc,.docx,.txt">
                 </div>
                 <button type="submit" class="pcd-send-btn" id="send-btn">
                     <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
