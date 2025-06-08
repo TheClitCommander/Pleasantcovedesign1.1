@@ -1296,7 +1296,7 @@ SUPPORT: pleasantcovedesign@gmail.com | (207) 380-5680
             }
         }
 
-        function selectDate(date, element) {
+        async function selectDate(date, element) {
             // Remove previous selection
             document.querySelectorAll('.calendar-day').forEach(day => {
                 day.classList.remove('selected');
@@ -1312,8 +1312,8 @@ SUPPORT: pleasantcovedesign@gmail.com | (207) 380-5680
             // Clear previously selected time when date changes
             selectedTime = null;
             
-            // Generate time slots for the selected date
-            generateTimeSlots(selectedDate);
+            // Generate time slots for the selected date (now async with real-time availability)
+            await generateTimeSlots(selectedDate);
         }
 
         function changeMonth(direction) {
@@ -1346,20 +1346,48 @@ SUPPORT: pleasantcovedesign@gmail.com | (207) 380-5680
             selectedTime = time;
         }
 
-        // Generate available time slots for the selected date
-        function generateTimeSlots(date) {
+        // Generate available time slots for the selected date with real-time availability checking
+        async function generateTimeSlots(date) {
             const timeSlotsContainer = document.getElementById('timeSlots');
-            timeSlotsContainer.innerHTML = '<div class="loading-message">Loading available times...</div>';
+            timeSlotsContainer.innerHTML = '<div class="loading-message">Checking availability...</div>';
             
-            // Only two time slots available
-            const defaultTimeSlots = ['8:30 AM', '9:00 AM'];
-            
-            // Clear loading message and show time slots
-            setTimeout(function() {
+            try {
+                // Call the availability API to get real-time slot availability
+                const apiUrl = getApiUrl();
+                const availabilityResponse = await fetch(`${apiUrl}/api/availability/${date}`, {
+                    method: 'GET',
+                    headers: {
+                        'ngrok-skip-browser-warning': 'true'
+                    }
+                });
+                
+                let availableSlots = ['8:30 AM', '9:00 AM']; // Default fallback
+                
+                if (availabilityResponse.ok) {
+                    const availabilityData = await availabilityResponse.json();
+                    if (availabilityData.success && availabilityData.availableSlots) {
+                        availableSlots = availabilityData.availableSlots;
+                        console.log(`📅 Available slots for ${date}:`, availableSlots);
+                        
+                        if (availabilityData.bookedSlots && availabilityData.bookedSlots.length > 0) {
+                            console.log(`🚫 Booked slots for ${date}:`, availabilityData.bookedSlots);
+                        }
+                    }
+                } else {
+                    console.warn('⚠️ Could not fetch availability, showing all slots');
+                }
+                
+                // Clear loading message
                 timeSlotsContainer.innerHTML = '';
                 
-                // Generate time slot elements
-                defaultTimeSlots.forEach(function(time) {
+                if (availableSlots.length === 0) {
+                    // No slots available for this date
+                    timeSlotsContainer.innerHTML = '<div class="loading-message" style="color: #dc2626;">No appointment slots available for this date. Please select a different date.</div>';
+                    return;
+                }
+                
+                // Generate time slot elements for ONLY available slots
+                availableSlots.forEach(function(time) {
                     const timeOption = document.createElement('div');
                     timeOption.className = 'time-option';
                     timeOption.textContent = time;
@@ -1379,7 +1407,39 @@ SUPPORT: pleasantcovedesign@gmail.com | (207) 380-5680
                     
                     timeSlotsContainer.appendChild(timeOption);
                 });
-            }, 100); // Small delay to show loading state
+                
+                console.log(`✅ Generated ${availableSlots.length} available time slots for ${date}`);
+                
+            } catch (error) {
+                console.error('❌ Error checking availability:', error);
+                
+                // Fallback: show all slots if API fails
+                timeSlotsContainer.innerHTML = '';
+                const fallbackSlots = ['8:30 AM', '9:00 AM'];
+                
+                fallbackSlots.forEach(function(time) {
+                    const timeOption = document.createElement('div');
+                    timeOption.className = 'time-option';
+                    timeOption.textContent = time;
+                    timeOption.setAttribute('role', 'radio');
+                    timeOption.setAttribute('aria-checked', 'false');
+                    timeOption.setAttribute('tabindex', '0');
+                    
+                    timeOption.onclick = function() {
+                        selectTime(time, timeOption);
+                    };
+                    timeOption.onkeydown = function(e) {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            selectTime(time, timeOption);
+                        }
+                    };
+                    
+                    timeSlotsContainer.appendChild(timeOption);
+                });
+                
+                console.log('⚠️ Using fallback slots due to API error');
+            }
         }
 
         // ==================

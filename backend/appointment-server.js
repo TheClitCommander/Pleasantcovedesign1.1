@@ -84,29 +84,67 @@ app.post('/api/book-appointment', async (req, res) => {
             });
         }
 
-        // Insert into database
-        const stmt = db.prepare(`
-            INSERT INTO appointments (
-                firstName, lastName, email, phone, businessName,
-                services, projectDescription, budget, timeline,
-                appointmentDate, appointmentTime, additionalNotes
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `);
-
-        stmt.run(
-            firstName, lastName, email, phone, businessName || '',
-            services, projectDescription, budget, timeline,
-            appointmentDate, appointmentTime, additionalNotes || '',
-            async function(err) {
+        // **CHECK AVAILABILITY FIRST - Prevent double booking**
+        console.log('🔍 Checking appointment availability...');
+        
+        // Check for existing appointments at the same date/time
+        db.all(
+            'SELECT * FROM appointments WHERE appointmentDate = ? AND appointmentTime = ? AND status != ?',
+            [appointmentDate, appointmentTime, 'cancelled'],
+            (err, existingAppointments) => {
                 if (err) {
-                    console.error('Database error:', err);
+                    console.error('Database error checking availability:', err);
                     return res.status(500).json({ 
                         success: false, 
-                        message: 'Failed to save appointment' 
+                        message: 'Failed to check availability' 
                     });
                 }
+                
+                if (existingAppointments.length > 0) {
+                    console.log('❌ Time slot conflict detected');
+                    console.log('Conflicting appointments:', existingAppointments.map(apt => ({
+                        id: apt.id,
+                        date: apt.appointmentDate,
+                        time: apt.appointmentTime,
+                        client: `${apt.firstName} ${apt.lastName}`
+                    })));
+                    
+                    return res.status(409).json({
+                        success: false,
+                        message: `Sorry, the ${appointmentTime} time slot on ${new Date(appointmentDate).toLocaleDateString()} is already booked. Please choose a different time.`,
+                        error: 'TIME_SLOT_UNAVAILABLE',
+                        availableAlternatives: [
+                            '8:30 AM',
+                            '9:00 AM'
+                        ].filter(time => time !== appointmentTime) // Suggest the other time slot
+                    });
+                }
+                
+                                console.log('✅ Time slot is available, proceeding with booking...');
+                
+                // Insert into database
+                const stmt = db.prepare(`
+                    INSERT INTO appointments (
+                        firstName, lastName, email, phone, businessName,
+                        services, projectDescription, budget, timeline,
+                        appointmentDate, appointmentTime, additionalNotes
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                `);
 
-                const appointmentId = this.lastID;
+                stmt.run(
+                    firstName, lastName, email, phone, businessName || '',
+                    services, projectDescription, budget, timeline,
+                    appointmentDate, appointmentTime, additionalNotes || '',
+                    async function(err) {
+                        if (err) {
+                            console.error('Database error:', err);
+                            return res.status(500).json({ 
+                                success: false, 
+                                message: 'Failed to save appointment' 
+                            });
+                        }
+
+                        const appointmentId = this.lastID;
 
                 // Send confirmation emails
                 try {
@@ -163,15 +201,17 @@ app.post('/api/book-appointment', async (req, res) => {
                     // Don't fail the appointment if email fails
                 }
 
-                res.json({
-                    success: true,
-                    message: 'Appointment booked successfully',
-                    appointmentId: appointmentId
-                });
+                        res.json({
+                            success: true,
+                            message: 'Appointment booked successfully',
+                            appointmentId: appointmentId
+                        });
+                    }
+                );
+
+                stmt.finalize();
             }
         );
-
-        stmt.finalize();
 
     } catch (error) {
         console.error('Server error:', error);
