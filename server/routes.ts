@@ -1644,23 +1644,53 @@ export async function registerRoutes(app: Express): Promise<any> {
     }
   });
 
-  // Campaigns
-  app.get("/api/campaigns", async (req: Request, res: Response) => {
+  // Statistics (for dashboard)
+  app.get("/api/stats", async (req: Request, res: Response) => {
     try {
-      const campaigns = await storage.getCampaigns();
-      res.json(campaigns);
+      const stats = await storage.getStats();
+      res.json(stats);
     } catch (error) {
-      res.status(500).json({ error: "Failed to fetch campaigns" });
+      console.error("Failed to fetch stats:", error);
+      res.status(500).json({ error: "Failed to fetch statistics" });
     }
   });
 
-  // Templates
-  app.get("/api/templates", async (req: Request, res: Response) => {
+  // Businesses/Leads (legacy system)
+  app.get("/api/businesses", async (req: Request, res: Response) => {
     try {
-      const templates = await storage.getTemplates();
-      res.json(templates);
+      const businesses = await storage.getBusinesses();
+      res.json(businesses);
     } catch (error) {
-      res.status(500).json({ error: "Failed to fetch templates" });
+      console.error("Failed to fetch businesses:", error);
+      res.status(500).json({ error: "Failed to fetch businesses" });
+    }
+  });
+
+  // Companies (new system)
+  app.get("/api/companies", async (req: Request, res: Response) => {
+    try {
+      const companies = await storage.getCompanies();
+      res.json(companies);
+    } catch (error) {
+      console.error("Failed to fetch companies:", error);
+      res.status(500).json({ error: "Failed to fetch companies" });
+    }
+  });
+
+  // Get single company by ID
+  app.get("/api/companies/:id", async (req: Request, res: Response) => {
+    try {
+      const companyId = parseInt(req.params.id);
+      const company = await storage.getCompanyById(companyId);
+      
+      if (!company) {
+        return res.status(404).json({ error: "Company not found" });
+      }
+      
+      res.json(company);
+    } catch (error) {
+      console.error("Failed to fetch company:", error);
+      res.status(500).json({ error: "Failed to fetch company" });
     }
   });
 
