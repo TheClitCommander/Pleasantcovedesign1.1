@@ -14,21 +14,30 @@ const __dirname = path.dirname(__filename);
 // Configure multer for file uploads
 const uploadDir = path.join(__dirname, '../uploads');
 
-// Ensure uploads directory exists
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
+// Global flag for storage type
+let useMemoryStorage = false;
+try {
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+  }
+  console.log('✅ Uploads directory ready:', uploadDir);
+} catch (error) {
+  console.warn('⚠️ Cannot create uploads directory, using memory storage:', error);
+  useMemoryStorage = true;
 }
 
-const storage_multer = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, uploadDir);
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    const ext = path.extname(file.originalname);
-    cb(null, `${file.fieldname}-${uniqueSuffix}${ext}`);
-  }
-});
+const storage_multer = useMemoryStorage ? 
+  multer.memoryStorage() : 
+  multer.diskStorage({
+    destination: function (req, file, cb) {
+      cb(null, uploadDir);
+    },
+    filename: function (req, file, cb) {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      const ext = path.extname(file.originalname);
+      cb(null, `${file.fieldname}-${uniqueSuffix}${ext}`);
+    }
+  });
 
 const upload = multer({ 
   storage: storage_multer,
@@ -534,9 +543,18 @@ export async function registerRoutes(app: Express): Promise<any> {
       const attachments: string[] = [];
       if (files && files.length > 0) {
         for (const file of files) {
-          const fileUrl = `/uploads/${file.filename}`;
-          attachments.push(fileUrl);
-          console.log('📎 File uploaded:', file.originalname, '→', fileUrl);
+          if (useMemoryStorage) {
+            // For memory storage, create a data URL or temporary identifier
+            const fileId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+            const fileUrl = `/temp-files/${fileId}-${file.originalname}`;
+            attachments.push(fileUrl);
+            console.log('📎 File processed (memory):', file.originalname, '→', fileUrl, '(', file.size, 'bytes)');
+          } else {
+            // For disk storage, use the saved filename
+            const fileUrl = `/uploads/${file.filename}`;
+            attachments.push(fileUrl);
+            console.log('📎 File uploaded (disk):', file.originalname, '→', fileUrl);
+          }
         }
       }
 
