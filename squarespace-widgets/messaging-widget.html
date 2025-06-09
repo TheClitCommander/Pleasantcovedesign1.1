@@ -448,9 +448,9 @@
     <script>
         // Configuration - AUTOMATICALLY DETECTS BACKEND URL
         const CONFIG = {
-            backendUrl: window.backendUrl || detectBackendUrl(),
+            backendUrl: window.backendUrl || 'https://pleasantcovedesign-production.up.railway.app', // Use Railway backend
             memberEmail: null,
-            projectToken: '085cq02tgnifry1t1n54x9i6hlb8a79x1h', // Railway token that actually exists
+            projectToken: 'kea_tcfvAFBzC9_6EdXddgEH', // Railway token (replace with your actual token)
             pollInterval: 3000, // Poll for new messages every 3 seconds
             maxFileSize: 10 * 1024 * 1024, // 10MB
             allowedFileTypes: ['image/jpeg', 'image/png', 'image/gif', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain']
@@ -462,12 +462,7 @@
 
         // Smart backend URL detection
         function detectBackendUrl() {
-            // Check if we're on localhost (development)
-            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-                return 'http://localhost:5174';
-            }
-            
-            // For production, use Railway (messaging system confirmed working!)
+            // Always use Railway production URL
             return 'https://pleasantcovedesign-production.up.railway.app';
         }
 
@@ -777,7 +772,7 @@
             renderFilePreview();
         }
 
-        // Handle send message
+        // Handle send message - UNIFIED FormData approach
         async function handleSendMessage(e) {
             e.preventDefault();
             
@@ -790,7 +785,7 @@
                 return;
             }
             
-            console.log('📤 Sending message...', { content, files: selectedFiles.length });
+            console.log('📤 Sending unified message...', { content, files: selectedFiles.length });
             
             // Show sending state
             const originalText = sendBtn.textContent;
@@ -798,55 +793,39 @@
             sendBtn.disabled = true;
             
             try {
-                // Prepare message data
-                const messageData = {
-                    content: content || '(File attachment)',
-                    senderName: CONFIG.memberEmail || 'Client',
-                    senderType: 'client'
-                };
+                // Create FormData for unified upload + message
+                const formData = new FormData();
+                formData.append('content', content || '(File attachment)');
+                formData.append('senderName', CONFIG.memberEmail || 'Client');
+                formData.append('senderType', 'client');
                 
-                // Upload files if any
-                if (selectedFiles.length > 0) {
-                    console.log('📎 Uploading', selectedFiles.length, 'files...');
-                    sendBtn.textContent = `Uploading ${selectedFiles.length} file(s)...`;
-                    
-                    try {
-                        messageData.attachments = await uploadFiles(selectedFiles);
-                        console.log('📎 All files uploaded successfully');
-                        sendBtn.textContent = 'Sending message...';
-                    } catch (uploadError) {
-                        console.error('❌ File upload failed:', uploadError);
-                        sendBtn.textContent = originalText;
-                        sendBtn.disabled = false;
-                        
-                        // Don't proceed with message if upload failed
-                        showError(`Upload failed: ${uploadError.message}`);
-                        return;
-                    }
-                }
+                // Attach all files directly to FormData
+                selectedFiles.forEach((file, index) => {
+                    formData.append('files', file);
+                    console.log(`📎 Adding file ${index + 1}:`, file.name);
+                });
                 
-                // Send message
+                // Send everything in one request
                 const url = `${CONFIG.backendUrl}/api/public/project/${CONFIG.projectToken}/messages`;
-                console.log('📤 Sending to:', url);
-                console.log('📦 Message data:', messageData);
+                console.log('📤 Sending unified request to:', url);
                 
                 const response = await fetch(url, {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
                         'Accept': 'application/json',
                         'ngrok-skip-browser-warning': 'true',
                         'User-Agent': 'Pleasant-Cove-Messaging-Widget'
+                        // Note: NO Content-Type header - let browser set multipart boundary
                     },
                     mode: 'cors',
-                    body: JSON.stringify(messageData)
+                    body: formData
                 });
                 
-                console.log('📡 Send response status:', response.status);
+                console.log('📡 Unified response status:', response.status);
                 
                 if (response.ok) {
                     const result = await response.json();
-                    console.log('✅ Message sent successfully:', result);
+                    console.log('✅ Unified message sent successfully:', result);
                     
                     // Clear input and files
                     messageInput.value = '';
@@ -865,7 +844,7 @@
                     hideEmptyState();
                 } else {
                     const errorText = await response.text();
-                    console.error('❌ Send failed:', response.status, errorText);
+                    console.error('❌ Unified send failed:', response.status, errorText);
                     
                     let errorMessage = `Failed to send message (${response.status})`;
                     try {
@@ -878,7 +857,7 @@
                     showError(errorMessage);
                 }
             } catch (error) {
-                console.error('❌ Error sending message:', error);
+                console.error('❌ Error sending unified message:', error);
                 
                 let errorMessage = 'Failed to send message';
                 if (error.message.includes('Failed to fetch')) {
@@ -894,74 +873,7 @@
             }
         }
 
-        // Upload files with better error handling
-        async function uploadFiles(files) {
-            console.log('📎 Starting upload for', files.length, 'files');
-            const uploadedUrls = [];
-            
-            for (const file of files) {
-                try {
-                    console.log('📤 Uploading file:', file.name, 'Type:', file.type, 'Size:', file.size);
-                    
-                    const formData = new FormData();
-                    formData.append('file', file);
-                    
-                    const uploadUrl = `${CONFIG.backendUrl}/api/upload`;
-                    console.log('🌐 Upload URL:', uploadUrl);
-                    
-                    const response = await fetch(uploadUrl, {
-                        method: 'POST',
-                        headers: {
-                            'ngrok-skip-browser-warning': 'true'
-                        },
-                        body: formData
-                    });
-                    
-                    console.log('📡 Upload response status:', response.status);
-                    
-                    if (response.ok) {
-                        const result = await response.json();
-                        console.log('✅ Upload successful:', result);
-                        uploadedUrls.push(result.fileUrl);
-                    } else {
-                        const errorText = await response.text();
-                        console.error('❌ Upload failed for', file.name + ':', response.status, errorText);
-                        
-                        let errorMessage;
-                        if (response.status === 404) {
-                            errorMessage = `Upload service not available. Please contact support.`;
-                        } else if (response.status === 413) {
-                            errorMessage = `File "${file.name}" is too large. Maximum size is 10MB.`;
-                        } else if (response.status === 400) {
-                            try {
-                                const errorData = JSON.parse(errorText);
-                                errorMessage = errorData.error || `Invalid file: ${file.name}`;
-                            } catch {
-                                errorMessage = `Invalid file: ${file.name}`;
-                            }
-                        } else {
-                            errorMessage = `Failed to upload "${file.name}": ${response.status}`;
-                        }
-                        
-                        alert(errorMessage);
-                        throw new Error(errorMessage);
-                    }
-                } catch (error) {
-                    console.error('❌ Upload error for', file.name + ':', error);
-                    
-                    if (error.message.includes('Failed to fetch')) {
-                        const errorMsg = `Cannot connect to upload service. Please check your connection.`;
-                        alert(errorMsg);
-                        throw new Error(errorMsg);
-                    }
-                    
-                    throw error; // Re-throw other errors
-                }
-            }
-            
-            console.log('✅ All uploads completed:', uploadedUrls);
-            return uploadedUrls;
-        }
+        // Note: uploadFiles() function removed - now using unified FormData approach in handleSendMessage()
 
         // Render messages
         function renderMessages(messages) {

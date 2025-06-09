@@ -5,9 +5,50 @@ import { nanoid } from "nanoid";
 import nodemailer from 'nodemailer';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import multer from 'multer';
+import fs from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Configure multer for file uploads
+const uploadDir = path.join(__dirname, '../uploads');
+
+// Ensure uploads directory exists
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+const storage_multer = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const ext = path.extname(file.originalname);
+    cb(null, `${file.fieldname}-${uniqueSuffix}${ext}`);
+  }
+});
+
+const upload = multer({ 
+  storage: storage_multer,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+    files: 5 // Max 5 files per request
+  },
+  fileFilter: function (req, file, cb) {
+    // Allow common file types
+    const allowedTypes = /jpeg|jpg|png|gif|pdf|doc|docx|txt|zip|xls|xlsx/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    
+    if (mimetype && extname) {
+      return cb(null, true);
+    } else {
+      cb(new Error('Only images, documents, and common file types are allowed!'));
+    }
+  }
+});
 
 // Admin token for authentication
 const ADMIN_TOKEN = 'pleasantcove2024admin';
@@ -466,14 +507,21 @@ export async function registerRoutes(app: Express): Promise<any> {
     }
   });
 
-  // Create message in project (PUBLIC - for client replies)
-  app.post("/api/public/project/:token/messages", async (req: Request, res: Response) => {
+  // Create message in project (PUBLIC - for client replies) - now handles files!
+  app.post("/api/public/project/:token/messages", upload.array('files'), async (req: Request, res: Response) => {
     try {
       const { token } = req.params;
-      const { content, senderName, attachments } = req.body;
+      const { content, senderName, senderType = 'client' } = req.body;
+      const files = req.files as Express.Multer.File[];
       
-      if (!token || !content || !senderName) {
-        return res.status(400).json({ error: "Token, content, and sender name are required" });
+      console.log('📤 Unified message send request:', { token, content, senderName, filesCount: files?.length || 0 });
+      
+      if (!token || (!content && (!files || files.length === 0))) {
+        return res.status(400).json({ error: "Token and either content or files are required" });
+      }
+      
+      if (!senderName) {
+        return res.status(400).json({ error: "Sender name is required" });
       }
 
       // Verify project exists and get project ID
@@ -482,25 +530,53 @@ export async function registerRoutes(app: Express): Promise<any> {
         return res.status(404).json({ error: "Project not found or access denied" });
       }
 
+      // Process uploaded files
+      const attachments: string[] = [];
+      if (files && files.length > 0) {
+        for (const file of files) {
+          const fileUrl = `/uploads/${file.filename}`;
+          attachments.push(fileUrl);
+          console.log('📎 File uploaded:', file.originalname, '→', fileUrl);
+        }
+      }
+
       const message = await storage.createProjectMessage({
         projectId: projectData.id!,
-        senderType: 'client',
+        senderType: senderType as 'admin' | 'client',
         senderName,
-        content,
-        attachments: attachments || []
+        content: content || '(File attachment)',
+        attachments
       });
+
+      console.log('✅ Message created with attachments:', attachments);
 
       // Log activity for admin
       await storage.createActivity({
         type: 'client_message',
-        description: `New message from ${senderName}: ${content.substring(0, 50)}${content.length > 50 ? '...' : ''}`,
+        description: `New message from ${senderName}: ${content ? content.substring(0, 50) : 'File attachment'}${content && content.length > 50 ? '...' : ''}${attachments.length > 0 ? ` (${attachments.length} files)` : ''}`,
         companyId: projectData.companyId,
         projectId: projectData.id!
       });
 
-      res.status(201).json(message);
+      res.status(201).json({
+        ...message,
+        filesUploaded: attachments.length,
+        success: true
+      });
     } catch (error) {
       console.error("Failed to create client message:", error);
+      
+      // Handle multer errors specifically
+      if (error instanceof multer.MulterError) {
+        if (error.code === 'LIMIT_FILE_SIZE') {
+          return res.status(400).json({ error: "File too large. Maximum size is 10MB." });
+        }
+        if (error.code === 'LIMIT_FILE_COUNT') {
+          return res.status(400).json({ error: "Too many files. Maximum is 5 files." });
+        }
+        return res.status(400).json({ error: `Upload error: ${error.message}` });
+      }
+      
       res.status(500).json({ error: "Failed to send message" });
     }
   });
@@ -951,14 +1027,17 @@ export async function registerRoutes(app: Express): Promise<any> {
     }
   });
 
-  // Create new message in project (Admin)
-  app.post("/api/projects/:id/messages", async (req: Request, res: Response) => {
+  // Create new message in project (Admin) - now handles files!
+  app.post("/api/projects/:id/messages", upload.array('files'), async (req: Request, res: Response) => {
     try {
       const projectId = parseInt(req.params.id);
-      const { content, senderName, attachments } = req.body;
+      const { content, senderName, senderType = 'admin' } = req.body;
+      const files = req.files as Express.Multer.File[];
       
-      if (!content || !senderName) {
-        return res.status(400).json({ error: "Content and sender name are required" });
+      console.log('📤 Admin unified message send:', { projectId, content, senderName, filesCount: files?.length || 0 });
+      
+      if ((!content && (!files || files.length === 0)) || !senderName) {
+        return res.status(400).json({ error: "Content or files and sender name are required" });
       }
 
       // Verify project exists
@@ -967,25 +1046,53 @@ export async function registerRoutes(app: Express): Promise<any> {
         return res.status(404).json({ error: "Project not found" });
       }
 
+      // Process uploaded files
+      const attachments: string[] = [];
+      if (files && files.length > 0) {
+        for (const file of files) {
+          const fileUrl = `/uploads/${file.filename}`;
+          attachments.push(fileUrl);
+          console.log('📎 Admin file uploaded:', file.originalname, '→', fileUrl);
+        }
+      }
+
       const message = await storage.createProjectMessage({
         projectId,
-        senderType: 'admin',
+        senderType: senderType as 'admin' | 'client',
         senderName,
-        content,
-        attachments: attachments || []
+        content: content || '(File attachment)',
+        attachments
       });
+
+      console.log('✅ Admin message created with attachments:', attachments);
 
       // Log activity
       await storage.createActivity({
         type: 'admin_message',
-        description: `Admin message sent: ${content.substring(0, 50)}${content.length > 50 ? '...' : ''}`,
+        description: `Admin message sent: ${content ? content.substring(0, 50) : 'File attachment'}${content && content.length > 50 ? '...' : ''}${attachments.length > 0 ? ` (${attachments.length} files)` : ''}`,
         companyId: project.companyId,
         projectId: project.id!
       });
 
-      res.status(201).json(message);
+      res.status(201).json({
+        ...message,
+        filesUploaded: attachments.length,
+        success: true
+      });
     } catch (error) {
       console.error("Failed to create admin message:", error);
+      
+      // Handle multer errors specifically
+      if (error instanceof multer.MulterError) {
+        if (error.code === 'LIMIT_FILE_SIZE') {
+          return res.status(400).json({ error: "File too large. Maximum size is 10MB." });
+        }
+        if (error.code === 'LIMIT_FILE_COUNT') {
+          return res.status(400).json({ error: "Too many files. Maximum is 5 files." });
+        }
+        return res.status(400).json({ error: `Upload error: ${error.message}` });
+      }
+      
       res.status(500).json({ error: "Failed to send message" });
     }
   });
@@ -1410,14 +1517,18 @@ export async function registerRoutes(app: Express): Promise<any> {
     }
   });
 
-  // Enhanced admin message creation with automatic Squarespace push
-  app.post("/api/projects/:id/messages/with-push", async (req: Request, res: Response) => {
+  // Enhanced admin message creation with automatic Squarespace push - now handles files!
+  app.post("/api/projects/:id/messages/with-push", upload.array('files'), async (req: Request, res: Response) => {
     try {
       const projectId = parseInt(req.params.id);
-      const { content, senderName, attachments = [], pushToSquarespace = true } = req.body;
+      const { content, senderName, senderType = 'admin', pushToSquarespace = 'true' } = req.body;
+      const files = req.files as Express.Multer.File[];
+      const shouldPush = pushToSquarespace === 'true' || pushToSquarespace === true;
       
-      if (!content || !senderName) {
-        return res.status(400).json({ error: "Content and sender name are required" });
+      console.log('📤 Admin unified with-push message:', { projectId, content, senderName, filesCount: files?.length || 0, shouldPush });
+      
+      if ((!content && (!files || files.length === 0)) || !senderName) {
+        return res.status(400).json({ error: "Content or files and sender name are required" });
       }
 
       // Verify project exists
@@ -1432,25 +1543,37 @@ export async function registerRoutes(app: Express): Promise<any> {
         return res.status(404).json({ error: "Company not found" });
       }
 
+      // Process uploaded files
+      const attachments: string[] = [];
+      if (files && files.length > 0) {
+        for (const file of files) {
+          const fileUrl = `/uploads/${file.filename}`;
+          attachments.push(fileUrl);
+          console.log('📎 Admin with-push file uploaded:', file.originalname, '→', fileUrl);
+        }
+      }
+
       // Create the message
       const message = await storage.createProjectMessage({
         projectId,
-        senderType: 'admin',
+        senderType: senderType as 'admin' | 'client',
         senderName,
-        content,
+        content: content || '(File attachment)',
         attachments
       });
+
+      console.log('✅ Admin with-push message created with attachments:', attachments);
 
       // Log activity
       await storage.createActivity({
         type: 'admin_message',
-        description: `Admin message sent: ${content.substring(0, 50)}${content.length > 50 ? '...' : ''}`,
+        description: `Admin message sent: ${content ? content.substring(0, 50) : 'File attachment'}${content && content.length > 50 ? '...' : ''}${attachments.length > 0 ? ` (${attachments.length} files)` : ''}`,
         companyId: project.companyId,
         projectId: project.id!
       });
 
       // Auto-push to Squarespace if enabled
-      if (pushToSquarespace && company.email) {
+      if (shouldPush && company.email) {
         try {
           const pushResponse = await fetch(`${req.protocol}://${req.get('host')}/api/push-client-message`, {
             method: 'POST',
@@ -1461,7 +1584,7 @@ export async function registerRoutes(app: Express): Promise<any> {
             body: JSON.stringify({
               client_email: company.email,
               project_id: projectId.toString(),
-              content,
+              content: content || '(File attachment)',
               attachments,
               sender_name: senderName
             })
@@ -1471,6 +1594,8 @@ export async function registerRoutes(app: Express): Promise<any> {
           
           res.status(201).json({
             message,
+            success: true,
+            filesUploaded: attachments.length,
             squarespace_push: pushResult.success ? 'success' : 'failed',
             squarespace_payload: pushResult.squarespace_payload
           });
@@ -1478,15 +1603,33 @@ export async function registerRoutes(app: Express): Promise<any> {
           console.error("Failed to push to Squarespace:", pushError);
           res.status(201).json({
             message,
+            success: true,
+            filesUploaded: attachments.length,
             squarespace_push: 'failed',
             squarespace_error: 'Push to Squarespace failed'
           });
         }
       } else {
-        res.status(201).json({ message });
+        res.status(201).json({ 
+          message,
+          success: true,
+          filesUploaded: attachments.length
+        });
       }
     } catch (error) {
       console.error("Failed to create admin message with push:", error);
+      
+      // Handle multer errors specifically
+      if (error instanceof multer.MulterError) {
+        if (error.code === 'LIMIT_FILE_SIZE') {
+          return res.status(400).json({ error: "File too large. Maximum size is 10MB." });
+        }
+        if (error.code === 'LIMIT_FILE_COUNT') {
+          return res.status(400).json({ error: "Too many files. Maximum is 5 files." });
+        }
+        return res.status(400).json({ error: `Upload error: ${error.message}` });
+      }
+      
       res.status(500).json({ error: "Failed to send message" });
     }
   });

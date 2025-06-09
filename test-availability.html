@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Availability API Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .result { background: #f0f0f0; padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .error { background: #ffebee; color: #c62828; }
+        .success { background: #e8f5e9; color: #2e7d32; }
+    </style>
+</head>
+<body>
+    <h1>Availability API Test</h1>
+    <button onclick="testAvailability()">Test Availability for June 13, 2025</button>
+    <div id="results"></div>
+
+    <script>
+        async function testAvailability() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<div class="result">Testing...</div>';
+            
+            try {
+                console.log('🔍 Testing availability API...');
+                
+                // Use the same logic as the widget
+                const apiUrl = getApiUrl();
+                console.log('📍 API URL:', apiUrl);
+                
+                const response = await fetch(`${apiUrl}/api/availability/2025-06-13`, {
+                    method: 'GET',
+                    headers: {
+                        'ngrok-skip-browser-warning': 'true'
+                    }
+                });
+                
+                console.log('📡 Response status:', response.status);
+                console.log('📡 Response headers:', [...response.headers.entries()]);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('✅ Success:', data);
+                    
+                    resultsDiv.innerHTML = `
+                        <div class="result success">
+                            <h3>✅ API Success!</h3>
+                            <p><strong>Date:</strong> ${data.date}</p>
+                            <p><strong>Available Slots:</strong> [${data.availableSlots.join(', ')}]</p>
+                            <p><strong>Booked Slots:</strong> [${data.bookedSlots.join(', ')}]</p>
+                            <p><strong>API URL:</strong> ${apiUrl}</p>
+                        </div>
+                    `;
+                } else {
+                    const errorText = await response.text();
+                    console.error('❌ API Error:', response.status, errorText);
+                    
+                    resultsDiv.innerHTML = `
+                        <div class="result error">
+                            <h3>❌ API Error</h3>
+                            <p><strong>Status:</strong> ${response.status}</p>
+                            <p><strong>Error:</strong> ${errorText}</p>
+                            <p><strong>API URL:</strong> ${apiUrl}</p>
+                        </div>
+                    `;
+                }
+                
+            } catch (error) {
+                console.error('🚫 Network Error:', error);
+                
+                resultsDiv.innerHTML = `
+                    <div class="result error">
+                        <h3>🚫 Network Error</h3>
+                        <p><strong>Error:</strong> ${error.message}</p>
+                        <p><strong>Type:</strong> ${error.name}</p>
+                        <p>This usually means CORS issues or the server is not running.</p>
+                    </div>
+                `;
+            }
+        }
+        
+        // Copy the same getApiUrl function from the widget
+        function getApiUrl() {
+            const PRODUCTION_API_URL = 'https://pleasantcovedesign-production.up.railway.app';
+            const LOCAL_API_URL = 'http://localhost:5174';
+            
+            const hostname = window.location.hostname;
+            console.log('🌐 HOSTNAME DETECTED:', hostname);
+            
+            const isLocal = hostname === 'localhost' || hostname === '127.0.0.1';
+            
+            if (isLocal) {
+                console.log('🏠 Using LOCAL API for testing:', LOCAL_API_URL);
+                return LOCAL_API_URL;
+            } else {
+                console.log('🚀 Using PRODUCTION RAILWAY API:', PRODUCTION_API_URL);
+                return PRODUCTION_API_URL;
+            }
+        }
+    </script>
+</body>
+</html> 

@@ -149,73 +149,60 @@ export default function ProjectInbox() {
     });
   };
 
-  const uploadFile = async (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = async () => {
-        try {
-          const response = await api.post('/upload', {
-            fileName: file.name,
-            fileData: reader.result,
-            fileType: file.type
-          });
-          
-          if (response.data.success) {
-            resolve(response.data.fileUrl);
-          } else {
-            reject(new Error('Upload failed'));
-          }
-        } catch (error) {
-          reject(error);
-        }
-      };
-      reader.onerror = () => reject(new Error('Failed to read file'));
-      reader.readAsDataURL(file);
-    });
-  };
-
   const handleSendMessage = async () => {
-    if (!messageText.trim() || !selectedProject || sending) return;
+    if ((!messageText.trim() && attachments.length === 0) || !selectedProject || sending) return;
 
     setSending(true);
     setUploading(attachments.length > 0);
 
     try {
-      // Upload attachments first
-      const uploadedUrls: string[] = [];
-      for (const attachment of attachments) {
-        try {
-          const url = await uploadFile(attachment.file);
-          uploadedUrls.push(url);
-        } catch (error) {
-          console.error('Failed to upload file:', attachment.name, error);
-        }
-      }
+      // Create FormData for unified upload + message
+      const formData = new FormData();
+      formData.append('content', messageText || '(File attachment)');
+      formData.append('senderName', senderName);
+      formData.append('senderType', 'admin');
+      formData.append('pushToSquarespace', 'true');
 
-      // Send message with Squarespace push
-      const response = await api.post(`/projects/${selectedProject.id}/messages/with-push`, {
-        content: messageText,
-        senderName,
-        attachments: uploadedUrls,
-        pushToSquarespace: true
+      // Attach all files directly to FormData
+      attachments.forEach((attachment) => {
+        formData.append('files', attachment.file);
+        console.log('📎 Adding admin file:', attachment.name);
       });
 
-      if (response.data.message) {
-        // Add the new message to the list
-        setMessages(prev => [...prev, response.data.message]);
+      console.log('📤 Sending unified admin message with', attachments.length, 'files');
+
+      // Send everything in one request to the unified endpoint
+      const response = await fetch(`/api/projects/${selectedProject.id}/messages/with-push`, {
+        method: 'POST',
+        body: formData
+        // Note: No Content-Type header - let browser set multipart boundary
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to send message: ${response.status} - ${errorText}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ Admin unified message sent:', result);
+
+      if (result.message || result.success) {
+        // Reload messages to show the new one
+        await fetchMessages(selectedProject.id);
         
         // Clear form
         setMessageText('');
         setAttachments([]);
         
         // Show success message if pushed to Squarespace
-        if (response.data.squarespace_push === 'success') {
+        if (result.squarespace_push === 'success') {
           console.log('✅ Message pushed to Squarespace successfully!');
         }
       }
     } catch (error) {
       console.error('Failed to send message:', error);
-      alert('Failed to send message. Please try again.');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      alert(`Failed to send message: ${errorMessage}`);
     } finally {
       setSending(false);
       setUploading(false);
