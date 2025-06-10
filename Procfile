@@ -1,1 +1,1 @@
-web: NODE_ENV=production tsx server/index.ts 
+web: npm run db:generate && npm run db:migrate:prod && npm run db:seed && npm start 

@@ -12,7 +12,6 @@ import fs from 'fs';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import uploadRoutes from './uploadRoutes.js';
-import messageRoutes from './messageRoutes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -37,72 +36,56 @@ function createR2Client(): S3Client {
   });
 }
 
-let upload: multer.Multer;
+// Configure R2 (Cloudflare S3-compatible) storage
+console.log('🔧 Configuring Cloudflare R2 storage...');
 
-if (useR2Storage) {
-  console.log('✅ R2 credentials found, using Cloudflare R2');
-  
-  // Configure the S3 client to talk to Cloudflare R2 (S3-compatible)
-  const s3 = new AWS.S3({
-    endpoint: new AWS.Endpoint(process.env.R2_ENDPOINT!),
-    region: process.env.R2_REGION || 'auto',
-    credentials: {
-      accessKeyId: process.env.R2_ACCESS_KEY_ID!,
-      secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
-    },
-    signatureVersion: 'v4',       // Required for R2
-    s3ForcePathStyle: true,      // R2 only supports path-style
-  });
-
-  upload = multer({
-    storage: multerS3({
-      s3: s3 as any, // Type workaround for AWS SDK v2 compatibility
-      bucket: process.env.R2_BUCKET!,
-      // leave off ACL (R2 ignores S3 canned ACLs)
-      key: (req, file, cb) => {
-        const filename = `${Date.now()}-${file.originalname}`;
-        cb(null, filename);
-      }
-    }),
-    limits: {
-      fileSize: 10 * 1024 * 1024, // 10MB limit
-      files: 5 // Max 5 files per request
-    },
-    fileFilter: function (req, file, cb) {
-      const allowedTypes = /jpeg|jpg|png|gif|pdf|doc|docx|txt|zip|xls|xlsx/;
-      const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-      const mimetype = allowedTypes.test(file.mimetype);
-      
-      if (mimetype && extname) {
-        return cb(null, true);
-      } else {
-        cb(new Error('Only images, documents, and common file types are allowed!'));
-      }
-    }
-  });
-} else {
-  console.log('⚠️ R2 credentials not found, using memory storage fallback');
-  
-  upload = multer({
-    storage: multer.memoryStorage(),
-    limits: {
-      fileSize: 10 * 1024 * 1024, // 10MB limit
-      files: 5 // Max 5 files per request
-    },
-    fileFilter: function (req, file, cb) {
-      // Allow common file types
-      const allowedTypes = /jpeg|jpg|png|gif|pdf|doc|docx|txt|zip|xls|xlsx/;
-      const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-      const mimetype = allowedTypes.test(file.mimetype);
-      
-      if (mimetype && extname) {
-        return cb(null, true);
-      } else {
-        cb(new Error('Only images, documents, and common file types are allowed!'));
-      }
-    }
-  });
+if (!process.env.R2_ENDPOINT || !process.env.R2_ACCESS_KEY_ID || !process.env.R2_SECRET_ACCESS_KEY || !process.env.R2_BUCKET) {
+  console.error('❌ Missing R2 credentials in environment variables');
+  console.error('Required: R2_ENDPOINT, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET');
 }
+
+// Configure the S3 client to talk to Cloudflare R2 (S3-compatible)
+const s3 = new AWS.S3({
+  endpoint: new AWS.Endpoint(process.env.R2_ENDPOINT!),
+  region: process.env.R2_REGION || 'auto',
+  credentials: {
+    accessKeyId: process.env.R2_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
+  },
+  signatureVersion: 'v4',       // Required for R2
+  s3ForcePathStyle: true,      // R2 only supports path-style
+});
+
+const upload = multer({
+  storage: multerS3({
+    s3: s3 as any, // Type workaround for AWS SDK v2 compatibility
+    bucket: process.env.R2_BUCKET!,
+    // leave off ACL (R2 ignores S3 canned ACLs)
+    key: (req, file, cb) => {
+      const filename = `${Date.now()}-${file.originalname}`;
+      cb(null, filename);
+    }
+  }),
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+    files: 5 // Max 5 files per request
+  },
+  fileFilter: function (req, file, cb) {
+    const allowedTypes = /jpeg|jpg|png|gif|pdf|doc|docx|txt|zip|xls|xlsx/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    
+    if (mimetype && extname) {
+      return cb(null, true);
+    } else {
+      cb(new Error('Only images, documents, and common file types are allowed!'));
+    }
+  }
+});
+
+console.log('✅ R2 storage configured successfully');
+console.log('📦 Bucket:', process.env.R2_BUCKET);
+console.log('🌐 Endpoint:', process.env.R2_ENDPOINT);
 
 // Admin token for authentication
 const ADMIN_TOKEN = 'pleasantcove2024admin';
@@ -196,7 +179,6 @@ export async function registerRoutes(app: Express): Promise<any> {
   
   // Mount presigned URL routes BEFORE body-parser
   app.use(uploadRoutes);
-  app.use(messageRoutes);
   
   // Enhanced new lead handler with better processing (PUBLIC - no auth required)
   app.post("/api/new-lead", async (req: Request, res: Response) => {
@@ -3094,6 +3076,54 @@ Booked via: ${source}
         region: process.env.R2_REGION || 'auto'
       }
     });
+  });
+
+  // ===================
+  // ADMIN API ENDPOINTS (Require Authentication)
+  // ===================
+
+  // Get stats for admin dashboard
+  app.get("/api/stats", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const stats = await storage.getStats();
+      res.json(stats);
+    } catch (error) {
+      console.error("Failed to fetch stats:", error);
+      res.status(500).json({ error: "Failed to fetch statistics" });
+    }
+  });
+
+  // Get all businesses (legacy compatibility)
+  app.get("/api/businesses", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const businesses = await storage.getBusinesses();
+      res.json(businesses);
+    } catch (error) {
+      console.error("Failed to fetch businesses:", error);
+      res.status(500).json({ error: "Failed to fetch businesses" });
+    }
+  });
+
+  // Get all companies (new structure)
+  app.get("/api/companies", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const companies = await storage.getCompanies();
+      res.json(companies);
+    } catch (error) {
+      console.error("Failed to fetch companies:", error);
+      res.status(500).json({ error: "Failed to fetch companies" });
+    }
+  });
+
+  // Get activities for admin dashboard
+  app.get("/api/activities", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const activities = await storage.getActivities();
+      res.json(activities);
+    } catch (error) {
+      console.error("Failed to fetch activities:", error);
+      res.status(500).json({ error: "Failed to fetch activities" });
+    }
   });
 
   return app;

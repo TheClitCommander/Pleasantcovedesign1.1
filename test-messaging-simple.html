@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Messaging Test - Pleasant Cove Design</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        .success { background: #d1fae5; color: #065f46; border: 1px solid #10b981; }
+        .error { background: #fee2e2; color: #991b1b; border: 1px solid #f87171; }
+        .widget-container {
+            margin-top: 30px;
+        }
+        iframe {
+            width: 100%;
+            height: 600px;
+            border: 1px solid #ddd;
+            border-radius: 12px;
+        }
+        .test-button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        .test-button:hover {
+            background: #5a6fd8;
+        }
+        .test-results {
+            margin-top: 20px;
+            font-family: monospace;
+            font-size: 12px;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🧪 Messaging System Test</h1>
+        <p>Testing the Pleasant Cove Design messaging system with stable token: <code>test-project-token-123</code></p>
+        
+        <div class="test-buttons">
+            <button class="test-button" onclick="testAPI()">Test API Connection</button>
+            <button class="test-button" onclick="testMessages()">Fetch Messages</button>
+            <button class="test-button" onclick="sendTestMessage()">Send Test Message</button>
+            <button class="test-button" onclick="clearResults()">Clear Results</button>
+        </div>
+        
+        <div id="test-results" class="test-results">Click buttons above to test the API...</div>
+    </div>
+
+    <div class="test-container widget-container">
+        <h2>📱 Live Messaging Widget</h2>
+        <p>This widget should connect to <code>http://localhost:3000</code> and show existing messages:</p>
+        <iframe src="squarespace-widgets/messaging-widget.html" title="Messaging Widget Test"></iframe>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3000';
+        const TEST_TOKEN = 'test-project-token-123';
+        let testCounter = 1;
+
+        function log(message, type = 'info') {
+            const results = document.getElementById('test-results');
+            const timestamp = new Date().toLocaleTimeString();
+            const prefix = type === 'error' ? '❌' : type === 'success' ? '✅' : 'ℹ️';
+            results.textContent += `[${timestamp}] ${prefix} ${message}\n`;
+            results.scrollTop = results.scrollHeight;
+        }
+
+        function clearResults() {
+            document.getElementById('test-results').textContent = 'Results cleared...\n';
+        }
+
+        async function testAPI() {
+            log('Testing API connection...');
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                const data = await response.json();
+                log(`Server health: ${data.status} (v${data.version})`, 'success');
+                log(`Database: ${data.services.database}`, 'success');
+            } catch (error) {
+                log(`API connection failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function testMessages() {
+            log('Fetching messages...');
+            try {
+                const response = await fetch(`${API_BASE}/api/public/project/${TEST_TOKEN}/messages`);
+                const data = await response.json();
+                if (data.success) {
+                    log(`Found ${data.messages.length} messages for project ${data.projectId}`, 'success');
+                    data.messages.forEach((msg, i) => {
+                        log(`  [${i+1}] ${msg.senderType}: ${msg.content.substring(0, 50)}${msg.content.length > 50 ? '...' : ''}`);
+                    });
+                } else {
+                    log('Failed to fetch messages', 'error');
+                }
+            } catch (error) {
+                log(`Message fetch failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function sendTestMessage() {
+            const message = `Test message #${testCounter++} from browser (${new Date().toLocaleTimeString()})`;
+            log(`Sending test message: "${message}"`);
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/public/project/${TEST_TOKEN}/messages`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        content: message,
+                        senderName: 'Test Browser',
+                        senderType: 'client',
+                        attachments: []
+                    })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    log(`Message sent successfully! ID: ${data.id}`, 'success');
+                } else {
+                    log('Failed to send message', 'error');
+                }
+            } catch (error) {
+                log(`Message send failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Auto-test on page load
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                log('🚀 Starting automatic tests...');
+                testAPI();
+                setTimeout(testMessages, 1000);
+            }, 500);
+        });
+    </script>
+</body>
+</html> 

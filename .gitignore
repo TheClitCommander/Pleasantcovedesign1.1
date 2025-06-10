@@ -58,3 +58,6 @@ websitewizard.db
 # Cache
 .cache/
 .parcel-cache/ 
+/generated/prisma
+
+/generated/prisma

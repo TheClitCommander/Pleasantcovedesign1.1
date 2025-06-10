@@ -446,25 +446,32 @@
     </div>
 
     <script>
-        // Configuration - AUTOMATICALLY DETECTS BACKEND URL
+        // Configuration - AUTO-DETECTS ENVIRONMENT
         const CONFIG = {
-            backendUrl: window.backendUrl || 'https://pleasantcovedesign-production.up.railway.app', // Use Railway backend
+            backendUrl: detectBackendUrl(),
             memberEmail: null,
-            projectToken: 'seLmkqbZM6-a0JiSbMBk3Wv2', // Working production token
-            pollInterval: 3000, // Poll for new messages every 3 seconds
-            maxFileSize: 10 * 1024 * 1024, // 10MB
+            projectToken: 'test-project-token-123',
+            pollInterval: 3000,
+            maxFileSize: 10 * 1024 * 1024,
             allowedFileTypes: ['image/jpeg', 'image/png', 'image/gif', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain']
         };
+
+        // Smart backend URL detection
+        function detectBackendUrl() {
+            // If running locally (localhost), use local backend
+            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                console.log('🏠 Local environment detected - using localhost:3000');
+                return 'http://localhost:3000';
+            }
+            
+            // If embedded in Squarespace or any remote site, use Railway production
+            console.log('🌐 Remote environment detected - using Railway production');
+            return 'https://pleasantcovedesign-production.up.railway.app';
+        }
 
         let lastMessageId = 0;
         let pollTimer = null;
         let selectedFiles = [];
-
-        // Smart backend URL detection
-        function detectBackendUrl() {
-            // Always use Railway production URL
-            return 'https://pleasantcovedesign-production.up.railway.app';
-        }
 
         // Initialize messaging widget
         function initializeMessaging() {
@@ -775,55 +782,74 @@
         async function handleSendMessage(e) {
             e.preventDefault();
             const content = messageInput.value.trim();
-            const files   = selectedFiles;  // your array of File objects
-
-            // 1) For each file, get a presigned URL then upload
-            const attachments = await Promise.all(files.map(async file => {
-                const params = new URLSearchParams({
-                    filename: file.name,
-                    fileType: file.type
-                });
-                const { url, key } = await fetch(
-                    `${CONFIG.backendUrl}/api/public/project/${CONFIG.projectToken}/upload-url?${params}`
-                ).then(r => r.json());
-
-                // upload file
-                const putRes = await fetch(url, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': file.type },
-                    body: file
-                });
-                if (!putRes.ok) throw new Error('Upload failed');
-
-                return key;
-            }));
-
-            // 2) Send the chat message with attachments = [keys]
-            const payload = {
-                content: content || '(file attachment)',
-                senderName: CONFIG.memberEmail || 'Client',
-                senderType: 'client',
-                attachments
-            };
-
-            const resp = await fetch(
-                `${CONFIG.backendUrl}/api/public/project/${CONFIG.projectToken}/messages`,
-                {
-                    method:  'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body:    JSON.stringify(payload)
-                }
-            );
-            if (!resp.ok) {
-                const err = await resp.text();
-                return showError(err);
+            
+            if (!content && selectedFiles.length === 0) {
+                showError('Please enter a message or select files to send.');
+                return;
             }
 
-            // Clear UI
-            messageInput.value = '';
-            selectedFiles = [];
-            renderFilePreview();
-            await loadMessages();
+            try {
+                // Upload files first and get attachment keys
+                const attachmentKeys = [];
+                
+                for (const file of selectedFiles) {
+                    // Get presigned URL
+                    const uploadUrlResponse = await fetch(
+                        `${CONFIG.backendUrl}/api/public/project/${CONFIG.projectToken}/upload-url?` +
+                        `filename=${encodeURIComponent(file.name)}&fileType=${encodeURIComponent(file.type)}`
+                    );
+                    
+                    if (!uploadUrlResponse.ok) {
+                        throw new Error(`Failed to get upload URL: ${uploadUrlResponse.statusText}`);
+                    }
+                    
+                    const { url, key } = await uploadUrlResponse.json();
+                    
+                    // Upload file to R2
+                    const uploadResponse = await fetch(url, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': file.type },
+                        body: file
+                    });
+                    
+                    if (!uploadResponse.ok) {
+                        throw new Error(`Failed to upload ${file.name}: ${uploadResponse.statusText}`);
+                    }
+                    
+                    attachmentKeys.push(key);
+                }
+
+                // Send message with attachment keys
+                const messageData = {
+                    content: content || '(file attachment)',
+                    senderName: CONFIG.memberEmail || 'Test Client',
+                    senderType: 'client',
+                    attachmentKeys
+                };
+
+                const response = await fetch(`${CONFIG.backendUrl}/api/public/project/${CONFIG.projectToken}/messages`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(messageData)
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Failed to send message: ${errorText}`);
+                }
+
+                // Clear form and reload messages
+                messageInput.value = '';
+                selectedFiles = [];
+                renderFilePreview();
+                document.getElementById('file-input').value = '';
+                
+                await loadMessages();
+
+            } catch (error) {
+                console.error('Failed to send message:', error);
+                showError(`Failed to send message: ${error.message}`);
+            }
         }
 
         // Note: uploadFiles() function removed - now using unified FormData approach in handleSendMessage()

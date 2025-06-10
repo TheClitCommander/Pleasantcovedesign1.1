@@ -487,7 +487,7 @@ class InMemoryDatabase {
         status: "active",
         score: 75,
         notes: "Need modern website to showcase residential electrical work",
-        accessToken: this.generateAccessToken(),
+        accessToken: "test-project-token-123", // Stable token for testing
         createdAt: new Date().toISOString()
       },
       {
