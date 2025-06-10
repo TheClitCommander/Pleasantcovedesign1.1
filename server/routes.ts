@@ -9,12 +9,25 @@ import multer from 'multer';
 import multerS3 from 'multer-s3';
 import AWS from 'aws-sdk';
 import fs from 'fs';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Configure Cloudflare R2 (S3-compatible) storage
 const useR2Storage = process.env.R2_ENDPOINT && process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY && process.env.R2_BUCKET;
+
+// Configure R2 S3Client for presigned URLs (AWS SDK v3)
+const r2Client = new S3Client({
+  endpoint: process.env.R2_ENDPOINT,
+  region: process.env.R2_REGION || 'auto',
+  credentials: {
+    accessKeyId: process.env.R2_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
+  },
+  forcePathStyle: true,
+});
 
 let upload: multer.Multer;
 
@@ -540,29 +553,21 @@ export async function registerRoutes(app: Express): Promise<any> {
     }
   });
 
-  // Create message in project (PUBLIC - for client replies) - now handles files!
+  // Create message in project (PUBLIC - for client replies) - supports both multer and presigned URL uploads
   app.post("/api/public/project/:token/messages", upload.array('files'), async (req: Request, res: Response) => {
     try {
-      console.log('🔍 DEBUG: Request received');
-      console.log('🔍 DEBUG: req.files type:', typeof req.files);
-      console.log('🔍 DEBUG: req.files:', req.files);
-      console.log('🔍 DEBUG: req.body:', req.body);
-      
       const { token } = req.params;
-      const { content, senderName, senderType = 'client' } = req.body;
+      const { content, senderName, senderType = 'client', attachments: attachmentKeys } = req.body;
       
-      // multer-s3 will populate req.files as an array
-      const uploaded = Array.isArray(req.files) ? (req.files as any[]) : [];
-      
-      console.log('📤 Unified message send request:', { 
+      console.log('📤 Message send request:', { 
         token, 
         content, 
         senderName, 
-        filesCount: uploaded.length,
-        uploadedFiles: uploaded
+        attachmentKeys: attachmentKeys || [],
+        hasFiles: !!req.files
       });
       
-      if (!token || (!content && uploaded.length === 0)) {
+      if (!token || (!content && (!attachmentKeys || attachmentKeys.length === 0) && (!req.files || (req.files as any[]).length === 0))) {
         return res.status(400).json({ error: "Token and either content or files are required" });
       }
       
@@ -570,27 +575,28 @@ export async function registerRoutes(app: Express): Promise<any> {
         return res.status(400).json({ error: "Sender name is required" });
       }
 
-      console.log('🔍 DEBUG: Looking up project with token:', token);
       // Verify project exists and get project ID
       const projectData = await storage.getProjectByToken(token);
       if (!projectData) {
         return res.status(404).json({ error: "Project not found or access denied" });
       }
-      console.log('🔍 DEBUG: Project found:', projectData.id);
 
-      // Each file object from multer-s3 has a `location` property with the public URL
-      console.log('🔍 DEBUG: Processing attachments...');
-      const attachments = uploaded.map(f => {
-        console.log('🔍 DEBUG: File object:', f);
-        return f.location;
-      });
-      
-      console.log('📎 Files processed:', uploaded.map(f => ({ 
-        name: f.originalname, 
-        url: f.location 
-      })));
+      let attachments: string[] = [];
 
-      console.log('🔍 DEBUG: Creating message...');
+      // Handle presigned URL uploads (attachmentKeys are R2 keys)
+      if (attachmentKeys && Array.isArray(attachmentKeys)) {
+        attachments = attachmentKeys.map((key: string) => 
+          `${process.env.R2_ENDPOINT}/${process.env.R2_BUCKET}/${key}`
+        );
+        console.log('📎 Presigned uploads processed:', attachments);
+      }
+      // Handle legacy multer uploads (fallback)
+      else if (req.files && Array.isArray(req.files)) {
+        const uploaded = req.files as any[];
+        attachments = uploaded.map(f => f.location);
+        console.log('📎 Multer uploads processed:', attachments);
+      }
+
       const message = await storage.createProjectMessage({
         projectId: projectData.id!,
         senderType: senderType as 'admin' | 'client',
@@ -601,7 +607,6 @@ export async function registerRoutes(app: Express): Promise<any> {
 
       console.log('✅ Message created with attachments:', attachments);
 
-      console.log('🔍 DEBUG: Creating activity...');
       // Log activity for admin
       await storage.createActivity({
         type: 'client_message',
@@ -610,7 +615,6 @@ export async function registerRoutes(app: Express): Promise<any> {
         projectId: projectData.id!
       });
 
-      console.log('🔍 DEBUG: Sending response...');
       res.status(201).json({
         ...message,
         filesUploaded: attachments.length,
@@ -637,6 +641,47 @@ export async function registerRoutes(app: Express): Promise<any> {
       // Return more detailed error for debugging
       res.status(500).json({ 
         error: "Failed to send message", 
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  // Presigned URL endpoint for direct R2 uploads (PUBLIC)
+  app.get("/api/public/project/:token/upload-url", async (req: Request, res: Response) => {
+    try {
+      const { token } = req.params;
+      const { filename, fileType } = req.query as { filename?: string; fileType?: string };
+      
+      if (!filename || !fileType) {
+        return res.status(400).json({ error: 'filename & fileType required' });
+      }
+
+      // Verify project exists
+      const projectData = await storage.getProjectByToken(token);
+      if (!projectData) {
+        return res.status(404).json({ error: "Project not found or access denied" });
+      }
+
+      const key = `${token}/${Date.now()}-${filename}`;
+      const command = new PutObjectCommand({
+        Bucket: process.env.R2_BUCKET!,
+        Key: key,
+        ContentType: fileType,
+      });
+
+      const presignedUrl = await getSignedUrl(r2Client, command, { expiresIn: 300 }); // 5 minutes
+      
+      console.log('✅ Generated presigned URL for:', filename, 'key:', key);
+      
+      res.json({ 
+        url: presignedUrl, 
+        key,
+        fullUrl: `${process.env.R2_ENDPOINT}/${process.env.R2_BUCKET}/${key}`
+      });
+    } catch (error) {
+      console.error("❌ Failed to generate presigned URL:", error);
+      res.status(500).json({ 
+        error: "Failed to generate upload URL",
         details: error instanceof Error ? error.message : String(error)
       });
     }

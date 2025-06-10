@@ -772,7 +772,7 @@
             renderFilePreview();
         }
 
-        // Handle send message - UNIFIED FormData approach
+        // Handle send message - Presigned URL approach
         async function handleSendMessage(e) {
             e.preventDefault();
             
@@ -785,7 +785,7 @@
                 return;
             }
             
-            console.log('📤 Sending unified message...', { content, files: selectedFiles.length });
+            console.log('📤 Sending message with presigned URLs...', { content, files: selectedFiles.length });
             
             // Show sending state
             const originalText = sendBtn.textContent;
@@ -793,39 +793,90 @@
             sendBtn.disabled = true;
             
             try {
-                // Create FormData for unified upload + message
-                const formData = new FormData();
-                formData.append('content', content || '(File attachment)');
-                formData.append('senderName', CONFIG.memberEmail || 'Client');
-                formData.append('senderType', 'client');
+                let attachments = [];
+
+                // 1) Upload files using presigned URLs
+                if (selectedFiles.length > 0) {
+                    console.log('📎 Uploading', selectedFiles.length, 'files...');
+                    
+                    attachments = await Promise.all(selectedFiles.map(async (file, index) => {
+                        try {
+                            console.log(`📎 Processing file ${index + 1}/${selectedFiles.length}:`, file.name);
+                            
+                            // a) Get presigned URL
+                            const params = new URLSearchParams({
+                                filename: file.name,
+                                fileType: file.type
+                            });
+                            
+                            const uploadUrlResponse = await fetch(
+                                `${CONFIG.backendUrl}/api/public/project/${CONFIG.projectToken}/upload-url?${params}`,
+                                {
+                                    headers: {
+                                        'Accept': 'application/json',
+                                        'ngrok-skip-browser-warning': 'true'
+                                    }
+                                }
+                            );
+                            
+                            if (!uploadUrlResponse.ok) {
+                                throw new Error(`Failed to get upload URL: ${uploadUrlResponse.status}`);
+                            }
+                            
+                            const { url: presignedUrl, key } = await uploadUrlResponse.json();
+                            console.log(`✅ Got presigned URL for ${file.name}, key:`, key);
+                            
+                            // b) Upload file directly to R2
+                            const uploadResponse = await fetch(presignedUrl, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': file.type },
+                                body: file
+                            });
+                            
+                            if (!uploadResponse.ok) {
+                                throw new Error(`Failed to upload ${file.name}: ${uploadResponse.status}`);
+                            }
+                            
+                            console.log(`✅ Uploaded ${file.name} to R2`);
+                            return key;  // Return the key for the message
+                            
+                        } catch (error) {
+                            console.error(`❌ Failed to upload ${file.name}:`, error);
+                            throw error;
+                        }
+                    }));
+                    
+                    console.log('✅ All files uploaded successfully, keys:', attachments);
+                }
+
+                // 2) Send message with attachment keys
+                const messageData = {
+                    content: content || '(File attachment)',
+                    senderName: CONFIG.memberEmail || 'Client',
+                    senderType: 'client',
+                    attachments: attachments
+                };
                 
-                // Attach all files directly to FormData
-                selectedFiles.forEach((file, index) => {
-                    formData.append('files', file);
-                    console.log(`📎 Adding file ${index + 1}:`, file.name);
-                });
+                console.log('📤 Sending message data:', messageData);
                 
-                // Send everything in one request
-                const url = `${CONFIG.backendUrl}/api/public/project/${CONFIG.projectToken}/messages`;
-                console.log('📤 Sending unified request to:', url);
+                const messageResponse = await fetch(
+                    `${CONFIG.backendUrl}/api/public/project/${CONFIG.projectToken}/messages`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'ngrok-skip-browser-warning': 'true'
+                        },
+                        body: JSON.stringify(messageData)
+                    }
+                );
                 
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: {
-                        'Accept': 'application/json',
-                        'ngrok-skip-browser-warning': 'true',
-                        'User-Agent': 'Pleasant-Cove-Messaging-Widget'
-                        // Note: NO Content-Type header - let browser set multipart boundary
-                    },
-                    mode: 'cors',
-                    body: formData
-                });
+                console.log('📡 Message response status:', messageResponse.status);
                 
-                console.log('📡 Unified response status:', response.status);
-                
-                if (response.ok) {
-                    const result = await response.json();
-                    console.log('✅ Unified message sent successfully:', result);
+                if (messageResponse.ok) {
+                    const result = await messageResponse.json();
+                    console.log('✅ Message sent successfully:', result);
                     
                     // Clear input and files
                     messageInput.value = '';
@@ -843,10 +894,10 @@
                     
                     hideEmptyState();
                 } else {
-                    const errorText = await response.text();
-                    console.error('❌ Unified send failed:', response.status, errorText);
+                    const errorText = await messageResponse.text();
+                    console.error('❌ Message send failed:', messageResponse.status, errorText);
                     
-                    let errorMessage = `Failed to send message (${response.status})`;
+                    let errorMessage = `Failed to send message (${messageResponse.status})`;
                     try {
                         const errorData = JSON.parse(errorText);
                         errorMessage = errorData.error || errorMessage;
@@ -857,11 +908,15 @@
                     showError(errorMessage);
                 }
             } catch (error) {
-                console.error('❌ Error sending unified message:', error);
+                console.error('❌ Error sending message:', error);
                 
                 let errorMessage = 'Failed to send message';
                 if (error.message.includes('Failed to fetch')) {
                     errorMessage = 'Cannot connect to messaging service. Please check your connection.';
+                } else if (error.message.includes('upload URL')) {
+                    errorMessage = 'Failed to prepare file upload. Please try again.';
+                } else if (error.message.includes('upload')) {
+                    errorMessage = 'Failed to upload files. Please check your files and try again.';
                 } else {
                     errorMessage = `Error: ${error.message}`;
                 }
