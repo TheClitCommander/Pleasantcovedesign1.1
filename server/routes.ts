@@ -18,16 +18,22 @@ const __dirname = path.dirname(__filename);
 // Configure Cloudflare R2 (S3-compatible) storage
 const useR2Storage = process.env.R2_ENDPOINT && process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY && process.env.R2_BUCKET;
 
-// Configure R2 S3Client for presigned URLs (AWS SDK v3)
-const r2Client = new S3Client({
-  endpoint: process.env.R2_ENDPOINT,
-  region: process.env.R2_REGION || 'auto',
-  credentials: {
-    accessKeyId: process.env.R2_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
-  },
-  forcePathStyle: true,
-});
+// Function to create R2 S3Client for presigned URLs (AWS SDK v3) - only when needed
+function createR2Client(): S3Client {
+  if (!useR2Storage) {
+    throw new Error('R2 storage not configured');
+  }
+  
+  return new S3Client({
+    endpoint: process.env.R2_ENDPOINT,
+    region: process.env.R2_REGION || 'auto',
+    credentials: {
+      accessKeyId: process.env.R2_ACCESS_KEY_ID!,
+      secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
+    },
+    forcePathStyle: true,
+  });
+}
 
 let upload: multer.Multer;
 
@@ -669,6 +675,7 @@ export async function registerRoutes(app: Express): Promise<any> {
         ContentType: fileType,
       });
 
+      const r2Client = createR2Client();
       const presignedUrl = await getSignedUrl(r2Client, command, { expiresIn: 300 }); // 5 minutes
       
       console.log('✅ Generated presigned URL for:', filename, 'key:', key);
