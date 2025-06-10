@@ -1,1 +1,1 @@
-web: npm run db:generate && npm run db:migrate:prod && npm run db:seed && npm start 
+web: npm start 
