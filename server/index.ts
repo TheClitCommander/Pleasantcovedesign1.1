@@ -22,7 +22,7 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const server = createServer(app);
-const PORT = process.env.PORT || 5174;
+const PORT = process.env.PORT || 3000;
 
 // Enhanced CORS for Squarespace webhooks and ngrok
 app.use(cors({
