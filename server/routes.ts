@@ -7,7 +7,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import multer from 'multer';
 import multerS3 from 'multer-s3';
-import { S3Client } from '@aws-sdk/client-s3';
+import AWS from 'aws-sdk';
 import fs from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -21,34 +21,27 @@ let upload: multer.Multer;
 if (useR2Storage) {
   console.log('✅ R2 credentials found, using cloud storage');
   
-  const r2Client = new S3Client({
-    region: 'auto',
-    endpoint: process.env.R2_ENDPOINT!,
+  // Configure the S3 client to talk to Cloudflare R2
+  const s3 = new AWS.S3({
+    endpoint: new AWS.Endpoint(process.env.R2_ENDPOINT!),
+    region: process.env.R2_REGION || 'auto',
     credentials: {
       accessKeyId: process.env.R2_ACCESS_KEY_ID!,
-      secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!
+      secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
     },
-    forcePathStyle: true // Required for R2
+    signatureVersion: 'v4',
+    s3ForcePathStyle: true,    // required for R2's path-style URLs
   });
 
   upload = multer({
     storage: multerS3({
-      s3: r2Client,
+      s3: s3 as any, // Type workaround for AWS SDK v2 compatibility
       bucket: process.env.R2_BUCKET!,
+      // **do not** set `acl` here—R2 ignores S3 canned ACLs
       key: function (req, file, cb) {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        const ext = path.extname(file.originalname);
-        const key = `uploads/${file.fieldname}-${uniqueSuffix}${ext}`;
-        cb(null, key);
-      },
-      contentType: multerS3.AUTO_CONTENT_TYPE,
-      metadata: function (req, file, cb) {
-        cb(null, {
-          fieldName: file.fieldname,
-          originalName: file.originalname
-        });
+        const filename = `${Date.now()}-${file.originalname}`;
+        cb(null, filename);
       }
-      // Note: No ACL setting - R2 doesn't support S3 canned ACLs
     }),
     limits: {
       fileSize: 10 * 1024 * 1024, // 10MB limit
@@ -576,7 +569,7 @@ export async function registerRoutes(app: Express): Promise<any> {
         for (const file of files) {
           if (useR2Storage) {
             // R2 storage: multerS3 provides the location (full URL) in file.location
-            const fileUrl = (file as any).location || (file as any).key;
+            const fileUrl = (file as any).location;
             attachments.push(fileUrl);
             console.log('📎 File uploaded to R2:', file.originalname, '→', fileUrl);
           } else {
@@ -3012,8 +3005,10 @@ Booked via: ${source}
         hasAccessKey: !!process.env.R2_ACCESS_KEY_ID,
         hasSecretKey: !!process.env.R2_SECRET_ACCESS_KEY,  
         hasBucket: !!process.env.R2_BUCKET,
+        hasRegion: !!process.env.R2_REGION,
         endpoint: process.env.R2_ENDPOINT ? 'SET' : 'MISSING',
-        bucket: process.env.R2_BUCKET ? 'SET' : 'MISSING'
+        bucket: process.env.R2_BUCKET ? 'SET' : 'MISSING',
+        region: process.env.R2_REGION || 'auto'
       }
     });
   });
