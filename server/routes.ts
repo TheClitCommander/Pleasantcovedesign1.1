@@ -40,12 +40,11 @@ function createR2Client(): S3Client {
 console.log('🔧 Configuring Cloudflare R2 storage...');
 
 if (!process.env.R2_ENDPOINT || !process.env.R2_ACCESS_KEY_ID || !process.env.R2_SECRET_ACCESS_KEY || !process.env.R2_BUCKET) {
-  console.error('❌ Missing R2 credentials in environment variables');
-  console.error('Required: R2_ENDPOINT, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET');
+  console.log('⚠️ R2 credentials not found, using memory storage fallback');
 }
 
 // Configure the S3 client to talk to Cloudflare R2 (S3-compatible)
-const s3 = new AWS.S3({
+const s3 = useR2Storage ? new AWS.S3({
   endpoint: new AWS.Endpoint(process.env.R2_ENDPOINT!),
   region: process.env.R2_REGION || 'auto',
   credentials: {
@@ -54,9 +53,9 @@ const s3 = new AWS.S3({
   },
   signatureVersion: 'v4',       // Required for R2
   s3ForcePathStyle: true,      // R2 only supports path-style
-});
+}) : null;
 
-const upload = multer({
+const upload = useR2Storage ? multer({
   storage: multerS3({
     s3: s3 as any, // Type workaround for AWS SDK v2 compatibility
     bucket: process.env.R2_BUCKET!,
@@ -81,11 +80,15 @@ const upload = multer({
       cb(new Error('Only images, documents, and common file types are allowed!'));
     }
   }
-});
+}) : null;
 
-console.log('✅ R2 storage configured successfully');
-console.log('📦 Bucket:', process.env.R2_BUCKET);
-console.log('🌐 Endpoint:', process.env.R2_ENDPOINT);
+if (useR2Storage) {
+  console.log('✅ R2 storage configured successfully');
+  console.log('📦 Bucket:', process.env.R2_BUCKET);
+  console.log('🌐 Endpoint:', process.env.R2_ENDPOINT);
+} else {
+  console.log('⚠️ R2 storage not available - file uploads will use memory fallback');
+}
 
 // Admin token for authentication
 const ADMIN_TOKEN = 'pleasantcove2024admin';
@@ -548,7 +551,7 @@ export async function registerRoutes(app: Express): Promise<any> {
   });
 
   // Create message in project (PUBLIC - for client replies) - supports both multer and presigned URL uploads
-  app.post("/api/public/project/:token/messages", upload.array('files'), async (req: Request, res: Response) => {
+  app.post("/api/public/project/:token/messages", useR2Storage && upload ? upload.array('files') : (req, res, next) => next(), async (req: Request, res: Response) => {
     try {
       const { token } = req.params;
       const { content, senderName, senderType = 'client', attachments: attachmentKeys } = req.body;
@@ -1129,7 +1132,7 @@ export async function registerRoutes(app: Express): Promise<any> {
   });
 
   // Create new message in project (Admin) - now handles files!
-  app.post("/api/projects/:id/messages", upload.array('files'), async (req: Request, res: Response) => {
+  app.post("/api/projects/:id/messages", useR2Storage && upload ? upload.array('files') : (req, res, next) => next(), async (req: Request, res: Response) => {
     try {
       const projectId = parseInt(req.params.id);
       const { content, senderName, senderType = 'admin' } = req.body;
@@ -1625,7 +1628,7 @@ export async function registerRoutes(app: Express): Promise<any> {
   });
 
   // Enhanced admin message creation with automatic Squarespace push - now handles files!
-  app.post("/api/projects/:id/messages/with-push", upload.array('files'), async (req: Request, res: Response) => {
+  app.post("/api/projects/:id/messages/with-push", useR2Storage && upload ? upload.array('files') : (req, res, next) => next(), async (req: Request, res: Response) => {
     try {
       const projectId = parseInt(req.params.id);
       const { content, senderName, senderType = 'admin', pushToSquarespace = 'true' } = req.body;
