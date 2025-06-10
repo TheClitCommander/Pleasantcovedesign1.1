@@ -545,11 +545,18 @@ export async function registerRoutes(app: Express): Promise<any> {
     try {
       const { token } = req.params;
       const { content, senderName, senderType = 'client' } = req.body;
-      const files = req.files as Express.Multer.File[];
       
-      console.log('📤 Unified message send request:', { token, content, senderName, filesCount: files?.length || 0 });
+      // multer-s3 will populate req.files as an array
+      const uploaded = Array.isArray(req.files) ? (req.files as any[]) : [];
       
-      if (!token || (!content && (!files || files.length === 0))) {
+      console.log('📤 Unified message send request:', { 
+        token, 
+        content, 
+        senderName, 
+        filesCount: uploaded.length 
+      });
+      
+      if (!token || (!content && uploaded.length === 0)) {
         return res.status(400).json({ error: "Token and either content or files are required" });
       }
       
@@ -563,24 +570,13 @@ export async function registerRoutes(app: Express): Promise<any> {
         return res.status(404).json({ error: "Project not found or access denied" });
       }
 
-      // Process uploaded files
-      const attachments: string[] = [];
-      if (files && files.length > 0) {
-        for (const file of files) {
-          if (useR2Storage) {
-            // R2 storage: multerS3 provides the location (full URL) in file.location
-            const fileUrl = (file as any).location;
-            attachments.push(fileUrl);
-            console.log('📎 File uploaded to R2:', file.originalname, '→', fileUrl);
-          } else {
-            // Memory storage: create a placeholder URL
-            const fileId = `file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-            const fileUrl = `/temp-files/${fileId}-${file.originalname}`;
-            attachments.push(fileUrl);
-            console.log('📎 File processed (memory):', file.originalname, '→', fileUrl, `(${file.size} bytes)`);
-          }
-        }
-      }
+      // Each file object from multer-s3 has a `location` property with the public URL
+      const attachments = uploaded.map(f => f.location);
+      
+      console.log('📎 Files processed:', uploaded.map(f => ({ 
+        name: f.originalname, 
+        url: f.location 
+      })));
 
       const message = await storage.createProjectMessage({
         projectId: projectData.id!,
@@ -607,6 +603,7 @@ export async function registerRoutes(app: Express): Promise<any> {
       });
     } catch (error) {
       console.error("Failed to create client message:", error);
+      console.error("Error details:", error);
       
       // Handle multer errors specifically
       if (error instanceof multer.MulterError) {
@@ -1074,11 +1071,18 @@ export async function registerRoutes(app: Express): Promise<any> {
     try {
       const projectId = parseInt(req.params.id);
       const { content, senderName, senderType = 'admin' } = req.body;
-      const files = req.files as Express.Multer.File[];
       
-      console.log('📤 Admin unified message send:', { projectId, content, senderName, filesCount: files?.length || 0 });
+      // multer-s3 will populate req.files as an array
+      const uploaded = Array.isArray(req.files) ? (req.files as any[]) : [];
       
-      if ((!content && (!files || files.length === 0)) || !senderName) {
+      console.log('📤 Admin unified message send:', { 
+        projectId, 
+        content, 
+        senderName, 
+        filesCount: uploaded.length 
+      });
+      
+      if ((!content && uploaded.length === 0) || !senderName) {
         return res.status(400).json({ error: "Content or files and sender name are required" });
       }
 
@@ -1088,15 +1092,13 @@ export async function registerRoutes(app: Express): Promise<any> {
         return res.status(404).json({ error: "Project not found" });
       }
 
-      // Process uploaded files
-      const attachments: string[] = [];
-      if (files && files.length > 0) {
-        for (const file of files) {
-          const fileUrl = `/uploads/${file.filename}`;
-          attachments.push(fileUrl);
-          console.log('📎 Admin file uploaded:', file.originalname, '→', fileUrl);
-        }
-      }
+      // Each file object from multer-s3 has a `location` property with the public URL
+      const attachments = uploaded.map(f => f.location);
+      
+      console.log('📎 Admin files processed:', uploaded.map(f => ({ 
+        name: f.originalname, 
+        url: f.location 
+      })));
 
       const message = await storage.createProjectMessage({
         projectId,
@@ -1123,6 +1125,7 @@ export async function registerRoutes(app: Express): Promise<any> {
       });
     } catch (error) {
       console.error("Failed to create admin message:", error);
+      console.error("Error details:", error);
       
       // Handle multer errors specifically
       if (error instanceof multer.MulterError) {
