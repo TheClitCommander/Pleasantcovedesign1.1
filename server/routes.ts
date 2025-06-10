@@ -3002,7 +3002,7 @@ Booked via: ${source}
     }
   });
 
-  app.get("/health", (req: Request, res: Response) => {
+  app.get("/api/debug/r2", (req: Request, res: Response) => {
     res.json({ 
       status: "ok", 
       timestamp: new Date().toISOString(),
