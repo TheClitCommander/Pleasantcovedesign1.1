@@ -27,7 +27,8 @@ if (useR2Storage) {
     credentials: {
       accessKeyId: process.env.R2_ACCESS_KEY_ID!,
       secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!
-    }
+    },
+    forcePathStyle: true // Required for R2
   });
 
   upload = multer({
