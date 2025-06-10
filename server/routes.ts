@@ -14,35 +14,79 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Configure Cloudflare R2 (S3-compatible) storage
-const r2Client = new S3Client({
-  region: 'auto',
-  endpoint: 'https://e0c2345ca2f693d3eef9b287a9adcd64.r2.cloudflarestorage.com',
-  credentials: {
-    accessKeyId: '841c05486ccb4aa347155fd570abe30f',
-    secretAccessKey: '4c77f8d264c34efac9260e3234d8a48142bc2df5c4e086984331f67e82e89a13'
-  }
-});
+const useR2Storage = process.env.R2_ENDPOINT && process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY && process.env.R2_BUCKET;
 
-// Use memory storage as fallback for now
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB limit
-    files: 5 // Max 5 files per request
-  },
-  fileFilter: function (req, file, cb) {
-    // Allow common file types
-    const allowedTypes = /jpeg|jpg|png|gif|pdf|doc|docx|txt|zip|xls|xlsx/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
-    
-    if (mimetype && extname) {
-      return cb(null, true);
-    } else {
-      cb(new Error('Only images, documents, and common file types are allowed!'));
+let upload: multer.Multer;
+
+if (useR2Storage) {
+  console.log('✅ R2 credentials found, using cloud storage');
+  
+  const r2Client = new S3Client({
+    region: 'auto',
+    endpoint: process.env.R2_ENDPOINT!,
+    credentials: {
+      accessKeyId: process.env.R2_ACCESS_KEY_ID!,
+      secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!
     }
-  }
-});
+  });
+
+  upload = multer({
+    storage: multerS3({
+      s3: r2Client,
+      bucket: process.env.R2_BUCKET!,
+      key: function (req, file, cb) {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        const ext = path.extname(file.originalname);
+        const key = `uploads/${file.fieldname}-${uniqueSuffix}${ext}`;
+        cb(null, key);
+      },
+      contentType: multerS3.AUTO_CONTENT_TYPE,
+      metadata: function (req, file, cb) {
+        cb(null, {
+          fieldName: file.fieldname,
+          originalName: file.originalname
+        });
+      }
+    }),
+    limits: {
+      fileSize: 10 * 1024 * 1024, // 10MB limit
+      files: 5 // Max 5 files per request
+    },
+    fileFilter: function (req, file, cb) {
+      const allowedTypes = /jpeg|jpg|png|gif|pdf|doc|docx|txt|zip|xls|xlsx/;
+      const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+      const mimetype = allowedTypes.test(file.mimetype);
+      
+      if (mimetype && extname) {
+        return cb(null, true);
+      } else {
+        cb(new Error('Only images, documents, and common file types are allowed!'));
+      }
+    }
+  });
+} else {
+  console.log('⚠️ R2 credentials not found, using memory storage fallback');
+  
+  upload = multer({
+    storage: multer.memoryStorage(),
+    limits: {
+      fileSize: 10 * 1024 * 1024, // 10MB limit
+      files: 5 // Max 5 files per request
+    },
+    fileFilter: function (req, file, cb) {
+      // Allow common file types
+      const allowedTypes = /jpeg|jpg|png|gif|pdf|doc|docx|txt|zip|xls|xlsx/;
+      const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+      const mimetype = allowedTypes.test(file.mimetype);
+      
+      if (mimetype && extname) {
+        return cb(null, true);
+      } else {
+        cb(new Error('Only images, documents, and common file types are allowed!'));
+      }
+    }
+  });
+}
 
 // Admin token for authentication
 const ADMIN_TOKEN = 'pleasantcove2024admin';
@@ -524,15 +568,22 @@ export async function registerRoutes(app: Express): Promise<any> {
         return res.status(404).json({ error: "Project not found or access denied" });
       }
 
-      // Process uploaded files (using memory storage for now)
+      // Process uploaded files
       const attachments: string[] = [];
       if (files && files.length > 0) {
         for (const file of files) {
-          // For memory storage, create a placeholder URL
-          const fileId = `file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-          const fileUrl = `/temp-files/${fileId}-${file.originalname}`;
-          attachments.push(fileUrl);
-          console.log('📎 File processed (memory):', file.originalname, '→', fileUrl, `(${file.size} bytes)`);
+          if (useR2Storage) {
+            // R2 storage: multerS3 provides the location (full URL) in file.location
+            const fileUrl = (file as any).location || (file as any).key;
+            attachments.push(fileUrl);
+            console.log('📎 File uploaded to R2:', file.originalname, '→', fileUrl);
+          } else {
+            // Memory storage: create a placeholder URL
+            const fileId = `file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+            const fileUrl = `/temp-files/${fileId}-${file.originalname}`;
+            attachments.push(fileUrl);
+            console.log('📎 File processed (memory):', file.originalname, '→', fileUrl, `(${file.size} bytes)`);
+          }
         }
       }
 
