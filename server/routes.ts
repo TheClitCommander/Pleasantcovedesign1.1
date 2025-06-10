@@ -3002,6 +3002,22 @@ Booked via: ${source}
     }
   });
 
+  app.get("/health", (req: Request, res: Response) => {
+    res.json({ 
+      status: "ok", 
+      timestamp: new Date().toISOString(),
+      r2Config: {
+        useR2Storage,
+        hasEndpoint: !!process.env.R2_ENDPOINT,
+        hasAccessKey: !!process.env.R2_ACCESS_KEY_ID,
+        hasSecretKey: !!process.env.R2_SECRET_ACCESS_KEY,  
+        hasBucket: !!process.env.R2_BUCKET,
+        endpoint: process.env.R2_ENDPOINT ? 'SET' : 'MISSING',
+        bucket: process.env.R2_BUCKET ? 'SET' : 'MISSING'
+      }
+    });
+  });
+
   return app;
 } 
 
