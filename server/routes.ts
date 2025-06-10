@@ -23,24 +23,9 @@ const r2Client = new S3Client({
   }
 });
 
+// Use memory storage as fallback for now
 const upload = multer({
-  storage: multerS3({
-    s3: r2Client,
-    bucket: 'pleasant-cove-uploads', // R2 bucket name
-    key: function (req, file, cb) {
-      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-      const ext = path.extname(file.originalname);
-      const key = `uploads/${file.fieldname}-${uniqueSuffix}${ext}`;
-      cb(null, key);
-    },
-    contentType: multerS3.AUTO_CONTENT_TYPE,
-    metadata: function (req, file, cb) {
-      cb(null, {
-        fieldName: file.fieldname,
-        originalName: file.originalname
-      });
-    }
-  }),
+  storage: multer.memoryStorage(),
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB limit
     files: 5 // Max 5 files per request
@@ -539,14 +524,15 @@ export async function registerRoutes(app: Express): Promise<any> {
         return res.status(404).json({ error: "Project not found or access denied" });
       }
 
-      // Process uploaded files (now using Cloudflare R2)
+      // Process uploaded files (using memory storage for now)
       const attachments: string[] = [];
       if (files && files.length > 0) {
         for (const file of files) {
-          // multerS3 provides the location (full URL) in file.location
-          const fileUrl = (file as any).location || (file as any).key;
+          // For memory storage, create a placeholder URL
+          const fileId = `file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+          const fileUrl = `/temp-files/${fileId}-${file.originalname}`;
           attachments.push(fileUrl);
-          console.log('📎 File uploaded to R2:', file.originalname, '→', fileUrl);
+          console.log('📎 File processed (memory):', file.originalname, '→', fileUrl, `(${file.size} bytes)`);
         }
       }
 
