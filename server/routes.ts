@@ -48,6 +48,7 @@ if (useR2Storage) {
           originalName: file.originalname
         });
       }
+      // Note: No ACL setting - R2 doesn't support S3 canned ACLs
     }),
     limits: {
       fileSize: 10 * 1024 * 1024, // 10MB limit
