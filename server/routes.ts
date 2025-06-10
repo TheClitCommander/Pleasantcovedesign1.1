@@ -543,6 +543,11 @@ export async function registerRoutes(app: Express): Promise<any> {
   // Create message in project (PUBLIC - for client replies) - now handles files!
   app.post("/api/public/project/:token/messages", upload.array('files'), async (req: Request, res: Response) => {
     try {
+      console.log('🔍 DEBUG: Request received');
+      console.log('🔍 DEBUG: req.files type:', typeof req.files);
+      console.log('🔍 DEBUG: req.files:', req.files);
+      console.log('🔍 DEBUG: req.body:', req.body);
+      
       const { token } = req.params;
       const { content, senderName, senderType = 'client' } = req.body;
       
@@ -553,7 +558,8 @@ export async function registerRoutes(app: Express): Promise<any> {
         token, 
         content, 
         senderName, 
-        filesCount: uploaded.length 
+        filesCount: uploaded.length,
+        uploadedFiles: uploaded
       });
       
       if (!token || (!content && uploaded.length === 0)) {
@@ -564,20 +570,27 @@ export async function registerRoutes(app: Express): Promise<any> {
         return res.status(400).json({ error: "Sender name is required" });
       }
 
+      console.log('🔍 DEBUG: Looking up project with token:', token);
       // Verify project exists and get project ID
       const projectData = await storage.getProjectByToken(token);
       if (!projectData) {
         return res.status(404).json({ error: "Project not found or access denied" });
       }
+      console.log('🔍 DEBUG: Project found:', projectData.id);
 
       // Each file object from multer-s3 has a `location` property with the public URL
-      const attachments = uploaded.map(f => f.location);
+      console.log('🔍 DEBUG: Processing attachments...');
+      const attachments = uploaded.map(f => {
+        console.log('🔍 DEBUG: File object:', f);
+        return f.location;
+      });
       
       console.log('📎 Files processed:', uploaded.map(f => ({ 
         name: f.originalname, 
         url: f.location 
       })));
 
+      console.log('🔍 DEBUG: Creating message...');
       const message = await storage.createProjectMessage({
         projectId: projectData.id!,
         senderType: senderType as 'admin' | 'client',
@@ -588,6 +601,7 @@ export async function registerRoutes(app: Express): Promise<any> {
 
       console.log('✅ Message created with attachments:', attachments);
 
+      console.log('🔍 DEBUG: Creating activity...');
       // Log activity for admin
       await storage.createActivity({
         type: 'client_message',
@@ -596,17 +610,21 @@ export async function registerRoutes(app: Express): Promise<any> {
         projectId: projectData.id!
       });
 
+      console.log('🔍 DEBUG: Sending response...');
       res.status(201).json({
         ...message,
         filesUploaded: attachments.length,
         success: true
       });
     } catch (error) {
-      console.error("Failed to create client message:", error);
-      console.error("Error details:", error);
+      console.error("❌ Failed to create client message:", error);
+      console.error("❌ Error stack:", error instanceof Error ? error.stack : 'No stack trace');
+      console.error("❌ Error name:", error instanceof Error ? error.name : 'Unknown');
+      console.error("❌ Error message:", error instanceof Error ? error.message : String(error));
       
       // Handle multer errors specifically
       if (error instanceof multer.MulterError) {
+        console.error("❌ Multer error detected:", error.code);
         if (error.code === 'LIMIT_FILE_SIZE') {
           return res.status(400).json({ error: "File too large. Maximum size is 10MB." });
         }
@@ -616,7 +634,11 @@ export async function registerRoutes(app: Express): Promise<any> {
         return res.status(400).json({ error: `Upload error: ${error.message}` });
       }
       
-      res.status(500).json({ error: "Failed to send message" });
+      // Return more detailed error for debugging
+      res.status(500).json({ 
+        error: "Failed to send message", 
+        details: error instanceof Error ? error.message : String(error)
+      });
     }
   });
 
