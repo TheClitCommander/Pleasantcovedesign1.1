@@ -12,15 +12,8 @@
     "start:prod": "NODE_ENV=production tsx server/index.ts",
     "client": "vite --port 5174",
     "server": "NODE_ENV=development tsx server/index.ts",
-    "start": "npm run start:prod",
-    "test": "vitest",
-    "db:migrate": "npx prisma migrate dev",
-    "db:migrate:prod": "npx prisma migrate deploy",
-    "db:generate": "npx prisma generate",
-    "db:seed": "npx tsx prisma/seed.ts",
-    "db:reset": "npx prisma migrate reset",
-    "db:studio": "npx prisma studio",
-    "db:setup": "npm run db:generate && npm run db:migrate && npm run db:seed"
+        "start": "npm run start:prod",
+    "test": "vitest"
   },
   "keywords": [],
   "author": "Pleasant Cove Design",
@@ -33,7 +26,7 @@
     "@fullcalendar/interaction": "^6.1.17",
     "@fullcalendar/react": "^6.1.17",
     "@fullcalendar/timegrid": "^6.1.17",
-    "@prisma/client": "^6.9.0",
+
     "@types/express": "^4.17.21",
     "@types/node": "^20.10.6",
     "@types/nodemailer": "^6.4.17",
@@ -58,7 +51,7 @@
     "nanoid": "^5.1.5",
     "nodemailer": "^7.0.3",
     "postcss": "^8.4.32",
-    "prisma": "^6.9.0",
+
     "react": "^18.2.0",
     "react-big-calendar": "^1.19.2",
     "react-dom": "^18.2.0",
