@@ -32,9 +32,9 @@ const r2Client = new S3Client({
 let upload: multer.Multer;
 
 if (useR2Storage) {
-  console.log('✅ R2 credentials found, using cloud storage');
+  console.log('✅ R2 credentials found, using Cloudflare R2');
   
-  // Configure the S3 client to talk to Cloudflare R2
+  // Configure the S3 client to talk to Cloudflare R2 (S3-compatible)
   const s3 = new AWS.S3({
     endpoint: new AWS.Endpoint(process.env.R2_ENDPOINT!),
     region: process.env.R2_REGION || 'auto',
@@ -42,16 +42,16 @@ if (useR2Storage) {
       accessKeyId: process.env.R2_ACCESS_KEY_ID!,
       secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
     },
-    signatureVersion: 'v4',
-    s3ForcePathStyle: true,    // required for R2's path-style URLs
+    signatureVersion: 'v4',       // Required for R2
+    s3ForcePathStyle: true,      // R2 only supports path-style
   });
 
   upload = multer({
     storage: multerS3({
       s3: s3 as any, // Type workaround for AWS SDK v2 compatibility
       bucket: process.env.R2_BUCKET!,
-      // **do not** set `acl` here—R2 ignores S3 canned ACLs
-      key: function (req, file, cb) {
+      // leave off ACL (R2 ignores S3 canned ACLs)
+      key: (req, file, cb) => {
         const filename = `${Date.now()}-${file.originalname}`;
         cb(null, filename);
       }
