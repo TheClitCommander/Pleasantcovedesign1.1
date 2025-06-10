@@ -11,6 +11,8 @@ import AWS from 'aws-sdk';
 import fs from 'fs';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import uploadRoutes from './uploadRoutes.js';
+import messageRoutes from './messageRoutes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -191,6 +193,10 @@ const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
 };
 
 export async function registerRoutes(app: Express): Promise<any> {
+  
+  // Mount presigned URL routes BEFORE body-parser
+  app.use(uploadRoutes);
+  app.use(messageRoutes);
   
   // Enhanced new lead handler with better processing (PUBLIC - no auth required)
   app.post("/api/new-lead", async (req: Request, res: Response) => {

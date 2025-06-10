@@ -450,7 +450,7 @@
         const CONFIG = {
             backendUrl: window.backendUrl || 'https://pleasantcovedesign-production.up.railway.app', // Use Railway backend
             memberEmail: null,
-            projectToken: 'mS95FTMadXfsZ6_4FyYFdCjr', // Valid production token
+            projectToken: 'seLmkqbZM6-a0JiSbMBk3Wv2', // Working production token
             pollInterval: 3000, // Poll for new messages every 3 seconds
             maxFileSize: 10 * 1024 * 1024, // 10MB
             allowedFileTypes: ['image/jpeg', 'image/png', 'image/gif', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain']
@@ -772,160 +772,58 @@
             renderFilePreview();
         }
 
-        // Handle send message - Presigned URL approach
         async function handleSendMessage(e) {
             e.preventDefault();
-            
-            const messageInput = document.getElementById('message-input');
-            const sendBtn = document.getElementById('send-btn');
             const content = messageInput.value.trim();
-            
-            if (!content && selectedFiles.length === 0) {
-                console.log('⚠️ No content or files to send');
-                return;
-            }
-            
-            console.log('📤 Sending message with presigned URLs...', { content, files: selectedFiles.length });
-            
-            // Show sending state
-            const originalText = sendBtn.textContent;
-            sendBtn.textContent = selectedFiles.length > 0 ? 'Uploading...' : 'Sending...';
-            sendBtn.disabled = true;
-            
-            try {
-                let attachments = [];
+            const files   = selectedFiles;  // your array of File objects
 
-                // 1) Upload files using presigned URLs
-                if (selectedFiles.length > 0) {
-                    console.log('📎 Uploading', selectedFiles.length, 'files...');
-                    
-                    attachments = await Promise.all(selectedFiles.map(async (file, index) => {
-                        try {
-                            console.log(`📎 Processing file ${index + 1}/${selectedFiles.length}:`, file.name);
-                            
-                            // a) Get presigned URL
-                            const params = new URLSearchParams({
-                                filename: file.name,
-                                fileType: file.type
-                            });
-                            
-                            const uploadUrlResponse = await fetch(
-                                `${CONFIG.backendUrl}/api/public/project/${CONFIG.projectToken}/upload-url?${params}`,
-                                {
-                                    headers: {
-                                        'Accept': 'application/json',
-                                        'ngrok-skip-browser-warning': 'true'
-                                    }
-                                }
-                            );
-                            
-                            if (!uploadUrlResponse.ok) {
-                                throw new Error(`Failed to get upload URL: ${uploadUrlResponse.status}`);
-                            }
-                            
-                            const { url: presignedUrl, key } = await uploadUrlResponse.json();
-                            console.log(`✅ Got presigned URL for ${file.name}, key:`, key);
-                            
-                            // b) Upload file directly to R2
-                            const uploadResponse = await fetch(presignedUrl, {
-                                method: 'PUT',
-                                headers: { 'Content-Type': file.type },
-                                body: file
-                            });
-                            
-                            if (!uploadResponse.ok) {
-                                throw new Error(`Failed to upload ${file.name}: ${uploadResponse.status}`);
-                            }
-                            
-                            console.log(`✅ Uploaded ${file.name} to R2`);
-                            return key;  // Return the key for the message
-                            
-                        } catch (error) {
-                            console.error(`❌ Failed to upload ${file.name}:`, error);
-                            throw error;
-                        }
-                    }));
-                    
-                    console.log('✅ All files uploaded successfully, keys:', attachments);
-                }
+            // 1) For each file, get a presigned URL then upload
+            const attachments = await Promise.all(files.map(async file => {
+                const params = new URLSearchParams({
+                    filename: file.name,
+                    fileType: file.type
+                });
+                const { url, key } = await fetch(
+                    `${CONFIG.backendUrl}/api/public/project/${CONFIG.projectToken}/upload-url?${params}`
+                ).then(r => r.json());
 
-                // 2) Send message with attachment keys
-                const messageData = {
-                    content: content || '(File attachment)',
-                    senderName: CONFIG.memberEmail || 'Client',
-                    senderType: 'client',
-                    attachments: attachments
-                };
-                
-                console.log('📤 Sending message data:', messageData);
-                
-                const messageResponse = await fetch(
-                    `${CONFIG.backendUrl}/api/public/project/${CONFIG.projectToken}/messages`,
-                    {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Accept': 'application/json',
-                            'ngrok-skip-browser-warning': 'true'
-                        },
-                        body: JSON.stringify(messageData)
-                    }
-                );
-                
-                console.log('📡 Message response status:', messageResponse.status);
-                
-                if (messageResponse.ok) {
-                    const result = await messageResponse.json();
-                    console.log('✅ Message sent successfully:', result);
-                    
-                    // Clear input and files
-                    messageInput.value = '';
-                    messageInput.style.height = 'auto';
-                    selectedFiles = [];
-                    renderFilePreview();
-                    
-                    // Clear any previous errors
-                    document.getElementById('error-message').style.display = 'none';
-                    
-                    // Reload messages to show the new one
-                    setTimeout(() => {
-                        loadMessages();
-                    }, 500);
-                    
-                    hideEmptyState();
-                } else {
-                    const errorText = await messageResponse.text();
-                    console.error('❌ Message send failed:', messageResponse.status, errorText);
-                    
-                    let errorMessage = `Failed to send message (${messageResponse.status})`;
-                    try {
-                        const errorData = JSON.parse(errorText);
-                        errorMessage = errorData.error || errorMessage;
-                    } catch {
-                        // Use default message if can't parse error
-                    }
-                    
-                    showError(errorMessage);
+                // upload file
+                const putRes = await fetch(url, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': file.type },
+                    body: file
+                });
+                if (!putRes.ok) throw new Error('Upload failed');
+
+                return key;
+            }));
+
+            // 2) Send the chat message with attachments = [keys]
+            const payload = {
+                content: content || '(file attachment)',
+                senderName: CONFIG.memberEmail || 'Client',
+                senderType: 'client',
+                attachments
+            };
+
+            const resp = await fetch(
+                `${CONFIG.backendUrl}/api/public/project/${CONFIG.projectToken}/messages`,
+                {
+                    method:  'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body:    JSON.stringify(payload)
                 }
-            } catch (error) {
-                console.error('❌ Error sending message:', error);
-                
-                let errorMessage = 'Failed to send message';
-                if (error.message.includes('Failed to fetch')) {
-                    errorMessage = 'Cannot connect to messaging service. Please check your connection.';
-                } else if (error.message.includes('upload URL')) {
-                    errorMessage = 'Failed to prepare file upload. Please try again.';
-                } else if (error.message.includes('upload')) {
-                    errorMessage = 'Failed to upload files. Please check your files and try again.';
-                } else {
-                    errorMessage = `Error: ${error.message}`;
-                }
-                
-                showError(errorMessage);
-            } finally {
-                sendBtn.textContent = originalText;
-                sendBtn.disabled = false;
+            );
+            if (!resp.ok) {
+                const err = await resp.text();
+                return showError(err);
             }
+
+            // Clear UI
+            messageInput.value = '';
+            selectedFiles = [];
+            renderFilePreview();
+            await loadMessages();
         }
 
         // Note: uploadFiles() function removed - now using unified FormData approach in handleSendMessage()
