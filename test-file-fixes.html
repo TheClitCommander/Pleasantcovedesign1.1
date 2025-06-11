@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Attachment Fixes Test</title>
+    <style>
+        body { font-family: system-ui; padding: 2rem; max-width: 1200px; margin: 0 auto; }
+        .test-section { margin: 2rem 0; padding: 1.5rem; border: 1px solid #ddd; border-radius: 8px; }
+        .test-result { margin: 1rem 0; padding: 1rem; border-radius: 4px; }
+        .success { background: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+        .error { background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
+        .info { background: #d1ecf1; border: 1px solid #bee5eb; color: #0c5460; }
+        button { padding: 0.5rem 1rem; margin: 0.5rem; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .url-test { margin: 0.5rem 0; padding: 0.5rem; background: #f8f9fa; border-radius: 4px; font-family: monospace; }
+        .attachment-list { margin: 1rem 0; }
+        .attachment-item { display: flex; align-items: center; margin: 0.5rem 0; padding: 0.5rem; background: #f8f9fa; border-radius: 4px; }
+        .attachment-item img { max-width: 100px; max-height: 100px; margin-right: 1rem; }
+        .attachment-info { flex: 1; }
+    </style>
+</head>
+<body>
+    <h1>🔧 File Attachment Fixes Test</h1>
+    <p>This page tests all the file attachment fixes for both local and production environments.</p>
+
+    <div class="test-section">
+        <h2>📊 Environment Detection</h2>
+        <div id="environment-info"></div>
+        <button onclick="detectEnvironment()">🔍 Detect Environment</button>
+    </div>
+
+    <div class="test-section">
+        <h2>🗂️ R2 Storage Configuration</h2>
+        <div id="r2-config"></div>
+        <button onclick="testR2Config()">📡 Test R2 Config</button>
+    </div>
+
+    <div class="test-section">
+        <h2>📝 Message API Test</h2>
+        <div id="message-api-results"></div>
+        <button onclick="testMessageAPI()">📋 Test Message API</button>
+    </div>
+
+    <div class="test-section">
+        <h2>📎 File Attachment URL Tests</h2>
+        <div id="file-url-tests"></div>
+        <button onclick="testFileURLs()">🔗 Test File URLs</button>
+    </div>
+
+    <div class="test-section">
+        <h2>🚀 Production File Access Test</h2>
+        <div id="production-file-test"></div>
+        <button onclick="testProductionFiles()">🌐 Test Production Files</button>
+    </div>
+
+    <script>
+        const CONFIG = {
+            backendUrl: detectBackendUrl(),
+            testToken: 'test-project-token-123'
+        };
+
+        function detectBackendUrl() {
+            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                return 'http://localhost:3000';
+            } else {
+                return 'https://pleasantcovedesign-production.up.railway.app';
+            }
+        }
+
+        function showResult(containerId, type, message) {
+            const container = document.getElementById(containerId);
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.innerHTML = message;
+            container.appendChild(div);
+        }
+
+        function detectEnvironment() {
+            const container = document.getElementById('environment-info');
+            container.innerHTML = '';
+            
+            const env = window.location.hostname === 'localhost' ? 'Local Development' : 'Production/Remote';
+            const backend = CONFIG.backendUrl;
+            
+            showResult('environment-info', 'info', `
+                <strong>Environment:</strong> ${env}<br>
+                <strong>Backend URL:</strong> ${backend}<br>
+                <strong>Test Token:</strong> ${CONFIG.testToken}
+            `);
+        }
+
+        async function testR2Config() {
+            const container = document.getElementById('r2-config');
+            container.innerHTML = '';
+            
+            try {
+                const response = await fetch(`${CONFIG.backendUrl}/api/debug/r2`);
+                const data = await response.json();
+                
+                const r2Status = data.r2Config.useR2Storage;
+                const isR2Configured = r2Status === true || (typeof r2Status === 'string' && r2Status.length > 0);
+                
+                showResult('r2-config', isR2Configured ? 'success' : 'error', `
+                    <strong>R2 Storage Status:</strong> ${isR2Configured ? '✅ Configured' : '❌ Not Configured'}<br>
+                    <strong>useR2Storage:</strong> ${JSON.stringify(r2Status)}<br>
+                    <strong>Endpoint:</strong> ${data.r2Config.hasEndpoint ? '✅' : '❌'}<br>
+                    <strong>Credentials:</strong> ${data.r2Config.hasAccessKey && data.r2Config.hasSecretKey ? '✅' : '❌'}<br>
+                    <strong>Bucket:</strong> ${data.r2Config.hasBucket ? '✅' : '❌'}
+                `);
+            } catch (error) {
+                showResult('r2-config', 'error', `❌ Failed to fetch R2 config: ${error.message}`);
+            }
+        }
+
+        async function testMessageAPI() {
+            const container = document.getElementById('message-api-results');
+            container.innerHTML = '';
+            
+            try {
+                const response = await fetch(`${CONFIG.backendUrl}/api/public/project/${CONFIG.testToken}/messages`);
+                const data = await response.json();
+                
+                if (response.ok && data.messages) {
+                    const messagesWithFiles = data.messages.filter(m => m.attachments && m.attachments.length > 0);
+                    
+                    showResult('message-api-results', 'success', `
+                        <strong>✅ Message API Working</strong><br>
+                        <strong>Total Messages:</strong> ${data.messages.length}<br>
+                        <strong>Messages with Files:</strong> ${messagesWithFiles.length}
+                    `);
+
+                    if (messagesWithFiles.length > 0) {
+                        const attachmentsList = document.createElement('div');
+                        attachmentsList.className = 'attachment-list';
+                        attachmentsList.innerHTML = '<h4>📎 Recent File Attachments:</h4>';
+                        
+                        messagesWithFiles.slice(0, 5).forEach(message => {
+                            message.attachments.forEach(url => {
+                                const item = document.createElement('div');
+                                item.className = 'attachment-item';
+                                
+                                const urlType = url.startsWith('http') ? 
+                                    (url.includes('r2.cloudflarestorage.com') ? 'R2 Storage' : 'External URL') : 
+                                    'Relative URL';
+                                
+                                item.innerHTML = `
+                                    <div class="attachment-info">
+                                        <strong>From:</strong> ${message.senderName}<br>
+                                        <strong>Type:</strong> <span style="color: ${urlType === 'R2 Storage' ? 'green' : urlType === 'Relative URL' ? 'red' : 'orange'}">${urlType}</span><br>
+                                        <div class="url-test">${url}</div>
+                                    </div>
+                                `;
+                                attachmentsList.appendChild(item);
+                            });
+                        });
+                        
+                        container.appendChild(attachmentsList);
+                    }
+                } else {
+                    showResult('message-api-results', 'error', `❌ Message API failed: ${data.error || 'Unknown error'}`);
+                }
+            } catch (error) {
+                showResult('message-api-results', 'error', `❌ Failed to fetch messages: ${error.message}`);
+            }
+        }
+
+        async function testFileURLs() {
+            const container = document.getElementById('file-url-tests');
+            container.innerHTML = '';
+            
+            const testUrls = [
+                '/uploads/test-file.png',
+                'uploads/test-file.png',
+                'https://example.com/file.png',
+                'https://e0c2345ca2f693d3eef9b287a9adcd64.r2.cloudflarestorage.com/pleasantcovedesignuploads/test-file.png'
+            ];
+
+            testUrls.forEach(url => {
+                const isAbsolute = url.startsWith('http');
+                const isR2 = url.includes('r2.cloudflarestorage.com');
+                const needsConversion = !isAbsolute;
+                
+                const convertedUrl = needsConversion ? `${CONFIG.backendUrl}${url.startsWith('/') ? url : '/' + url}` : url;
+                
+                const status = isR2 ? 'R2 Storage' : isAbsolute ? 'Absolute URL' : 'Needs Conversion';
+                const color = isR2 ? 'green' : isAbsolute ? 'blue' : 'orange';
+                
+                showResult('file-url-tests', 'info', `
+                    <strong>Original:</strong> <code>${url}</code><br>
+                    <strong>Status:</strong> <span style="color: ${color}">${status}</span><br>
+                    <strong>Converted:</strong> <code>${convertedUrl}</code>
+                `);
+            });
+        }
+
+        async function testProductionFiles() {
+            const container = document.getElementById('production-file-test');
+            container.innerHTML = '';
+            
+            // Test the Railway production file serving
+            const testUrl = 'https://pleasantcovedesign-production.up.railway.app/uploads/admin-project-1-1749600846974-test-admin.png';
+            
+            try {
+                const response = await fetch(testUrl, { method: 'HEAD' });
+                const contentType = response.headers.get('content-type');
+                
+                if (response.ok) {
+                    if (contentType && contentType.startsWith('image/')) {
+                        showResult('production-file-test', 'success', `
+                            ✅ Production file access working!<br>
+                            <strong>Status:</strong> ${response.status}<br>
+                            <strong>Content-Type:</strong> ${contentType}
+                        `);
+                    } else {
+                        showResult('production-file-test', 'error', `
+                            ❌ File exists but wrong content type<br>
+                            <strong>Status:</strong> ${response.status}<br>
+                            <strong>Content-Type:</strong> ${contentType || 'Not set'}<br>
+                            <em>This suggests Railway is serving HTML instead of the file</em>
+                        `);
+                    }
+                } else {
+                    showResult('production-file-test', 'error', `
+                        ❌ Production file access failed<br>
+                        <strong>Status:</strong> ${response.status}
+                    `);
+                }
+            } catch (error) {
+                showResult('production-file-test', 'error', `❌ Failed to test production file: ${error.message}`);
+            }
+        }
+
+        // Auto-run tests on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            detectEnvironment();
+            setTimeout(() => {
+                testR2Config();
+                setTimeout(() => {
+                    testMessageAPI();
+                }, 1000);
+            }, 500);
+        });
+    </script>
+</body>
+</html> 

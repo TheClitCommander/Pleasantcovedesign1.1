@@ -17,7 +17,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Configure Cloudflare R2 (S3-compatible) storage
-const useR2Storage = process.env.R2_ENDPOINT && process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY && process.env.R2_BUCKET;
+const useR2Storage = !!(process.env.R2_ENDPOINT && process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY && process.env.R2_BUCKET);
 
 // Function to create R2 S3Client for presigned URLs (AWS SDK v3) - only when needed
 function createR2Client(): S3Client {
@@ -55,32 +55,75 @@ const s3 = useR2Storage ? new AWS.S3({
   s3ForcePathStyle: true,      // R2 only supports path-style
 }) : null;
 
-const upload = useR2Storage ? multer({
-  storage: multerS3({
-    s3: s3 as any, // Type workaround for AWS SDK v2 compatibility
-    bucket: process.env.R2_BUCKET!,
-    // leave off ACL (R2 ignores S3 canned ACLs)
-    key: (req, file, cb) => {
-      const filename = `${Date.now()}-${file.originalname}`;
-      cb(null, filename);
+// Create uploads directory for local storage
+const uploadsDir = path.join(process.cwd(), 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+  console.log('📁 Created uploads directory:', uploadsDir);
+}
+
+// Configure multer for both R2 and local storage
+let upload: multer.Multer;
+
+if (useR2Storage) {
+  // R2 storage configuration
+  upload = multer({
+    storage: multerS3({
+      s3: s3 as any, // Type workaround for AWS SDK v2 compatibility
+      bucket: process.env.R2_BUCKET!,
+      // leave off ACL (R2 ignores S3 canned ACLs)
+      key: (req, file, cb) => {
+        const filename = `${Date.now()}-${file.originalname}`;
+        cb(null, filename);
+      }
+    }),
+    limits: {
+      fileSize: 10 * 1024 * 1024, // 10MB limit
+      files: 5 // Max 5 files per request
+    },
+    fileFilter: function (req, file, cb) {
+      const allowedTypes = /jpeg|jpg|png|gif|pdf|doc|docx|txt|zip|xls|xlsx/;
+      const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+      const mimetype = allowedTypes.test(file.mimetype);
+      
+      if (mimetype && extname) {
+        return cb(null, true);
+      } else {
+        cb(new Error('Only images, documents, and common file types are allowed!'));
+      }
     }
-  }),
-  limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB limit
-    files: 5 // Max 5 files per request
-  },
-  fileFilter: function (req, file, cb) {
-    const allowedTypes = /jpeg|jpg|png|gif|pdf|doc|docx|txt|zip|xls|xlsx/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
-    
-    if (mimetype && extname) {
-      return cb(null, true);
-    } else {
-      cb(new Error('Only images, documents, and common file types are allowed!'));
+  });
+} else {
+  // Local storage configuration
+  upload = multer({
+    storage: multer.diskStorage({
+      destination: (req, file, cb) => {
+        cb(null, uploadsDir);
+      },
+      filename: (req, file, cb) => {
+        const projectId = req.params.id || 'unknown';
+        const timestamp = Date.now();
+        const safeName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+        cb(null, `admin-project-${projectId}-${timestamp}-${safeName}`);
+      }
+    }),
+    limits: {
+      fileSize: 10 * 1024 * 1024, // 10MB limit
+      files: 5 // Max 5 files per request
+    },
+    fileFilter: function (req, file, cb) {
+      const allowedTypes = /jpeg|jpg|png|gif|pdf|doc|docx|txt|zip|xls|xlsx/;
+      const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+      const mimetype = allowedTypes.test(file.mimetype);
+      
+      if (mimetype && extname) {
+        return cb(null, true);
+      } else {
+        cb(new Error('Only images, documents, and common file types are allowed!'));
+      }
     }
-  }
-}) : null;
+  });
+}
 
 if (useR2Storage) {
   console.log('✅ R2 storage configured successfully');
@@ -580,11 +623,16 @@ export async function registerRoutes(app: Express): Promise<any> {
 
       let attachments: string[] = [];
 
-      // Handle presigned URL uploads (attachmentKeys are R2 keys)
+      // Handle presigned URL uploads (attachmentKeys are R2 keys or local paths)
       if (attachmentKeys && Array.isArray(attachmentKeys)) {
-        attachments = attachmentKeys.map((key: string) => 
-          `${process.env.R2_ENDPOINT}/${process.env.R2_BUCKET}/${key}`
-        );
+        attachments = attachmentKeys.map((key: string) => {
+          // If it's already a full URL or starts with /uploads, use as-is for local storage
+          if (key.startsWith('http') || key.startsWith('/uploads')) {
+            return key;
+          }
+          // Otherwise, convert to R2 URL (for legacy R2 uploads)
+          return `${process.env.R2_ENDPOINT}/${process.env.R2_BUCKET}/${key}`;
+        });
         console.log('📎 Presigned uploads processed:', attachments);
       }
       // Handle legacy multer uploads (fallback)
@@ -1112,6 +1160,40 @@ export async function registerRoutes(app: Express): Promise<any> {
   // PROJECT MESSAGING OPERATIONS (Admin)
   // ===================
 
+  // Debug endpoint to see all messages in database
+  app.get("/api/debug/all-messages", async (req: Request, res: Response) => {
+    try {
+      console.log('🔍 Debug: Fetching all project messages...');
+      
+      // Get all projects
+      const projects = await storage.getProjects();
+      console.log(`🔍 Found ${projects.length} projects:`, projects.map(p => ({ id: p.id, title: p.title, token: p.accessToken })));
+      
+      // Get all messages for each project
+      const allProjectMessages = [];
+      for (const project of projects) {
+        const messages = await storage.getProjectMessages(project.id!);
+        console.log(`🔍 Project ${project.id} (${project.title}) has ${messages.length} messages`);
+        allProjectMessages.push({
+          projectId: project.id,
+          projectTitle: project.title,
+          accessToken: project.accessToken,
+          messageCount: messages.length,
+          messages: messages
+        });
+      }
+      
+      res.json({
+        totalProjects: projects.length,
+        projectMessages: allProjectMessages,
+        debug: 'This endpoint shows all messages across all projects'
+      });
+    } catch (error) {
+      console.error("Failed to fetch debug messages:", error);
+      res.status(500).json({ error: "Failed to fetch debug data" });
+    }
+  });
+
   // Get all messages for a project
   app.get("/api/projects/:id/messages", async (req: Request, res: Response) => {
     try {
@@ -1132,7 +1214,7 @@ export async function registerRoutes(app: Express): Promise<any> {
   });
 
   // Create new message in project (Admin) - now handles files!
-  app.post("/api/projects/:id/messages", useR2Storage && upload ? upload.array('files') : (req, res, next) => next(), async (req: Request, res: Response) => {
+  app.post("/api/projects/:id/messages", requireAdmin, upload.array('files'), async (req: Request, res: Response) => {
     try {
       const projectId = parseInt(req.params.id);
       const { content, senderName, senderType = 'admin' } = req.body;
@@ -1157,12 +1239,29 @@ export async function registerRoutes(app: Express): Promise<any> {
         return res.status(404).json({ error: "Project not found" });
       }
 
-      // Each file object from multer-s3 has a `location` property with the public URL
-      const attachments = uploaded.map(f => f.location);
+      // Process uploaded files based on storage type - ALWAYS use absolute URLs
+      const attachments: string[] = [];
+      for (const file of uploaded) {
+        if (useR2Storage && (file as any).location) {
+          // For R2 storage, use the location property from multer-s3
+          attachments.push((file as any).location);
+        } else if (useR2Storage && (file as any).key) {
+          // For R2 storage with key-based uploads
+          const fileUrl = `${process.env.R2_ENDPOINT}/${process.env.R2_BUCKET}/${(file as any).key}`;
+          attachments.push(fileUrl);
+        } else {
+          // For local storage, construct absolute URL using filename
+          const baseUrl = process.env.NODE_ENV === 'production' 
+            ? 'https://pleasantcovedesign-production.up.railway.app'
+            : `http://localhost:${process.env.PORT || 3000}`;
+          attachments.push(`${baseUrl}/uploads/${file.filename}`);
+        }
+      }
       
-      console.log('📎 Admin files processed:', uploaded.map(f => ({ 
+      console.log('📎 Admin files processed:', uploaded.map((f, i) => ({ 
         name: f.originalname, 
-        url: f.location 
+        url: attachments[i],
+        storage: useR2Storage ? 'R2' : 'local'
       })));
 
       const message = await storage.createProjectMessage({
@@ -1587,10 +1686,17 @@ export async function registerRoutes(app: Express): Promise<any> {
         company_name: company.name,
         client_email,
         message_content: content,
-        attachments: attachments.map((url: string) => ({
-          url,
-          name: url.split('/').pop() || 'attachment'
-        })),
+        attachments: attachments.map((url: string) => {
+          // Ensure URLs are absolute for Squarespace
+          const fullUrl = url.startsWith('http') ? url : 
+            `${process.env.NODE_ENV === 'production' 
+              ? 'https://pleasantcovedesign-production.up.railway.app'
+              : `http://localhost:${process.env.PORT || 3000}`}${url}`;
+          return {
+            url: fullUrl,
+            name: url.split('/').pop() || 'attachment'
+          };
+        }),
         timestamp: timestamp || new Date().toISOString(),
         sender: sender_name || 'Pleasant Cove Design',
         message_type: 'admin_update',
@@ -1628,7 +1734,7 @@ export async function registerRoutes(app: Express): Promise<any> {
   });
 
   // Enhanced admin message creation with automatic Squarespace push - now handles files!
-  app.post("/api/projects/:id/messages/with-push", useR2Storage && upload ? upload.array('files') : (req, res, next) => next(), async (req: Request, res: Response) => {
+  app.post("/api/projects/:id/messages/with-push", requireAdmin, upload.array('files'), async (req: Request, res: Response) => {
     try {
       const projectId = parseInt(req.params.id);
       const { content, senderName, senderType = 'admin', pushToSquarespace = 'true' } = req.body;
@@ -1653,13 +1759,33 @@ export async function registerRoutes(app: Express): Promise<any> {
         return res.status(404).json({ error: "Company not found" });
       }
 
-      // Process uploaded files
+      // Process uploaded files - ALWAYS use R2 in production if available
       const attachments: string[] = [];
       if (files && files.length > 0) {
         for (const file of files) {
-          const fileUrl = `/uploads/${file.filename}`;
-          attachments.push(fileUrl);
-          console.log('📎 Admin with-push file uploaded:', file.originalname, '→', fileUrl);
+          if (useR2Storage && (file as any).key) {
+            // For R2 storage, use the full R2 URL
+            const fileUrl = `${process.env.R2_ENDPOINT}/${process.env.R2_BUCKET}/${(file as any).key}`;
+            attachments.push(fileUrl);
+            console.log('📎 Admin with-push file uploaded to R2:', file.originalname, '→', fileUrl);
+          } else if (useR2Storage && !(file as any).key) {
+            // R2 configured but no key - this means multer fell back to local storage
+            // Convert local path to absolute URL for Railway compatibility
+            const baseUrl = process.env.NODE_ENV === 'production' 
+              ? 'https://pleasantcovedesign-production.up.railway.app'
+              : `http://localhost:${process.env.PORT || 3000}`;
+            const fileUrl = `${baseUrl}/uploads/${file.filename}`;
+            attachments.push(fileUrl);
+            console.log('📎 Admin with-push file uploaded locally (R2 fallback):', file.originalname, '→', fileUrl);
+          } else {
+            // Local storage only - convert to absolute URL
+            const baseUrl = process.env.NODE_ENV === 'production' 
+              ? 'https://pleasantcovedesign-production.up.railway.app'
+              : `http://localhost:${process.env.PORT || 3000}`;
+            const fileUrl = `${baseUrl}/uploads/${file.filename}`;
+            attachments.push(fileUrl);
+            console.log('📎 Admin with-push file uploaded locally:', file.originalname, '→', fileUrl);
+          }
         }
       }
 
