@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Attachment URL Conversion</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-result {
+            background: #f0f9ff;
+            border: 1px solid #0284c7;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 10px 0;
+        }
+        .attachment-link {
+            display: inline-block;
+            padding: 10px 15px;
+            background: #3b82f6;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            margin: 5px;
+        }
+        .attachment-link:hover {
+            background: #2563eb;
+        }
+        code {
+            background: #f3f4f6;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔗 Attachment URL Conversion Test</h1>
+    
+    <div class="test-section">
+        <h2>Current Environment</h2>
+        <div class="test-result">
+            <strong>Domain:</strong> <span id="current-domain"></span><br>
+            <strong>Backend URL:</strong> <span id="backend-url"></span><br>
+            <strong>Environment:</strong> <span id="environment"></span>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Attachment URL Tests</h2>
+        <p>These show how the widget converts relative attachment URLs to absolute URLs:</p>
+        
+        <div id="attachment-tests"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Real Message Test</h2>
+        <p>This fetches a real message with attachment from the API:</p>
+        <button onclick="loadRealMessage()">Load Message with Attachment</button>
+        <div id="real-message-result"></div>
+    </div>
+
+    <script>
+        // Configuration - same as the widget
+        function detectBackendUrl() {
+            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                console.log('🏠 Local environment detected - using localhost:3000');
+                return 'http://localhost:3000';
+            } else {
+                console.log('🚀 Production environment detected - using Railway backend');
+                return 'https://pleasantcovedesign-production.up.railway.app';
+            }
+        }
+
+        const CONFIG = {
+            backendUrl: detectBackendUrl()
+        };
+
+        // Same renderAttachment function as the widget
+        function renderAttachment(url) {
+            const fullUrl = url.startsWith('http') ? url : `${CONFIG.backendUrl}${url}`;
+            const fileName = url.split('/').pop() || 'attachment';
+            const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(fileName);
+            
+            console.log('🖼️ Rendering attachment:', { url, fileName, isImage, fullUrl });
+            
+            if (isImage) {
+                return `
+                    <div>
+                        <strong>Image:</strong> <a href="${fullUrl}" target="_blank" class="attachment-link">🖼️ ${fileName}</a><br>
+                        <small>URL: <code>${fullUrl}</code></small>
+                    </div>
+                `;
+            } else {
+                return `
+                    <div>
+                        <strong>File:</strong> <a href="${fullUrl}" target="_blank" class="attachment-link">📎 ${fileName}</a><br>
+                        <small>URL: <code>${fullUrl}</code></small>
+                    </div>
+                `;
+            }
+        }
+
+        // Display current environment
+        function displayEnvironment() {
+            document.getElementById('current-domain').textContent = window.location.hostname;
+            document.getElementById('backend-url').textContent = CONFIG.backendUrl;
+            document.getElementById('environment').textContent = 
+                window.location.hostname === 'localhost' ? 'Local Development' : 'Production (Squarespace)';
+        }
+
+        // Test various attachment URLs
+        function testAttachmentUrls() {
+            const testUrls = [
+                '/uploads/admin-project-1-1749600846974-test-admin.png',
+                '/uploads/coastal-electric-wireframes.pdf',
+                'https://example.com/absolute-url.jpg',
+                '/uploads/some-document.docx'
+            ];
+
+            const container = document.getElementById('attachment-tests');
+            container.innerHTML = testUrls.map(url => {
+                const rendered = renderAttachment(url);
+                return `
+                    <div class="test-result">
+                        <strong>Original:</strong> <code>${url}</code><br>
+                        ${rendered}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Load real message from API
+        async function loadRealMessage() {
+            const resultDiv = document.getElementById('real-message-result');
+            resultDiv.innerHTML = '<p>Loading...</p>';
+
+            try {
+                const response = await fetch(`${CONFIG.backendUrl}/api/public/project/test-project-token-123/messages`);
+                const data = await response.json();
+                
+                // Find a message with attachments
+                const messageWithAttachment = data.messages.find(m => m.attachments && m.attachments.length > 0);
+                
+                if (messageWithAttachment) {
+                    const attachmentHtml = messageWithAttachment.attachments.map(renderAttachment).join('');
+                    resultDiv.innerHTML = `
+                        <div class="test-result">
+                            <strong>Message ID:</strong> ${messageWithAttachment.id}<br>
+                            <strong>From:</strong> ${messageWithAttachment.senderName}<br>
+                            <strong>Content:</strong> ${messageWithAttachment.content}<br>
+                            <strong>Attachments:</strong><br>
+                            ${attachmentHtml}
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = '<p>No messages with attachments found.</p>';
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+            }
+        }
+
+        // Initialize tests
+        document.addEventListener('DOMContentLoaded', () => {
+            displayEnvironment();
+            testAttachmentUrls();
+        });
+    </script>
+</body>
+</html> 

@@ -618,25 +618,44 @@
             allowedFileTypes: ['image/jpeg', 'image/png', 'image/gif', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain']
         };
 
-        // Smart backend URL detection
+        // Smart backend URL detection - automatically switches between local and production
         function detectBackendUrl() {
             if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
                 console.log('🏠 Local environment detected - using localhost:3000');
                 return 'http://localhost:3000';
+            } else {
+                console.log('🚀 Production environment detected - using Railway backend');
+                return 'https://pleasantcovedesign-production.up.railway.app';
             }
-            console.log('🌐 Remote environment detected - using Railway production');
-            return 'https://pleasantcovedesign-production.up.railway.app';
+            
+            // Original auto-detection code (preserved for reference):
+            // if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+            //     console.log('🏠 Local environment detected - using localhost:3000');
+            //     return 'http://localhost:3000';
+            // }
+            // console.log('🌐 Remote environment detected - using Railway production');
+            // return 'https://pleasantcovedesign-production.up.railway.app';
         }
 
         let lastMessageId = 0;
         let pollTimer = null;
         let selectedFiles = [];
 
-        // Initialize messaging widget
+        // Initialize messaging widget - FORCED TEST MODE
         async function initializeMessaging() {
-            console.log('🚀 Initializing Pleasant Cove Design Messaging...');
+            console.log('🚀 Initializing Pleasant Cove Design Messaging (TEST MODE)...');
             
-            // Try to get existing credentials
+            // FORCE TEST PROJECT TOKEN FOR DEVELOPMENT
+            console.log('🧪 FORCED TEST MODE - using test-project-token-123');
+            CONFIG.projectToken = 'test-project-token-123';
+            CONFIG.memberEmail = 'test@coastal-electric.com';
+            CONFIG.memberName = 'Test Client';
+            
+            updateHeaderWithUser();
+            await loadMessagesAndStartPolling();
+            setupEventListeners();
+            
+            /* Original code (commented out for testing):
             const existingToken = getStoredToken();
             const existingEmail = getStoredEmail();
             const existingName = getStoredName();
@@ -655,6 +674,7 @@
             }
             
             setupEventListeners();
+            */
         }
 
         // Show pre-chat form
@@ -903,6 +923,7 @@
                             lastMessageId = Math.max(...messages.map(m => m.id || 0));
                             hideEmptyState();
                             console.log('✅ Loaded', messages.length, 'messages, lastMessageId set to:', lastMessageId);
+                            console.log('🔍 Initial message IDs:', messages.map(m => m.id));
                         } else {
                             lastMessageId = 0;
                             showEmptyState();
@@ -943,6 +964,7 @@
         // Poll for new messages
         function startPolling() {
             console.log('🔄 Starting message polling every', CONFIG.pollInterval / 1000, 'seconds');
+            console.log('🔍 Current lastMessageId for polling:', lastMessageId);
             
             if (pollTimer) {
                 console.log('🔄 Clearing existing poll timer');
@@ -975,10 +997,16 @@
                                 
                                 if (newMessages.length > 0) {
                                     console.log('📨 Found', newMessages.length, 'new messages');
+                                    console.log('🔍 New message IDs:', newMessages.map(m => m.id));
+                                    console.log('🔍 Previous lastMessageId:', lastMessageId);
                                     appendMessages(newMessages);
                                     lastMessageId = Math.max(...messages.map(m => m.id || 0));
+                                    console.log('🔍 Updated lastMessageId to:', lastMessageId);
                                     hideEmptyState();
                                     setTimeout(scrollToBottom, 100);
+                                } else {
+                                    console.log('🔍 No new messages found. Current lastMessageId:', lastMessageId);
+                                    console.log('🔍 All message IDs:', messages.map(m => m.id));
                                 }
                             }
                             setConnectionStatus(true);
@@ -1008,37 +1036,130 @@
             try {
                 const attachmentKeys = [];
                 
-                for (const file of selectedFiles) {
-                    const uploadUrlResponse = await fetch(
-                        `${CONFIG.backendUrl}/api/public/project/${CONFIG.projectToken}/upload-url?` +
-                        `filename=${encodeURIComponent(file.name)}&fileType=${encodeURIComponent(file.type)}`
-                    );
+                // Handle file uploads with improved support for local storage
+                if (selectedFiles.length > 0) {
+                    showError('⏳ Uploading files...', false);
                     
-                    if (!uploadUrlResponse.ok) {
-                        throw new Error(`Failed to get upload URL: ${uploadUrlResponse.statusText}`);
+                    for (const file of selectedFiles) {
+                        try {
+                            // Get upload URL/endpoint
+                            const uploadUrlResponse = await fetch(
+                                `${CONFIG.backendUrl}/api/public/project/${CONFIG.projectToken}/upload-url?` +
+                                `filename=${encodeURIComponent(file.name)}&fileType=${encodeURIComponent(file.type)}`
+                            );
+                            
+                            if (!uploadUrlResponse.ok) {
+                                console.log('⚠️ Upload URL failed, proceeding without file upload');
+                                break;
+                            }
+                            
+                            const uploadData = await uploadUrlResponse.json();
+                            console.log('📁 Upload data:', uploadData);
+                            
+                            // Check if upload is available
+                            if (!uploadData.url) {
+                                console.log('⚠️ File storage not available');
+                                showError('File uploads are temporarily unavailable. Your message will be sent without attachments.');
+                                break;
+                            }
+                            
+                            let uploadResponse;
+                            let fileKey;
+                            
+                            // Handle different storage types
+                            if (uploadData.storage === 'local') {
+                                // For local storage, use FormData and POST
+                                const formData = new FormData();
+                                formData.append('file', file);
+                                
+                                uploadResponse = await fetch(`${CONFIG.backendUrl}${uploadData.url}`, {
+                                    method: 'POST',
+                                    body: formData,
+                                });
+                                
+                                if (uploadResponse.ok) {
+                                    const result = await uploadResponse.json();
+                                    fileKey = result.url; // Use the full URL path for local files
+                                    console.log('✅ Local upload successful:', result);
+                                    console.log('📁 File key assigned:', fileKey);
+                                    
+                                    // Verify fileKey is valid
+                                    if (!fileKey) {
+                                        console.error('❌ No file key returned from local upload');
+                                        fileKey = null;
+                                    }
+                                } else {
+                                    console.error('❌ Local upload failed:', uploadResponse.status, await uploadResponse.text());
+                                    fileKey = null;
+                                }
+                            } else {
+                                // For R2/S3, use PUT with direct file
+                                uploadResponse = await fetch(uploadData.url, {
+                                    method: 'PUT',
+                                    headers: { 'Content-Type': file.type },
+                                    body: file
+                                });
+                                
+                                if (uploadResponse.ok) {
+                                    fileKey = uploadData.key;
+                                    console.log('📁 R2 file key assigned:', fileKey);
+                                    
+                                    // Verify fileKey is valid
+                                    if (!fileKey) {
+                                        console.error('❌ No file key returned from R2 upload');
+                                        fileKey = null;
+                                    }
+                                } else {
+                                    console.error('❌ R2 upload failed:', uploadResponse.status);
+                                    fileKey = null;
+                                }
+                            }
+                            
+                            if (uploadResponse && uploadResponse.ok && fileKey) {
+                                attachmentKeys.push(fileKey);
+                                console.log('✅ File uploaded successfully:', file.name, '→', fileKey);
+                                console.log('📎 Current attachment keys:', attachmentKeys);
+                                console.log('📎 Attachment keys array length:', attachmentKeys.length);
+                            } else {
+                                console.log('⚠️ File upload failed for:', file.name);
+                                console.log('❌ Upload response status:', uploadResponse ? uploadResponse.status : 'no response');
+                                console.log('❌ File key:', fileKey);
+                                showError(`Failed to upload ${file.name}. Your message will be sent without this attachment.`);
+                            }
+                            
+                        } catch (uploadError) {
+                            console.error('❌ File upload error:', uploadError);
+                            showError(`Failed to upload ${file.name}. Your message will be sent without this attachment.`);
+                            continue;
+                        }
                     }
                     
-                    const { url, key } = await uploadUrlResponse.json();
-                    
-                    const uploadResponse = await fetch(url, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': file.type },
-                        body: file
-                    });
-                    
-                    if (!uploadResponse.ok) {
-                        throw new Error(`Failed to upload ${file.name}: ${uploadResponse.statusText}`);
+                    if (attachmentKeys.length > 0) {
+                        console.log(`✅ Successfully uploaded ${attachmentKeys.length} out of ${selectedFiles.length} files`);
+                        showError(`✅ Uploaded ${attachmentKeys.length} file${attachmentKeys.length > 1 ? 's' : ''} successfully!`, false);
+                    } else if (selectedFiles.length > 0) {
+                        showError('⚠️ No files were uploaded successfully.', true);
                     }
-                    
-                    attachmentKeys.push(key);
                 }
 
+                // Send message (with or without attachments)
+                const messageContent = content.trim();
+                const hasAttachments = attachmentKeys.length > 0;
+                
                 const messageData = {
-                    content: content || '(file attachment)',
+                    content: messageContent || (hasAttachments ? `Sent ${attachmentKeys.length} file${attachmentKeys.length > 1 ? 's' : ''}` : 'Message sent'),
                     senderName: CONFIG.memberName || CONFIG.memberEmail || 'Client',
                     senderType: 'client',
-                    attachmentKeys
+                    attachments: attachmentKeys,  // Backend expects 'attachments', not 'attachmentKeys'
+                    hasFiles: attachmentKeys.length > 0
                 };
+                
+                console.log('📤 Final attachment keys before sending:', JSON.stringify(attachmentKeys));
+                console.log('📤 Message data being sent:', JSON.stringify(messageData));
+                console.log('📤 Has attachments:', hasAttachments, '| Count:', attachmentKeys.length);
+                console.log('📤 Attachment keys type:', typeof attachmentKeys, '| Is array:', Array.isArray(attachmentKeys));
+
+                console.log('📤 Sending message with', attachmentKeys.length, 'attachments');
 
                 const response = await fetch(`${CONFIG.backendUrl}/api/public/project/${CONFIG.projectToken}/messages`, {
                     method: 'POST',
@@ -1051,11 +1172,15 @@
                     throw new Error(`Failed to send message: ${errorText}`);
                 }
 
+                console.log('✅ Message sent successfully');
+
+                // Clear form
                 document.getElementById('message-input').value = '';
                 selectedFiles = [];
                 renderFilePreview();
                 document.getElementById('file-input').value = '';
                 
+                // Reload messages to show the new one
                 await loadMessages();
 
             } catch (error) {
@@ -1155,17 +1280,30 @@
 
         function renderAttachment(url) {
             const fileName = url.split('/').pop() || 'attachment';
-            const isImage = /\.(jpg|jpeg|png|gif)$/i.test(fileName);
+            const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(fileName);
+            const fullUrl = url.startsWith('http') ? url : `${CONFIG.backendUrl}${url}`;
+            
+            console.log('🖼️ Rendering attachment:', { url, fileName, isImage, fullUrl });
             
             if (isImage) {
-                return `<img src="${url}" alt="${fileName}" class="pcd-image-attachment" onclick="window.open('${url}', '_blank')">`;
+                return `
+                    <div class="pcd-image-attachment-container">
+                        <img src="${fullUrl}" alt="${fileName}" class="pcd-image-attachment" onclick="window.open('${fullUrl}', '_blank')" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                        <a href="${fullUrl}" target="_blank" class="pcd-attachment" style="display: none;">
+                            <svg class="pcd-attachment-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                            </svg>
+                            📷 ${fileName}
+                        </a>
+                    </div>
+                `;
             } else {
                 return `
-                    <a href="${url}" target="_blank" class="pcd-attachment">
-                        <svg class="pcd-attachment-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <a href="${fullUrl}" target="_blank" class="pcd-attachment" download>
+                        <svg class="pcd-attachment-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                         </svg>
-                        ${fileName}
+                        📎 ${fileName}
                     </a>
                 `;
             }
@@ -1207,11 +1345,24 @@
             }
         }
 
-        function showError(message) {
-            console.error('💥 Error:', message);
+        function showError(message, isError = true) {
+            if (isError) {
+                console.error('💥 Error:', message);
+            } else {
+                console.log('ℹ️ Info:', message);
+            }
             const errorEl = document.getElementById('error-message');
             errorEl.textContent = message;
             errorEl.style.display = 'block';
+            
+            // Auto-hide non-error messages after a few seconds
+            if (!isError) {
+                setTimeout(() => {
+                    if (errorEl.textContent === message) {
+                        errorEl.style.display = 'none';
+                    }
+                }, 3000);
+            }
         }
 
         function hideLoading() {

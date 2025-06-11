@@ -1037,7 +1037,7 @@
                     content: content || '(file attachment)',
                     senderName: CONFIG.memberName || CONFIG.memberEmail || 'Client',
                     senderType: 'client',
-                    attachmentKeys
+                    attachments: attachmentKeys
                 };
 
                 const response = await fetch(`${CONFIG.backendUrl}/api/public/project/${CONFIG.projectToken}/messages`, {
@@ -1235,6 +1235,14 @@
         });
 
         console.log('🎯 Pleasant Cove Design Unified Messaging Widget - Ready!');
+
+        // Clear all Pleasant Cove Design data
+        localStorage.removeItem('pleasantCoveCredentials');
+        localStorage.removeItem('pleasantCoveProjectToken');
+        localStorage.removeItem('pleasantCoveUserInfo');
+        localStorage.clear();
+        console.log('✅ Browser storage cleared!');
+        location.reload();
     </script>
 </body>
 </html> 

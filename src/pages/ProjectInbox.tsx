@@ -14,7 +14,8 @@ import {
   Clock,
   User,
   AlertCircle,
-  CheckCircle
+  CheckCircle,
+  RefreshCw
 } from 'lucide-react';
 import api from '../api';
 
@@ -53,6 +54,8 @@ interface AttachmentPreview {
 export default function ProjectInbox() {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   
   // State
   const [projects, setProjects] = useState<Project[]>([]);
@@ -65,18 +68,62 @@ export default function ProjectInbox() {
   const [sending, setSending] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [isPolling, setIsPolling] = useState(false);
+  const [lastMessageCount, setLastMessageCount] = useState(0);
+
+  // Auto-scroll to bottom when new messages arrive
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
 
   // Load projects on mount
   useEffect(() => {
     fetchProjects();
   }, []);
 
-  // Load messages when project changes
+  // Load messages when project changes and start polling
   useEffect(() => {
     if (selectedProject) {
       fetchMessages(selectedProject.id);
+      startPolling();
+    } else {
+      stopPolling();
     }
+    
+    return () => stopPolling();
   }, [selectedProject]);
+
+  // Auto-scroll when messages change
+  useEffect(() => {
+    if (messages.length > lastMessageCount) {
+      scrollToBottom();
+    }
+    setLastMessageCount(messages.length);
+  }, [messages]);
+
+  // Clean up polling on unmount
+  useEffect(() => {
+    return () => stopPolling();
+  }, []);
+
+  const startPolling = () => {
+    stopPolling(); // Clear any existing interval
+    
+    if (selectedProject) {
+      console.log('🔄 Starting message polling for project:', selectedProject.title);
+      pollingIntervalRef.current = setInterval(() => {
+        fetchMessages(selectedProject.id, true); // Silent fetch
+      }, 3000); // Poll every 3 seconds
+    }
+  };
+
+  const stopPolling = () => {
+    if (pollingIntervalRef.current) {
+      console.log('⏹️ Stopping message polling');
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+  };
 
   const fetchProjects = async () => {
     try {
@@ -107,12 +154,28 @@ export default function ProjectInbox() {
     }
   };
 
-  const fetchMessages = async (projectId: number) => {
+  const fetchMessages = async (projectId: number, silent = false) => {
     try {
+      if (!silent) {
+        setIsPolling(true);
+      }
+      
       const response = await api.get(`/projects/${projectId}/messages`);
-      setMessages(response.data);
+      const newMessages = response.data;
+      
+      // Check if we have new messages
+      if (newMessages.length !== messages.length) {
+        console.log(`📨 Updated messages: ${messages.length} → ${newMessages.length}`);
+        setMessages(newMessages);
+      }
     } catch (error) {
-      console.error('Failed to fetch messages:', error);
+      if (!silent) {
+        console.error('Failed to fetch messages:', error);
+      }
+    } finally {
+      if (!silent) {
+        setIsPolling(false);
+      }
     }
   };
 
@@ -171,11 +234,11 @@ export default function ProjectInbox() {
 
       console.log('📤 Sending unified admin message with', attachments.length, 'files');
 
-      // Send everything in one request to the unified endpoint
-      const response = await fetch(`/api/projects/${selectedProject.id}/messages/with-push`, {
+      // Send to the unified endpoint using authenticated fetch with proper headers
+      const response = await fetch(`/api/projects/${selectedProject.id}/messages/with-push?token=pleasantcove2024admin`, {
         method: 'POST',
-        body: formData
-        // Note: No Content-Type header - let browser set multipart boundary
+        body: formData,
+        // Don't set Content-Type - let browser set multipart boundary
       });
 
       if (!response.ok) {
@@ -187,7 +250,7 @@ export default function ProjectInbox() {
       console.log('✅ Admin unified message sent:', result);
 
       if (result.message || result.success) {
-        // Reload messages to show the new one
+        // Immediately reload messages to show the new one
         await fetchMessages(selectedProject.id);
         
         // Clear form
@@ -301,6 +364,21 @@ export default function ProjectInbox() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
+                  {/* Real-time indicator */}
+                  <div className="flex items-center gap-2 px-2 py-1 bg-green-50 text-green-700 rounded text-xs">
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    Live updates
+                  </div>
+                  
+                  <button
+                    onClick={() => fetchMessages(selectedProject.id)}
+                    disabled={isPolling}
+                    className="p-2 hover:bg-gray-100 rounded-lg disabled:opacity-50"
+                    title="Refresh messages"
+                  >
+                    <RefreshCw className={`h-4 w-4 text-gray-500 ${isPolling ? 'animate-spin' : ''}`} />
+                  </button>
+                  
                   <button
                     onClick={() => navigate(`/admin/client/${selectedProject.companyId}`)}
                     className="p-2 hover:bg-gray-100 rounded-lg"
@@ -348,27 +426,70 @@ export default function ProjectInbox() {
                       
                       {/* Attachments */}
                       {message.attachments && message.attachments.length > 0 && (
-                        <div className="mt-2 space-y-1">
-                          {message.attachments.map((attachment, index) => (
-                            <a
-                              key={index}
-                              href={attachment}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className={`flex items-center gap-2 text-xs underline ${
-                                message.senderType === 'admin' ? 'text-blue-200' : 'text-blue-600'
-                              }`}
-                            >
-                              <Download className="h-3 w-3" />
-                              {attachment.split('/').pop() || 'attachment'}
-                            </a>
-                          ))}
+                        <div className="mt-3 space-y-2">
+                          {message.attachments.map((attachment, index) => {
+                            const fileName = attachment.split('/').pop() || 'attachment';
+                            const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(fileName);
+                            const attachmentUrl = attachment.startsWith('http') ? attachment : `http://localhost:3000${attachment}`;
+                            
+                            if (isImage) {
+                              return (
+                                <div key={index} className="mt-2">
+                                  <img 
+                                    src={attachmentUrl} 
+                                    alt={fileName}
+                                    className="max-w-48 max-h-32 rounded cursor-pointer border border-gray-200"
+                                    onClick={() => window.open(attachmentUrl, '_blank')}
+                                    onError={(e) => {
+                                      // Fallback to file link if image fails to load
+                                      const target = e.target as HTMLImageElement;
+                                      target.style.display = 'none';
+                                      const fallback = target.nextElementSibling as HTMLElement;
+                                      if (fallback) fallback.style.display = 'flex';
+                                    }}
+                                  />
+                                  <a
+                                    href={attachmentUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className={`items-center gap-2 text-xs underline hover:no-underline ${
+                                      message.senderType === 'admin' ? 'text-blue-200 hover:text-blue-100' : 'text-blue-600 hover:text-blue-800'
+                                    }`}
+                                    style={{ display: 'none' }}
+                                  >
+                                    <Download className="h-3 w-3" />
+                                    📷 {fileName}
+                                  </a>
+                                </div>
+                              );
+                            } else {
+                              return (
+                                <a
+                                  key={index}
+                                  href={attachmentUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  download
+                                  className={`flex items-center gap-2 text-xs underline hover:no-underline px-2 py-1 rounded ${
+                                    message.senderType === 'admin' 
+                                      ? 'text-blue-200 hover:text-blue-100 hover:bg-blue-700' 
+                                      : 'text-blue-600 hover:text-blue-800 hover:bg-blue-50'
+                                  }`}
+                                >
+                                  <Download className="h-3 w-3" />
+                                  📎 {fileName}
+                                </a>
+                              );
+                            }
+                          })}
                         </div>
                       )}
                     </div>
                   </div>
                 ))
               )}
+              {/* Auto-scroll anchor */}
+              <div ref={messagesEndRef} />
             </div>
 
             {/* Message Input */}

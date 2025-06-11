@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pleasant Cove Design - API Connection Test</title>
+    <style>
+        body { font-family: system-ui; padding: 20px; max-width: 800px; margin: 0 auto; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+        .test-section { border: 1px solid #ddd; padding: 15px; margin: 15px 0; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <h1>🔧 Pleasant Cove Design - API Connection Test</h1>
+    <p>This page will test if your Project Inbox can connect to the backend properly.</p>
+    
+    <div class="test-section">
+        <h2>📡 Backend Health Check</h2>
+        <button onclick="testHealth()">Test Backend Health</button>
+        <div id="health-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>📋 Projects API Test</h2>
+        <button onclick="testProjects()">Test /api/projects</button>
+        <div id="projects-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>💬 Messages API Test</h2>
+        <button onclick="testProjectMessages()">Test /api/projects/1/messages</button>
+        <div id="messages-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>🔍 Debug: All Messages</h2>
+        <button onclick="testDebugMessages()">Debug /api/debug/all-messages</button>
+        <div id="debug-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>🎯 Token-based Messages Test</h2>
+        <button onclick="testTokenMessages()">Test /api/public/project/test-project-token-123/messages</button>
+        <div id="token-messages-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>📤 Send Test Message</h2>
+        <button onclick="sendTestMessage()">Send Test Message via Widget API</button>
+        <div id="send-result"></div>
+    </div>
+
+    <script>
+        function log(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            const className = type === 'success' ? 'success' : type === 'error' ? 'error' : 'info';
+            element.innerHTML += `<div class="status ${className}">${message}</div>`;
+        }
+
+        async function testHealth() {
+            const resultId = 'health-result';
+            document.getElementById(resultId).innerHTML = '';
+            log(resultId, '🔄 Testing backend health...', 'info');
+            
+            try {
+                // Test direct backend connection (port 3000)
+                const response = await fetch('http://localhost:3000/health');
+                const data = await response.json();
+                log(resultId, `✅ Direct backend health: ${data.status}`, 'success');
+                log(resultId, `<pre>${JSON.stringify(data, null, 2)}</pre>`, 'info');
+                
+                // Test via Vite proxy
+                const proxyResponse = await fetch('/health');
+                const proxyData = await proxyResponse.json();
+                log(resultId, `✅ Vite proxy health: ${proxyData.status}`, 'success');
+                
+            } catch (error) {
+                log(resultId, `❌ Health check failed: ${error.message}`, 'error');
+                log(resultId, '💡 Make sure your backend is running: npm run server', 'info');
+            }
+        }
+
+        async function testProjects() {
+            const resultId = 'projects-result';
+            document.getElementById(resultId).innerHTML = '';
+            log(resultId, '🔄 Testing projects API...', 'info');
+            
+            try {
+                const response = await fetch('/api/projects');
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log(resultId, `✅ Found ${data.length} projects`, 'success');
+                    data.forEach((project, i) => {
+                        log(resultId, `Project ${i + 1}: "${project.title}" (ID: ${project.id}, Token: ${project.accessToken})`, 'info');
+                    });
+                } else {
+                    log(resultId, `❌ Projects API failed: ${response.status} ${response.statusText}`, 'error');
+                }
+            } catch (error) {
+                log(resultId, `❌ Projects API error: ${error.message}`, 'error');
+                log(resultId, '💡 This should work if backend is running and Vite proxy is working', 'info');
+            }
+        }
+
+        async function testProjectMessages() {
+            const resultId = 'messages-result';
+            document.getElementById(resultId).innerHTML = '';
+            log(resultId, '🔄 Testing project messages API (Project ID 1)...', 'info');
+            
+            try {
+                const response = await fetch('/api/projects/1/messages');
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log(resultId, `✅ Found ${data.length} messages for Project ID 1`, 'success');
+                    data.forEach((msg, i) => {
+                        log(resultId, `Message ${i + 1}: "${msg.content.substring(0, 50)}..." from ${msg.senderName} (${msg.senderType})`, 'info');
+                    });
+                    
+                    if (data.length === 0) {
+                        log(resultId, '⚠️ No messages found! This is why your inbox is empty.', 'error');
+                    }
+                } else {
+                    log(resultId, `❌ Messages API failed: ${response.status} ${response.statusText}`, 'error');
+                }
+            } catch (error) {
+                log(resultId, `❌ Messages API error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testTokenMessages() {
+            const resultId = 'token-messages-result';
+            document.getElementById(resultId).innerHTML = '';
+            log(resultId, '🔄 Testing token-based messages API...', 'info');
+            
+            try {
+                const response = await fetch('/api/public/project/test-project-token-123/messages');
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const messages = data.messages || data;
+                    log(resultId, `✅ Found ${messages.length} messages via token`, 'success');
+                    messages.forEach((msg, i) => {
+                        log(resultId, `Token Message ${i + 1}: "${msg.content.substring(0, 50)}..." from ${msg.senderName}`, 'info');
+                    });
+                } else {
+                    log(resultId, `❌ Token messages API failed: ${response.status} ${response.statusText}`, 'error');
+                }
+            } catch (error) {
+                log(resultId, `❌ Token messages error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testDebugMessages() {
+            const resultId = 'debug-result';
+            document.getElementById(resultId).innerHTML = '';
+            log(resultId, '🔄 Testing debug messages API...', 'info');
+            
+            try {
+                const response = await fetch('/api/debug/all-messages');
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log(resultId, `✅ Debug data retrieved for ${data.totalProjects} projects`, 'success');
+                    
+                    data.projectMessages.forEach((project) => {
+                        log(resultId, `📁 Project ${project.projectId}: "${project.projectTitle}" (Token: ${project.accessToken}) - ${project.messageCount} messages`, 'info');
+                        project.messages.forEach((msg, i) => {
+                            log(resultId, `&nbsp;&nbsp;Message ${i + 1}: "${msg.content.substring(0, 40)}..." from ${msg.senderName} (${msg.senderType})`, 'info');
+                        });
+                    });
+                    
+                    if (data.totalProjects === 0) {
+                        log(resultId, '⚠️ No projects found in database!', 'error');
+                    }
+                } else {
+                    log(resultId, `❌ Debug API failed: ${response.status} ${response.statusText}`, 'error');
+                }
+            } catch (error) {
+                log(resultId, `❌ Debug API error: ${error.message}`, 'error');
+            }
+        }
+
+        async function sendTestMessage() {
+            const resultId = 'send-result';
+            document.getElementById(resultId).innerHTML = '';
+            log(resultId, '🔄 Sending test message via widget API...', 'info');
+            
+            try {
+                const testMessage = {
+                    content: `Test from API connection page - ${new Date().toLocaleTimeString()}`,
+                    senderName: 'API Test',
+                    senderType: 'client',
+                    attachments: []
+                };
+
+                const response = await fetch('/api/public/project/test-project-token-123/messages', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(testMessage)
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log(resultId, `✅ Message sent successfully! ID: ${data.id}`, 'success');
+                    log(resultId, '🔄 Now test the messages APIs above to see if it appears...', 'info');
+                } else {
+                    const errorText = await response.text();
+                    log(resultId, `❌ Send failed: ${response.status} - ${errorText}`, 'error');
+                }
+            } catch (error) {
+                log(resultId, `❌ Send error: ${error.message}`, 'error');
+            }
+        }
+
+        // Auto-run health check on page load
+        window.addEventListener('load', () => {
+            setTimeout(testHealth, 500);
+        });
+    </script>
+</body>
+</html> 

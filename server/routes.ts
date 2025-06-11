@@ -626,11 +626,18 @@ export async function registerRoutes(app: Express): Promise<any> {
       // Handle presigned URL uploads (attachmentKeys are R2 keys or local paths)
       if (attachmentKeys && Array.isArray(attachmentKeys)) {
         attachments = attachmentKeys.map((key: string) => {
-          // If it's already a full URL or starts with /uploads, use as-is for local storage
-          if (key.startsWith('http') || key.startsWith('/uploads')) {
+          // If it's already a full URL, use as-is
+          if (key.startsWith('http')) {
             return key;
           }
-          // Otherwise, convert to R2 URL (for legacy R2 uploads)
+          // If it starts with /uploads, convert to absolute URL
+          if (key.startsWith('/uploads')) {
+            const baseUrl = process.env.NODE_ENV === 'production' 
+              ? 'https://pleasantcovedesign-production.up.railway.app'
+              : `http://localhost:${process.env.PORT || 3000}`;
+            return `${baseUrl}${key}`;
+          }
+          // Otherwise, assume it's an R2 key and convert to R2 URL
           return `${process.env.R2_ENDPOINT}/${process.env.R2_BUCKET}/${key}`;
         });
         console.log('📎 Presigned uploads processed:', attachments);
@@ -1687,11 +1694,13 @@ export async function registerRoutes(app: Express): Promise<any> {
         client_email,
         message_content: content,
         attachments: attachments.map((url: string) => {
-          // Ensure URLs are absolute for Squarespace
-          const fullUrl = url.startsWith('http') ? url : 
-            `${process.env.NODE_ENV === 'production' 
-              ? 'https://pleasantcovedesign-production.up.railway.app'
-              : `http://localhost:${process.env.PORT || 3000}`}${url}`;
+          // Ensure URLs are absolute for Squarespace cross-domain access
+          let fullUrl = url;
+          if (!url.startsWith('http')) {
+            fullUrl = process.env.NODE_ENV === 'production' 
+              ? `https://pleasantcovedesign-production.up.railway.app${url}`
+              : `http://localhost:${process.env.PORT || 3000}${url}`;
+          }
           return {
             url: fullUrl,
             name: url.split('/').pop() || 'attachment'
@@ -1737,11 +1746,34 @@ export async function registerRoutes(app: Express): Promise<any> {
   app.post("/api/projects/:id/messages/with-push", requireAdmin, upload.array('files'), async (req: Request, res: Response) => {
     try {
       const projectId = parseInt(req.params.id);
-      const { content, senderName, senderType = 'admin', pushToSquarespace = 'true' } = req.body;
+      
+      // Handle both FormData and JSON content types
+      let content, senderName, senderType, pushToSquarespace;
+      
+      // Check if it's FormData (multipart/form-data) or JSON
+      const contentType = req.headers['content-type'] || '';
+      if (contentType.includes('multipart/form-data')) {
+        // FormData - extract from req.body (parsed by multer)
+        content = req.body.content;
+        senderName = req.body.senderName;
+        senderType = req.body.senderType || 'admin';
+        pushToSquarespace = req.body.pushToSquarespace || 'true';
+      } else {
+        // JSON - use destructuring
+        ({ content, senderName, senderType = 'admin', pushToSquarespace = 'true' } = req.body);
+      }
+      
       const files = req.files as Express.Multer.File[];
       const shouldPush = pushToSquarespace === 'true' || pushToSquarespace === true;
       
-      console.log('📤 Admin unified with-push message:', { projectId, content, senderName, filesCount: files?.length || 0, shouldPush });
+      console.log('📤 Admin unified with-push message:', { 
+        projectId, 
+        content, 
+        senderName, 
+        filesCount: files?.length || 0, 
+        shouldPush,
+        contentType: contentType
+      });
       
       if ((!content && (!files || files.length === 0)) || !senderName) {
         return res.status(400).json({ error: "Content or files and sender name are required" });
