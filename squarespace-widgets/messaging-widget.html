@@ -1006,61 +1006,124 @@
             }
 
             try {
+                showError('⏳ Sending message...', false);
                 const attachmentKeys = [];
                 
-                for (const file of selectedFiles) {
-                    const uploadUrlResponse = await fetch(
-                        `${CONFIG.backendUrl}/api/public/project/${CONFIG.projectToken}/upload-url?` +
-                        `filename=${encodeURIComponent(file.name)}&fileType=${encodeURIComponent(file.type)}`
-                    );
+                // Handle file uploads
+                if (selectedFiles.length > 0) {
+                    showError('⏳ Uploading files...', false);
                     
-                    if (!uploadUrlResponse.ok) {
-                        throw new Error(`Failed to get upload URL: ${uploadUrlResponse.statusText}`);
+                    for (const file of selectedFiles) {
+                        try {
+                            console.log('📤 Starting upload for:', file.name);
+                            
+                            const uploadUrlResponse = await fetch(
+                                `${CONFIG.backendUrl}/api/public/project/${CONFIG.projectToken}/upload-url?` +
+                                `filename=${encodeURIComponent(file.name)}&fileType=${encodeURIComponent(file.type)}`
+                            );
+                            
+                            if (!uploadUrlResponse.ok) {
+                                console.log('⚠️ Upload URL failed for:', file.name);
+                                showError(`⚠️ Could not upload ${file.name}. Your message will be sent without this file.`);
+                                continue;
+                            }
+                            
+                            const uploadData = await uploadUrlResponse.json();
+                            console.log('📁 Upload data received:', uploadData);
+                            
+                            if (!uploadData.url || !uploadData.key) {
+                                console.log('⚠️ Invalid upload data for:', file.name);
+                                showError(`⚠️ File storage unavailable for ${file.name}.`);
+                                continue;
+                            }
+                            
+                            const uploadResponse = await fetch(uploadData.url, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': file.type },
+                                body: file
+                            });
+                            
+                            if (uploadResponse.ok) {
+                                attachmentKeys.push(uploadData.key);
+                                console.log('✅ File uploaded successfully:', file.name, '→', uploadData.key);
+                                console.log('📎 Current attachment keys:', [...attachmentKeys]);
+                            } else {
+                                console.log('⚠️ File upload failed for:', file.name, 'Status:', uploadResponse.status);
+                                showError(`⚠️ Failed to upload ${file.name}. Your message will be sent without this file.`);
+                            }
+                            
+                        } catch (uploadError) {
+                            console.error('❌ File upload error for', file.name, ':', uploadError);
+                            showError(`⚠️ Failed to upload ${file.name}: ${uploadError.message}`);
+                            continue;
+                        }
                     }
                     
-                    const { url, key } = await uploadUrlResponse.json();
+                    console.log('📎 Final attachment keys array:', attachmentKeys);
+                    console.log('📎 Final attachment count:', attachmentKeys.length);
                     
-                    const uploadResponse = await fetch(url, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': file.type },
-                        body: file
-                    });
-                    
-                    if (!uploadResponse.ok) {
-                        throw new Error(`Failed to upload ${file.name}: ${uploadResponse.statusText}`);
+                    if (attachmentKeys.length > 0) {
+                        console.log(`✅ Successfully uploaded ${attachmentKeys.length} out of ${selectedFiles.length} files`);
+                        showError(`✅ Uploaded ${attachmentKeys.length} file${attachmentKeys.length > 1 ? 's' : ''} successfully!`, false);
+                    } else if (selectedFiles.length > 0) {
+                        showError('⚠️ No files were uploaded successfully.', true);
                     }
-                    
-                    attachmentKeys.push(key);
                 }
 
+                // Send message (with or without attachments)
+                const messageContent = content.trim();
+                const hasAttachments = attachmentKeys.length > 0;
+                
+                // CRITICAL FIX: Send 'attachments' not 'attachmentKeys'
                 const messageData = {
-                    content: content || '(file attachment)',
+                    content: messageContent || (hasAttachments ? `Sent ${attachmentKeys.length} file${attachmentKeys.length > 1 ? 's' : ''}` : 'Message sent'),
                     senderName: CONFIG.memberName || CONFIG.memberEmail || 'Client',
                     senderType: 'client',
-                    attachments: attachmentKeys
+                    attachments: attachmentKeys  // ✅ FIXED: Backend expects 'attachments', not 'attachmentKeys'
                 };
+                
+                console.log('📤 FINAL MESSAGE DATA BEING SENT:');
+                console.log('📤 Content:', messageData.content);
+                console.log('📤 SenderName:', messageData.senderName);
+                console.log('📤 Attachments:', messageData.attachments);
+                console.log('📤 Attachments count:', messageData.attachments.length);
+                console.log('📤 Attachments array:', JSON.stringify(messageData.attachments));
+
+                console.log('📤 Sending message with', attachmentKeys.length, 'attachments to backend...');
 
                 const response = await fetch(`${CONFIG.backendUrl}/api/public/project/${CONFIG.projectToken}/messages`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json' 
+                    },
                     body: JSON.stringify(messageData)
                 });
 
                 if (!response.ok) {
                     const errorText = await response.text();
-                    throw new Error(`Failed to send message: ${errorText}`);
+                    throw new Error(`Failed to send message: ${response.status} - ${errorText}`);
                 }
 
+                const responseData = await response.json();
+                console.log('✅ Message sent successfully, response:', responseData);
+
+                // Clear form
                 document.getElementById('message-input').value = '';
                 selectedFiles = [];
                 renderFilePreview();
                 document.getElementById('file-input').value = '';
                 
-                await loadMessages();
+                showError('✅ Message sent successfully!', false);
+                
+                // Reload messages to show the new one
+                setTimeout(() => {
+                    loadMessages();
+                }, 500);
 
             } catch (error) {
-                console.error('Failed to send message:', error);
-                showError(`Failed to send message: ${error.message}`);
+                console.error('❌ Failed to send message:', error);
+                showError(`❌ Failed to send message: ${error.message}`);
             }
         }
 
@@ -1155,17 +1218,30 @@
 
         function renderAttachment(url) {
             const fileName = url.split('/').pop() || 'attachment';
-            const isImage = /\.(jpg|jpeg|png|gif)$/i.test(fileName);
+            const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(fileName);
+            const fullUrl = url.startsWith('http') ? url : `${CONFIG.backendUrl}${url}`;
+            
+            console.log('🖼️ Rendering attachment:', { url, fileName, isImage, fullUrl });
             
             if (isImage) {
-                return `<img src="${url}" alt="${fileName}" class="pcd-image-attachment" onclick="window.open('${url}', '_blank')">`;
+                return `
+                    <div class="pcd-image-attachment-container">
+                        <img src="${fullUrl}" alt="${fileName}" class="pcd-image-attachment" onclick="window.open('${fullUrl}', '_blank')" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                        <a href="${fullUrl}" target="_blank" class="pcd-attachment" style="display: none;">
+                            <svg class="pcd-attachment-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                            </svg>
+                            📷 ${fileName}
+                        </a>
+                    </div>
+                `;
             } else {
                 return `
-                    <a href="${url}" target="_blank" class="pcd-attachment">
-                        <svg class="pcd-attachment-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <a href="${fullUrl}" target="_blank" class="pcd-attachment" download>
+                        <svg class="pcd-attachment-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                         </svg>
-                        ${fileName}
+                        📎 ${fileName}
                     </a>
                 `;
             }
@@ -1207,11 +1283,24 @@
             }
         }
 
-        function showError(message) {
-            console.error('💥 Error:', message);
+        function showError(message, isError = true) {
+            if (isError) {
+                console.error('💥 Error:', message);
+            } else {
+                console.log('ℹ️ Info:', message);
+            }
             const errorEl = document.getElementById('error-message');
             errorEl.textContent = message;
             errorEl.style.display = 'block';
+            
+            // Auto-hide non-error messages after a few seconds
+            if (!isError) {
+                setTimeout(() => {
+                    if (errorEl.textContent === message) {
+                        errorEl.style.display = 'none';
+                    }
+                }, 3000);
+            }
         }
 
         function hideLoading() {

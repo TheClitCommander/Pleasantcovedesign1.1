@@ -1034,6 +1034,7 @@
             }
 
             try {
+                showError('⏳ Sending message...', false);
                 const attachmentKeys = [];
                 
                 // Handle file uploads with improved support for local storage
@@ -1042,6 +1043,8 @@
                     
                     for (const file of selectedFiles) {
                         try {
+                            console.log('📤 Starting upload for:', file.name);
+                            
                             // Get upload URL/endpoint
                             const uploadUrlResponse = await fetch(
                                 `${CONFIG.backendUrl}/api/public/project/${CONFIG.projectToken}/upload-url?` +
@@ -1049,18 +1052,19 @@
                             );
                             
                             if (!uploadUrlResponse.ok) {
-                                console.log('⚠️ Upload URL failed, proceeding without file upload');
-                                break;
+                                console.log('⚠️ Upload URL failed, skipping file:', file.name);
+                                showError(`⚠️ Could not upload ${file.name}. Your message will be sent without this file.`);
+                                continue;
                             }
                             
                             const uploadData = await uploadUrlResponse.json();
-                            console.log('📁 Upload data:', uploadData);
+                            console.log('📁 Upload data received:', uploadData);
                             
                             // Check if upload is available
                             if (!uploadData.url) {
-                                console.log('⚠️ File storage not available');
-                                showError('File uploads are temporarily unavailable. Your message will be sent without attachments.');
-                                break;
+                                console.log('⚠️ File storage not available for:', file.name);
+                                showError(`⚠️ File storage unavailable for ${file.name}.`);
+                                continue;
                             }
                             
                             let uploadResponse;
@@ -1082,12 +1086,6 @@
                                     fileKey = result.url; // Use the full URL path for local files
                                     console.log('✅ Local upload successful:', result);
                                     console.log('📁 File key assigned:', fileKey);
-                                    
-                                    // Verify fileKey is valid
-                                    if (!fileKey) {
-                                        console.error('❌ No file key returned from local upload');
-                                        fileKey = null;
-                                    }
                                 } else {
                                     console.error('❌ Local upload failed:', uploadResponse.status, await uploadResponse.text());
                                     fileKey = null;
@@ -1102,37 +1100,32 @@
                                 
                                 if (uploadResponse.ok) {
                                     fileKey = uploadData.key;
-                                    console.log('📁 R2 file key assigned:', fileKey);
-                                    
-                                    // Verify fileKey is valid
-                                    if (!fileKey) {
-                                        console.error('❌ No file key returned from R2 upload');
-                                        fileKey = null;
-                                    }
+                                    console.log('✅ R2 upload successful, file key assigned:', fileKey);
                                 } else {
                                     console.error('❌ R2 upload failed:', uploadResponse.status);
                                     fileKey = null;
                                 }
                             }
                             
+                            // CRITICAL: Only add to attachments if upload was successful AND we have a valid key
                             if (uploadResponse && uploadResponse.ok && fileKey) {
                                 attachmentKeys.push(fileKey);
                                 console.log('✅ File uploaded successfully:', file.name, '→', fileKey);
-                                console.log('📎 Current attachment keys:', attachmentKeys);
-                                console.log('📎 Attachment keys array length:', attachmentKeys.length);
+                                console.log('📎 Current attachment keys:', [...attachmentKeys]);
                             } else {
-                                console.log('⚠️ File upload failed for:', file.name);
-                                console.log('❌ Upload response status:', uploadResponse ? uploadResponse.status : 'no response');
-                                console.log('❌ File key:', fileKey);
-                                showError(`Failed to upload ${file.name}. Your message will be sent without this attachment.`);
+                                console.log('⚠️ File upload failed for:', file.name, 'Status:', uploadResponse?.status, 'Key:', fileKey);
+                                showError(`⚠️ Failed to upload ${file.name}. Your message will be sent without this file.`);
                             }
                             
                         } catch (uploadError) {
-                            console.error('❌ File upload error:', uploadError);
-                            showError(`Failed to upload ${file.name}. Your message will be sent without this attachment.`);
+                            console.error('❌ File upload error for', file.name, ':', uploadError);
+                            showError(`⚠️ Failed to upload ${file.name}: ${uploadError.message}`);
                             continue;
                         }
                     }
+                    
+                    console.log('📎 Final attachment keys array:', attachmentKeys);
+                    console.log('📎 Final attachment count:', attachmentKeys.length);
                     
                     if (attachmentKeys.length > 0) {
                         console.log(`✅ Successfully uploaded ${attachmentKeys.length} out of ${selectedFiles.length} files`);
@@ -1146,33 +1139,39 @@
                 const messageContent = content.trim();
                 const hasAttachments = attachmentKeys.length > 0;
                 
+                // CRITICAL FIX: Send 'attachments' not 'attachmentKeys'
                 const messageData = {
                     content: messageContent || (hasAttachments ? `Sent ${attachmentKeys.length} file${attachmentKeys.length > 1 ? 's' : ''}` : 'Message sent'),
                     senderName: CONFIG.memberName || CONFIG.memberEmail || 'Client',
                     senderType: 'client',
-                    attachments: attachmentKeys,  // Backend expects 'attachments', not 'attachmentKeys'
-                    hasFiles: attachmentKeys.length > 0
+                    attachments: attachmentKeys  // ✅ FIXED: Backend expects 'attachments', not 'attachmentKeys'
                 };
                 
-                console.log('📤 Final attachment keys before sending:', JSON.stringify(attachmentKeys));
-                console.log('📤 Message data being sent:', JSON.stringify(messageData));
-                console.log('📤 Has attachments:', hasAttachments, '| Count:', attachmentKeys.length);
-                console.log('📤 Attachment keys type:', typeof attachmentKeys, '| Is array:', Array.isArray(attachmentKeys));
+                console.log('📤 FINAL MESSAGE DATA BEING SENT:');
+                console.log('📤 Content:', messageData.content);
+                console.log('📤 SenderName:', messageData.senderName);
+                console.log('📤 Attachments:', messageData.attachments);
+                console.log('📤 Attachments count:', messageData.attachments.length);
+                console.log('📤 Attachments array:', JSON.stringify(messageData.attachments));
 
-                console.log('📤 Sending message with', attachmentKeys.length, 'attachments');
+                console.log('📤 Sending message with', attachmentKeys.length, 'attachments to backend...');
 
                 const response = await fetch(`${CONFIG.backendUrl}/api/public/project/${CONFIG.projectToken}/messages`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json' 
+                    },
                     body: JSON.stringify(messageData)
                 });
 
                 if (!response.ok) {
                     const errorText = await response.text();
-                    throw new Error(`Failed to send message: ${errorText}`);
+                    throw new Error(`Failed to send message: ${response.status} - ${errorText}`);
                 }
 
-                console.log('✅ Message sent successfully');
+                const responseData = await response.json();
+                console.log('✅ Message sent successfully, response:', responseData);
 
                 // Clear form
                 document.getElementById('message-input').value = '';
@@ -1180,12 +1179,16 @@
                 renderFilePreview();
                 document.getElementById('file-input').value = '';
                 
+                showError('✅ Message sent successfully!', false);
+                
                 // Reload messages to show the new one
-                await loadMessages();
+                setTimeout(() => {
+                    loadMessages();
+                }, 500);
 
             } catch (error) {
-                console.error('Failed to send message:', error);
-                showError(`Failed to send message: ${error.message}`);
+                console.error('❌ Failed to send message:', error);
+                showError(`❌ Failed to send message: ${error.message}`);
             }
         }
 
