@@ -12,6 +12,7 @@ import fs from 'fs';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import uploadRoutes from './uploadRoutes.js';
+import { io } from './index.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -3284,6 +3285,193 @@ Booked via: ${source}
     } catch (error) {
       console.error("Failed to fetch activities:", error);
       res.status(500).json({ error: "Failed to fetch activities" });
+    }
+  });
+
+  // UNIFIED MESSAGING API - Real-time bi-directional messaging
+  // ========================================================
+
+  interface UnifiedMessage {
+    projectToken: string;
+    sender: string;
+    body: string;
+    timestamp: string;
+    id?: number;
+    attachments?: string[];
+  }
+
+  // Get messages by project token (unified endpoint)
+  app.get("/api/messages", async (req: Request, res: Response) => {
+    try {
+      const { projectToken } = req.query;
+      
+      if (!projectToken || typeof projectToken !== 'string') {
+        return res.status(400).json({ error: "Project token is required" });
+      }
+      
+      console.log(`📥 Fetching messages for project token: ${projectToken}`);
+      
+      // Find project by token
+      const project = await storage.getProjectByToken(projectToken);
+      if (!project) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+      
+      // Get messages for this project
+      const messages = await storage.getProjectMessages(project.id!);
+      
+      // Transform to unified format
+      const unifiedMessages: UnifiedMessage[] = messages.map(msg => ({
+        id: msg.id,
+        projectToken: projectToken,
+        sender: msg.senderName,
+        body: msg.content,
+        timestamp: msg.createdAt || new Date().toISOString(),
+        attachments: msg.attachments || []
+      }));
+      
+      console.log(`📋 Retrieved ${unifiedMessages.length} messages for project: ${project.title}`);
+      res.json(unifiedMessages);
+      
+    } catch (error) {
+      console.error("Failed to fetch unified messages:", error);
+      res.status(500).json({ error: "Failed to fetch messages" });
+    }
+  });
+
+  // Send message (unified endpoint) 
+  app.post("/api/messages", upload.array('files'), async (req: Request, res: Response) => {
+    try {
+      const { projectToken, sender, body } = req.body;
+      
+      if (!projectToken || !sender || !body) {
+        return res.status(400).json({ 
+          error: "projectToken, sender, and body are required" 
+        });
+      }
+      
+      console.log(`📤 Unified message send request:`, {
+        projectToken,
+        sender,
+        body: body.substring(0, 100) + (body.length > 100 ? '...' : ''),
+        filesCount: req.files?.length || 0
+      });
+      
+      // Find project by token
+      const project = await storage.getProjectByToken(projectToken);
+      if (!project) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+      
+             // Handle file uploads  
+       let attachmentUrls: string[] = [];
+       if (req.files && Array.isArray(req.files) && req.files.length > 0) {
+         console.log(`📎 Processing ${req.files.length} file attachments`);
+         
+         for (const file of req.files) {
+           try {
+             // For now, use simple local file storage (implement R2 later if needed)
+             const fileName = `${projectToken}-${Date.now()}-${file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+             const localPath = `/uploads/${fileName}`;
+             
+             // Simple file save using Node.js fs (you can enhance this later)
+             const fs = await import('fs/promises');
+             const path = await import('path');
+             const uploadsDir = path.join(process.cwd(), 'uploads');
+             
+             // Ensure uploads directory exists
+             try {
+               await fs.access(uploadsDir);
+             } catch {
+               await fs.mkdir(uploadsDir, { recursive: true });
+             }
+             
+             // Save file
+             await fs.writeFile(path.join(uploadsDir, fileName), file.buffer);
+             attachmentUrls.push(`http://localhost:3000${localPath}`);
+             console.log(`📎 Local upload successful: ${fileName}`);
+           } catch (uploadError) {
+             console.error(`Failed to upload file ${file.originalname}:`, uploadError);
+             // Continue with other files, don't fail the entire message
+           }
+         }
+       }
+      
+      // Determine sender type (admin vs client)
+      const senderType = sender.toLowerCase().includes('ben') || 
+                         sender.toLowerCase().includes('admin') || 
+                         sender.toLowerCase().includes('pleasant cove') ? 'admin' : 'client';
+      
+             // Save message to database
+       const savedMessage = await storage.createProjectMessage({
+         projectId: project.id!,
+         senderType,
+         senderName: sender,
+         content: body,
+         attachments: attachmentUrls,
+         createdAt: new Date().toISOString()
+       });
+      
+      // Create unified response
+      const unifiedMessage: UnifiedMessage = {
+        id: savedMessage.id,
+        projectToken,
+        sender,
+        body,
+        timestamp: new Date().toISOString(),
+        attachments: attachmentUrls
+      };
+      
+      console.log(`✅ Unified message created:`, {
+        id: savedMessage.id,
+        sender,
+        attachments: attachmentUrls.length
+      });
+      
+      // Broadcast to all connected clients for this project
+      if (io) {
+        console.log(`📡 Broadcasting message to project: ${projectToken}`);
+        io.to(projectToken).emit('newMessage', unifiedMessage);
+      }
+      
+      // If this is an admin message, also push to Squarespace  
+      if (senderType === 'admin') {
+        try {
+          const squarespacePayload = {
+            project_title: project.title,
+            company_name: project.company?.name || 'Unknown Client',
+            client_email: project.company?.email || '',
+            message_content: body,
+            attachments: attachmentUrls.map(url => ({
+              url,
+              name: url.split('/').pop() || 'attachment'
+            })),
+            timestamp: new Date().toISOString(),
+            sender: sender,
+            message_type: 'admin_update',
+            project_stage: project.stage || 'active'
+          };
+          
+          console.log('🚀 Pushing admin message to Squarespace:', {
+            project: project.title,
+            sender,
+            content: body.substring(0, 50) + '...'
+          });
+          
+          // Here you would implement the actual Squarespace push
+          // For now, just log it
+          
+        } catch (pushError) {
+          console.error('Failed to push to Squarespace:', pushError);
+          // Don't fail the message creation if push fails
+        }
+      }
+      
+      res.json(unifiedMessage);
+      
+    } catch (error) {
+      console.error("Failed to send unified message:", error);
+      res.status(500).json({ error: "Failed to send message" });
     }
   });
 

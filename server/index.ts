@@ -5,6 +5,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { registerRoutes } from "./routes";
 import { storage } from './storage.js';
+import { Server } from 'socket.io';
 
 // Load environment variables FIRST before importing anything else
 dotenv.config({ path: resolve(process.cwd(), '.env') });
@@ -22,7 +23,115 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const server = createServer(app);
+
+// Initialize Socket.io with Railway Pro WebSocket support
+const io = new Server(server, {
+  path: '/socket.io',
+  transports: ['websocket', 'polling'],
+  allowEIO3: true,
+  pingTimeout: 60000,
+  pingInterval: 25000,
+  upgradeTimeout: 30000,
+  maxHttpBufferSize: 1e6,
+  cors: {
+    origin: [
+      'http://localhost:3000',
+      'http://localhost:5173',
+      'https://localhost:5173', 
+      'http://localhost:5174',
+      'https://localhost:5174',
+      /\.squarespace\.com$/,
+      /\.squarespace-cdn\.com$/,
+      /pleasantcove/,
+      // Railway production
+      'https://pleasantcovedesign-production.up.railway.app',
+      // ngrok support
+      /\.ngrok-free\.app$/,
+      /\.ngrok\.io$/,
+      // Current ngrok URL
+      'https://cfa1-2603-7080-e501-3f6a-b468-b0d0-1bfd-2e5.ngrok-free.app',
+      // Previous ngrok URL (backup)
+      'https://cae1-2603-7080-e501-3f6a-b468-b0d0-1bfd-2e5.ngrok-free.app',
+    ],
+    methods: ['GET', 'POST'],
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']
+  },
+  // Railway Pro specific settings
+  serveClient: false,
+  cookie: false
+});
+
 const PORT = process.env.PORT || 3000;
+
+// Store active connections by project token
+const activeConnections = new Map<string, Set<string>>();
+
+// Socket.io connection handling with Railway Pro support
+io.on('connection', (socket) => {
+  const clientInfo = {
+    id: socket.id,
+    transport: socket.conn.transport.name,
+    origin: socket.handshake.headers.origin,
+    userAgent: socket.handshake.headers['user-agent']
+  };
+  
+  console.log('🔌 New socket connection:', clientInfo);
+  
+  // Log transport upgrades for Railway debugging
+  socket.conn.on('upgrade', () => {
+    console.log('⬆️ Socket transport upgraded to:', socket.conn.transport.name, 'for', socket.id);
+  });
+  
+  socket.on('join', (projectToken: string) => {
+    if (!projectToken) {
+      console.log('❌ No project token provided for socket:', socket.id);
+      return;
+    }
+    
+    console.log(`🏠 Socket ${socket.id} (${socket.conn.transport.name}) joining project: ${projectToken}`);
+    socket.join(projectToken);
+    
+    // Track active connections
+    if (!activeConnections.has(projectToken)) {
+      activeConnections.set(projectToken, new Set());
+    }
+    activeConnections.get(projectToken)!.add(socket.id);
+    
+    // Send confirmation with transport info
+    socket.emit('joined', { 
+      projectToken, 
+      status: 'connected',
+      transport: socket.conn.transport.name,
+      socketId: socket.id
+    });
+    
+    console.log(`✅ Socket ${socket.id} successfully joined project ${projectToken} via ${socket.conn.transport.name}`);
+  });
+  
+  socket.on('disconnect', (reason) => {
+    console.log('🔌 Socket disconnected:', socket.id, 'reason:', reason);
+    
+    // Remove from all active connections
+    for (const [projectToken, connections] of activeConnections.entries()) {
+      connections.delete(socket.id);
+      if (connections.size === 0) {
+        activeConnections.delete(projectToken);
+      }
+    }
+  });
+  
+  socket.on('error', (error) => {
+    console.error('🔌 Socket error for', socket.id, ':', error);
+  });
+  
+  socket.on('connect_error', (error) => {
+    console.error('🔌 Socket connect error for', socket.id, ':', error);
+  });
+});
+
+// Export io for use in routes
+export { io };
 
 // Enhanced CORS for Squarespace webhooks and ngrok
 app.use(cors({
@@ -141,6 +250,15 @@ async function startServer() {
       console.log(`🔗 Webhook endpoint: http://localhost:${PORT}/api/new-lead`);
       console.log(`💾 Database: SQLite (websitewizard.db)`);
       console.log(`🎯 Ready for Squarespace integration!`);
+      
+      // Railway Pro WebSocket info
+      if (process.env.NODE_ENV === 'production') {
+        console.log(`🚂 Railway Pro WebSocket support enabled`);
+        console.log(`🔌 Socket.IO transports: websocket, polling`);
+        console.log(`⚡ WebSocket upgrades supported`);
+      } else {
+        console.log(`🏠 Local development - WebSocket support active`);
+      }
       
       // Acuity webhook integration info
       console.log(`🗓️ Acuity webhook endpoint: http://localhost:${PORT}/api/acuity-appointment`);

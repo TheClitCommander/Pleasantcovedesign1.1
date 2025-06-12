@@ -4,6 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import mime from 'mime-types';
 
 const router = express.Router();
 
@@ -145,6 +146,16 @@ router.get('/uploads/:filename', (req, res) => {
   const filePath = path.join(uploadsDir, filename);
   
   if (fs.existsSync(filePath)) {
+    const contentType = mime.lookup(filename);
+    if (contentType) {
+      res.setHeader('Content-Type', contentType);
+    }
+
+    const isImage = contentType && contentType.startsWith('image/');
+    if (!isImage) {
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    }
+
     res.sendFile(filePath);
   } else {
     res.status(404).json({ error: 'File not found' });

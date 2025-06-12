@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Project Messages</title>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <style>
         .pcd-messaging-widget {
             max-width: 800px;
@@ -142,7 +143,7 @@
             animation: spin 1s linear infinite;
         }
 
-        /* Rest of your existing styles from the current widget */
+        /* Messaging interface styles */
         .pcd-messaging-header {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
@@ -170,10 +171,17 @@
             height: 8px;
             border-radius: 50%;
             background: #10b981;
+            animation: pulse 2s infinite;
         }
 
         .pcd-status-dot.disconnected {
             background: #f59e0b;
+            animation: none;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
         }
 
         .pcd-messages-container {
@@ -286,41 +294,6 @@
 
         .pcd-image-attachment:hover {
             transform: scale(1.05);
-        }
-
-        .pcd-typing-indicator {
-            display: none;
-            align-items: center;
-            gap: 8px;
-            padding: 12px 16px;
-            color: #6b7280;
-            font-style: italic;
-            font-size: 14px;
-        }
-
-        .pcd-typing-dots {
-            display: flex;
-            gap: 4px;
-        }
-
-        .pcd-typing-dot {
-            width: 6px;
-            height: 6px;
-            background: #9ca3af;
-            border-radius: 50%;
-            animation: typing 1.4s infinite ease-in-out;
-        }
-
-        .pcd-typing-dot:nth-child(1) { animation-delay: -0.32s; }
-        .pcd-typing-dot:nth-child(2) { animation-delay: -0.16s; }
-
-        @keyframes typing {
-            0%, 80%, 100% { transform: scale(0.8); opacity: 0.5; }
-            40% { transform: scale(1); opacity: 1; }
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
         }
 
         .pcd-message-input-container {
@@ -488,6 +461,10 @@
             font-size: 14px;
         }
 
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
         @media (max-width: 768px) {
             .pcd-messaging-widget {
                 height: 500px;
@@ -498,897 +475,611 @@
             .pcd-message {
                 max-width: 85%;
             }
-            
-            .pcd-messaging-header {
-                padding: 16px;
-            }
-            
-            .pcd-prechat-form {
-                margin: 20px;
-                padding: 24px;
-            }
         }
     </style>
 </head>
 <body>
-    <!-- Pre-chat form overlay -->
-    <div class="pcd-prechat-overlay" id="prechat-overlay" style="display: none;">
-        <div class="pcd-prechat-form">
-            <h3>👋 Let's get started!</h3>
-            <p>Enter your details below to begin chatting with our team about your project.</p>
-            
-            <form id="prechat-form">
-                <div class="pcd-form-group">
-                    <label class="pcd-form-label" for="visitor-name">Your Name</label>
-                    <input type="text" id="visitor-name" class="pcd-form-input" placeholder="e.g. John Smith" required>
-                    <div class="pcd-form-error" id="name-error">Please enter your name</div>
-                </div>
-                
-                <div class="pcd-form-group">
-                    <label class="pcd-form-label" for="visitor-email">Email Address</label>
-                    <input type="email" id="visitor-email" class="pcd-form-input" placeholder="john@example.com" required>
-                    <div class="pcd-form-error" id="email-error">Please enter a valid email address</div>
-                </div>
-                
-                <button type="submit" class="pcd-form-submit" id="prechat-submit">
-                    Start Conversation
-                </button>
-            </form>
-            
-            <div class="pcd-form-loading" id="prechat-loading">
-                <div class="pcd-form-spinner"></div>
-                Setting up your conversation...
-            </div>
-        </div>
-    </div>
-
     <div class="pcd-messaging-widget">
-        <div class="pcd-messaging-header">
-            <h2>💬 Project Messages</h2>
-            <div class="pcd-connection-status">
-                <div class="pcd-status-dot" id="connection-status"></div>
-                <span id="connection-text">Connected</span>
+        <!-- Pre-chat form overlay -->
+        <div class="pcd-prechat-overlay" id="prechatOverlay">
+            <div class="pcd-prechat-form">
+                <h3>Start a Conversation</h3>
+                <p>Let's connect! Please tell us a bit about yourself to get started.</p>
+                
+                <form id="prechatForm">
+                    <div class="pcd-form-group">
+                        <label class="pcd-form-label" for="userName">Your Name *</label>
+                        <input type="text" id="userName" class="pcd-form-input" required>
+                        <div class="pcd-form-error" id="nameError">Please enter your name</div>
+                    </div>
+                    
+                    <div class="pcd-form-group">
+                        <label class="pcd-form-label" for="userEmail">Email Address *</label>
+                        <input type="email" id="userEmail" class="pcd-form-input" required>
+                        <div class="pcd-form-error" id="emailError">Please enter a valid email address</div>
+                    </div>
+                    
+                    <button type="submit" class="pcd-form-submit" id="startChatBtn">
+                        Start Messaging
+                    </button>
+                </form>
+                
+                <div class="pcd-form-loading" id="formLoading">
+                    <div class="pcd-form-spinner"></div>
+                    <span>Setting up your conversation...</span>
+                </div>
             </div>
         </div>
 
-        <div class="pcd-messages-container" id="messages-container">
-            <div class="pcd-loading-messages" id="loading-messages">
+        <!-- Main messaging interface -->
+        <div class="pcd-messaging-header">
+            <h2>Pleasant Cove Design</h2>
+            <div class="pcd-connection-status">
+                <div class="pcd-status-dot" id="connectionDot"></div>
+                <span id="connectionStatus">Connected</span>
+            </div>
+        </div>
+
+        <div class="pcd-messages-container" id="messagesContainer">
+            <div class="pcd-loading-messages" id="loadingMessages">
                 <div class="pcd-spinner"></div>
                 Loading messages...
             </div>
-            
-            <div class="pcd-empty-state" id="empty-state" style="display: none;">
-                <svg class="pcd-empty-state-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
-                </svg>
-                <h3>Start a conversation</h3>
-                <p>Send a message to begin communicating with the Pleasant Cove Design team about your project.</p>
-            </div>
-
-            <div class="pcd-error-message" id="error-message" style="display: none;"></div>
-
-            <div id="messages-list"></div>
-
-            <div class="pcd-typing-indicator" id="typing-indicator">
-                <span>Pleasant Cove Design is typing</span>
-                <div class="pcd-typing-dots">
-                    <div class="pcd-typing-dot"></div>
-                    <div class="pcd-typing-dot"></div>
-                    <div class="pcd-typing-dot"></div>
-                </div>
-            </div>
         </div>
 
-        <div class="pcd-file-preview" id="file-preview"></div>
+        <div class="pcd-file-preview" id="filePreview"></div>
 
         <div class="pcd-message-input-container">
-            <form class="pcd-message-form" id="message-form">
+            <form class="pcd-message-form" id="messageForm">
                 <div class="pcd-input-wrapper">
                     <textarea 
-                        id="message-input" 
                         class="pcd-message-input" 
+                        id="messageInput"
                         placeholder="Type your message..."
                         rows="1"
                     ></textarea>
-                    <button type="button" class="pcd-file-input-btn" onclick="document.getElementById('file-input').click()">
-                        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path>
-                        </svg>
+                    <button type="button" class="pcd-file-input-btn" id="fileButton">
+                        📎
                     </button>
-                    <input type="file" id="file-input" class="pcd-file-input" multiple accept="image/*,.pdf,.doc,.docx,.txt">
+                    <input type="file" class="pcd-file-input" id="fileInput" multiple accept="image/*,.pdf,.doc,.docx,.txt">
                 </div>
-                <button type="submit" class="pcd-send-btn" id="send-btn">
-                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
-                    </svg>
+                
+                <button type="submit" class="pcd-send-btn" id="sendButton">
+                    ➤
                 </button>
             </form>
         </div>
     </div>
 
     <script>
-        // Configuration - AUTO-DETECTS ENVIRONMENT
-        const CONFIG = {
-            backendUrl: detectBackendUrl(),
-            memberEmail: null,
-            memberName: null,
-            projectToken: null,
-            pollInterval: 3000,
-            maxFileSize: 10 * 1024 * 1024,
-            allowedFileTypes: ['image/jpeg', 'image/png', 'image/gif', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain']
-        };
-
-        // Smart backend URL detection - automatically switches between local and production
-        function detectBackendUrl() {
-            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-                console.log('🏠 Local environment detected - using localhost:3000');
-                return 'http://localhost:3000';
-            } else {
-                console.log('🚀 Production environment detected - using Railway backend');
-                return 'https://pleasantcovedesign-production.up.railway.app';
-            }
-            
-            // Original auto-detection code (preserved for reference):
-            // if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-            //     console.log('🏠 Local environment detected - using localhost:3000');
-            //     return 'http://localhost:3000';
-            // }
-            // console.log('🌐 Remote environment detected - using Railway production');
-            // return 'https://pleasantcovedesign-production.up.railway.app';
-        }
-
-        let lastMessageId = 0;
-        let pollTimer = null;
-        let selectedFiles = [];
-
-        // Initialize messaging widget - FORCED TEST MODE
-        async function initializeMessaging() {
-            console.log('🚀 Initializing Pleasant Cove Design Messaging (TEST MODE)...');
-            
-            // FORCE TEST PROJECT TOKEN FOR DEVELOPMENT
-            console.log('🧪 FORCED TEST MODE - using test-project-token-123');
-            CONFIG.projectToken = 'test-project-token-123';
-            CONFIG.memberEmail = 'test@coastal-electric.com';
-            CONFIG.memberName = 'Test Client';
-            
-            updateHeaderWithUser();
-            await loadMessagesAndStartPolling();
-            setupEventListeners();
-            
-            /* Original code (commented out for testing):
-            const existingToken = getStoredToken();
-            const existingEmail = getStoredEmail();
-            const existingName = getStoredName();
-            
-            if (existingToken && existingEmail) {
-                console.log('✅ Found existing credentials, initializing chat...');
-                CONFIG.projectToken = existingToken;
-                CONFIG.memberEmail = existingEmail;
-                CONFIG.memberName = existingName;
+        class PCDMessagingWidget {
+            constructor() {
+                this.projectToken = null;
+                this.userName = null;
+                this.userEmail = null;
+                this.socket = null;
+                this.messages = [];
+                this.selectedFiles = [];
                 
-                updateHeaderWithUser();
-                await loadMessagesAndStartPolling();
-            } else {
-                console.log('🆕 New visitor - showing pre-chat form');
-                showPreChatForm();
-            }
-            
-            setupEventListeners();
-            */
-        }
-
-        // Show pre-chat form
-        function showPreChatForm() {
-            document.getElementById('prechat-overlay').style.display = 'flex';
-            setTimeout(() => {
-                document.getElementById('visitor-name').focus();
-            }, 300);
-        }
-
-        // Hide pre-chat form
-        function hidePreChatForm() {
-            document.getElementById('prechat-overlay').style.display = 'none';
-        }
-
-        // Handle pre-chat form submission
-        async function handlePreChatSubmission(e) {
-            e.preventDefault();
-            
-            const nameInput = document.getElementById('visitor-name');
-            const emailInput = document.getElementById('visitor-email');
-            const submitBtn = document.getElementById('prechat-submit');
-            const loadingDiv = document.getElementById('prechat-loading');
-            
-            const name = nameInput.value.trim();
-            const email = emailInput.value.trim();
-            
-            // Reset errors
-            clearFormErrors();
-            
-            // Validate
-            let hasErrors = false;
-            if (!name) {
-                showFieldError('visitor-name', 'name-error', 'Please enter your name');
-                hasErrors = true;
-            }
-            if (!email || !isValidEmail(email)) {
-                showFieldError('visitor-email', 'email-error', 'Please enter a valid email address');
-                hasErrors = true;
-            }
-            
-            if (hasErrors) return;
-            
-            // Show loading state
-            submitBtn.style.display = 'none';
-            loadingDiv.style.display = 'flex';
-            
-            try {
-                console.log('🔄 Creating/finding lead for:', { name, email });
-                
-                // Call your new-lead endpoint
-                const response = await fetch(`${CONFIG.backendUrl}/api/new-lead`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        name: name,
-                        email: email,
-                        source: 'Squarespace Widget'
-                    })
-                });
-                
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(`Failed to create lead: ${response.status} - ${errorText}`);
-                }
-                
-                const data = await response.json();
-                console.log('✅ Lead response:', data);
-                
-                // Store the credentials
-                CONFIG.projectToken = data.projectToken;
-                CONFIG.memberEmail = email;
-                CONFIG.memberName = name;
-                
-                storeCredentials(data.projectToken, email, name);
-                updateHeaderWithUser();
-                
-                // Hide form and load chat
-                hidePreChatForm();
-                await loadMessagesAndStartPolling();
-                
-            } catch (error) {
-                console.error('❌ Error creating lead:', error);
-                alert(`Sorry, there was an error setting up your conversation: ${error.message}`);
-                
-                // Reset form state
-                submitBtn.style.display = 'block';
-                loadingDiv.style.display = 'none';
-            }
-        }
-
-        // Form validation helpers
-        function isValidEmail(email) {
-            return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-        }
-
-        function showFieldError(fieldId, errorId, message) {
-            const field = document.getElementById(fieldId);
-            const error = document.getElementById(errorId);
-            field.classList.add('error');
-            error.textContent = message;
-            error.style.display = 'block';
-        }
-
-        function clearFormErrors() {
-            const fields = ['visitor-name', 'visitor-email'];
-            const errors = ['name-error', 'email-error'];
-            
-            fields.forEach(fieldId => {
-                document.getElementById(fieldId).classList.remove('error');
-            });
-            
-            errors.forEach(errorId => {
-                const error = document.getElementById(errorId);
-                error.style.display = 'none';
-            });
-        }
-
-        // Storage helpers
-        function storeCredentials(token, email, name) {
-            localStorage.setItem('pcd_projectToken', token);
-            localStorage.setItem('pcd_memberEmail', email);
-            localStorage.setItem('pcd_memberName', name);
-            console.log('💾 Stored credentials for future visits');
-        }
-
-        function getStoredToken() {
-            return localStorage.getItem('pcd_projectToken');
-        }
-
-        function getStoredEmail() {
-            return localStorage.getItem('pcd_memberEmail');
-        }
-
-        function getStoredName() {
-            return localStorage.getItem('pcd_memberName');
-        }
-
-        function clearStoredCredentials() {
-            localStorage.removeItem('pcd_projectToken');
-            localStorage.removeItem('pcd_memberEmail');
-            localStorage.removeItem('pcd_memberName');
-            console.log('🗑️ Cleared stored credentials');
-        }
-
-        // Update header with user info
-        function updateHeaderWithUser() {
-            if (CONFIG.memberName) {
-                document.querySelector('.pcd-messaging-header h2').textContent = `💬 Messages - ${CONFIG.memberName}`;
-            } else if (CONFIG.memberEmail) {
-                document.querySelector('.pcd-messaging-header h2').textContent = `💬 Messages - ${CONFIG.memberEmail.split('@')[0]}`;
-            }
-        }
-
-        // Load messages and start polling
-        async function loadMessagesAndStartPolling() {
-            if (!CONFIG.projectToken) {
-                console.error('❌ No project token available');
-                return;
-            }
-            
-            console.log('📨 Loading messages for token:', CONFIG.projectToken.substring(0, 8) + '...');
-            await loadMessages();
-            startPolling();
-        }
-
-        // Setup event listeners
-        function setupEventListeners() {
-            const messageForm = document.getElementById('message-form');
-            const messageInput = document.getElementById('message-input');
-            const fileInput = document.getElementById('file-input');
-            const preChatForm = document.getElementById('prechat-form');
-
-            messageForm.addEventListener('submit', handleSendMessage);
-            preChatForm.addEventListener('submit', handlePreChatSubmission);
-            
-            // Auto-resize textarea
-            messageInput.addEventListener('input', function() {
-                this.style.height = 'auto';
-                this.style.height = Math.min(this.scrollHeight, 120) + 'px';
-            });
-
-            // File selection
-            fileInput.addEventListener('change', handleFileSelection);
-
-            // Enter to send (Shift+Enter for new line)
-            messageInput.addEventListener('keydown', function(e) {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    messageForm.dispatchEvent(new Event('submit'));
-                }
-            });
-        }
-
-        // Load messages from backend with enhanced error handling
-        async function loadMessages() {
-            console.log('📨 Loading messages for token:', CONFIG.projectToken.substring(0, 8) + '...');
-            
-            try {
-                setConnectionStatus(true);
-                const url = `${CONFIG.backendUrl}/api/public/project/${CONFIG.projectToken}/messages`;
-                console.log('🌐 Fetching from:', url);
-                
-                const headers = {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json',
-                    'ngrok-skip-browser-warning': 'true',
-                    'User-Agent': 'Pleasant-Cove-Messaging-Widget'
+                // Configuration - UPDATE THESE URLs FOR YOUR ENVIRONMENT
+                this.config = {
+                    backendUrl: this.detectBackendUrl(),
+                    // Use ngrok URL in production: 'https://your-app.ngrok-free.app'
                 };
                 
-                const response = await fetch(url, {
-                    method: 'GET',
-                    headers: headers,
-                    mode: 'cors'
+                this.init();
+            }
+
+            detectBackendUrl() {
+                // Auto-detect environment
+                const hostname = window.location.hostname;
+                
+                if (hostname === 'localhost' || hostname === '127.0.0.1') {
+                    console.log('🏠 Local environment detected - using localhost:3000');
+                    return 'http://localhost:3000';
+                } else if (hostname.includes('pleasantcovedesign.com')) {
+                    console.log('🌐 Production environment detected - using Railway/production backend');
+                    return 'https://pleasantcovedesign-production.up.railway.app';
+                } else if (hostname.includes('ngrok')) {
+                    console.log('🔧 ngrok environment detected');
+                    return 'https://cfa1-2603-7080-e501-3f6a-b468-b0d0-1bfd-2e5.ngrok-free.app';
+                } else {
+                    console.log('🌐 Unknown environment - defaulting to Railway production');
+                    return 'https://pleasantcovedesign-production.up.railway.app';
+                }
+            }
+
+            init() {
+                this.bindEvents();
+                this.checkExistingSession();
+            }
+
+            bindEvents() {
+                // Pre-chat form
+                document.getElementById('prechatForm').addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    this.handlePrechatSubmit();
                 });
-                
-                console.log('📡 Response status:', response.status);
-                
-                if (response.ok) {
-                    const contentType = response.headers.get('content-type');
-                    console.log('📄 Content-Type:', contentType);
+
+                // Message form
+                document.getElementById('messageForm').addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    this.sendMessage();
+                });
+
+                // File upload
+                document.getElementById('fileButton').addEventListener('click', () => {
+                    document.getElementById('fileInput').click();
+                });
+
+                document.getElementById('fileInput').addEventListener('change', (e) => {
+                    this.handleFileSelect(e);
+                });
+
+                // Auto-resize textarea
+                const messageInput = document.getElementById('messageInput');
+                messageInput.addEventListener('input', () => {
+                    this.autoResizeTextarea(messageInput);
+                });
+
+                // Send on Enter (but not Shift+Enter)
+                messageInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        this.sendMessage();
+                    }
+                });
+            }
+
+            checkExistingSession() {
+                const savedToken = localStorage.getItem('pcd_project_token');
+                const savedName = localStorage.getItem('pcd_user_name');
+                const savedEmail = localStorage.getItem('pcd_user_email');
+
+                if (savedToken && savedName && savedEmail) {
+                    this.projectToken = savedToken;
+                    this.userName = savedName;
+                    this.userEmail = savedEmail;
+                    this.startMessaging();
+                }
+            }
+
+            async handlePrechatSubmit() {
+                const name = document.getElementById('userName').value.trim();
+                const email = document.getElementById('userEmail').value.trim();
+
+                if (!name || !email) {
+                    this.showFormError('Please fill in all required fields');
+                    return;
+                }
+
+                try {
+                    this.showLoading(true);
                     
-                    if (!contentType || !contentType.includes('application/json')) {
-                        const textContent = await response.text();
-                        console.error('❌ Expected JSON but got:', contentType);
+                    // Create or get project token via webhook
+                    const response = await fetch(`${this.config.backendUrl}/api/new-lead`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            name: name,
+                            email: email,
+                            source: 'Squarespace Widget'
+                        })
+                    });
+
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        console.error('Prechat submission failed:', response.status, errorText);
+                        throw new Error(`Server error: ${response.status} - ${errorText}`);
+                    }
+
+                    const data = await response.json();
+
+                    if (!data.projectToken) {
+                        throw new Error('Server response did not include a projectToken.');
+                    }
+
+                    this.projectToken = data.projectToken;
+                    this.userName = name;
+                    this.userEmail = email;
+
+                    // Save session
+                    localStorage.setItem('pcd_project_token', this.projectToken);
+                    localStorage.setItem('pcd_user_name', this.userName);
+                    localStorage.setItem('pcd_user_email', this.userEmail);
+
+                    this.startMessaging();
+
+                } catch (error) {
+                    console.error('Prechat error:', error);
+                    this.showFormError('Failed to start conversation. Please try again.');
+                } finally {
+                    this.showLoading(false);
+                }
+            }
+
+            startMessaging() {
+                // Hide pre-chat overlay
+                document.getElementById('prechatOverlay').style.display = 'none';
+                
+                // Initialize WebSocket connection
+                this.connectWebSocket();
+                
+                // Load existing messages
+                this.loadMessages();
+            }
+
+            connectWebSocket() {
+                console.log('🔌 Connecting to WebSocket...', this.config.backendUrl);
+                this.updateConnectionStatus('connecting');
+
+                // Enhanced WebSocket configuration with Railway Pro support
+                const socketConfig = {
+                    path: '/socket.io',
+                    transports: ['websocket', 'polling'],
+                    timeout: 15000,
+                    forceNew: true,
+                    reconnection: true,
+                    reconnectionDelay: 2000,
+                    reconnectionAttempts: 5,
+                    maxReconnectionAttempts: 5
+                };
+
+                // Add Railway-specific configuration for Pro plan
+                if (this.config.backendUrl.includes('railway.app')) {
+                    console.log('🚂 Railway Pro detected - attempting WebSocket connection');
+                    socketConfig.transports = ['websocket', 'polling']; // Try WebSocket first
+                    socketConfig.upgrade = true;
+                    socketConfig.rememberUpgrade = true;
+                }
+
+                try {
+                    this.socket = io(this.config.backendUrl, socketConfig);
+                    this.websocketAttempted = true;
+
+                    this.socket.on('connect', () => {
+                        console.log('🔌 Socket connected:', this.socket.id);
+                        this.updateConnectionStatus('connected');
                         
-                        if (textContent.includes('ngrok')) {
-                            throw new Error('ngrok warning page detected. Please visit the URL in your browser first to accept the warning.');
-                        } else {
-                            throw new Error(`Invalid content type: ${contentType}. Expected JSON.`);
+                        // Stop polling if it was running
+                        if (this.pollingInterval) {
+                            clearInterval(this.pollingInterval);
+                            this.pollingInterval = null;
                         }
+                        
+                        // Join project room
+                        if (this.projectToken) {
+                            this.socket.emit('join', this.projectToken);
+                        }
+                    });
+
+                    this.socket.on('joined', (data) => {
+                        console.log('🏠 Joined project room:', data);
+                    });
+
+                    this.socket.on('newMessage', (message) => {
+                        console.log('📨 Received new message:', message);
+                        this.addMessage(message);
+                    });
+
+                    this.socket.on('disconnect', (reason) => {
+                        console.log('🔌 Socket disconnected:', reason);
+                        this.updateConnectionStatus('disconnected');
+                        
+                        // Start polling as fallback
+                        if (!this.pollingInterval) {
+                            this.startHttpPolling();
+                        }
+                    });
+
+                    this.socket.on('connect_error', (error) => {
+                        if (this.config.backendUrl.includes('railway.app')) {
+                            console.log('🚂 Railway WebSocket connection failed, falling back to HTTP polling');
+                        } else {
+                            console.log('🔌 Socket connection failed, falling back to HTTP polling');
+                        }
+                        this.updateConnectionStatus('disconnected');
+                        
+                        // Immediately start polling on connection error
+                        if (!this.pollingInterval) {
+                            this.startHttpPolling();
+                        }
+                    });
+
+                    this.socket.on('reconnect_failed', () => {
+                        console.log('🔌 Socket reconnection failed, using HTTP polling');
+                        this.updateConnectionStatus('disconnected');
+                        
+                        // Ensure polling is running
+                        if (!this.pollingInterval) {
+                            this.startHttpPolling();
+                        }
+                    });
+
+                } catch (error) {
+                    console.error('🔌 Failed to initialize socket:', error);
+                    this.updateConnectionStatus('disconnected');
+                    this.startHttpPolling();
+                }
+            }
+
+            // HTTP polling fallback for when WebSocket fails
+            startHttpPolling() {
+                // Prevent multiple polling instances
+                if (this.pollingInterval) {
+                    console.log('🔄 Polling already running, skipping...');
+                    return;
+                }
+
+                console.log('🔄 Starting HTTP polling for messages...');
+                this.updateConnectionStatus('connecting');
+
+                // Initial load
+                this.loadMessages().then(() => {
+                    this.updateConnectionStatus('connected');
+                }).catch(() => {
+                    this.updateConnectionStatus('disconnected');
+                });
+
+                // Poll every 5 seconds (reduced frequency to be less aggressive)
+                this.pollingInterval = setInterval(async () => {
+                    try {
+                        await this.loadMessages();
+                        this.updateConnectionStatus('connected'); // Show as connected via polling
+                    } catch (error) {
+                        console.error('🔄 Polling error:', error);
+                        this.updateConnectionStatus('disconnected');
+                    }
+                }, 5000);
+            }
+
+            async loadMessages() {
+                try {
+                    const loadingElement = document.getElementById('loadingMessages');
+                    if (loadingElement) {
+                        loadingElement.style.display = 'flex';
+                    }
+                    
+                    const response = await fetch(`${this.config.backendUrl}/api/public/project/${this.projectToken}/messages`);
+                    
+                    if (!response.ok) {
+                        throw new Error('Failed to load messages');
                     }
                     
                     const data = await response.json();
-                    console.log('📨 Loaded messages:', data);
+                    this.messages = data.messages || data;
+                    this.renderMessages();
                     
-                    const messages = data.messages || data;
-                    
-                    if (Array.isArray(messages)) {
-                        renderMessages(messages);
-                        
-                        if (messages.length > 0) {
-                            lastMessageId = Math.max(...messages.map(m => m.id || 0));
-                            hideEmptyState();
-                            console.log('✅ Loaded', messages.length, 'messages, lastMessageId set to:', lastMessageId);
-                            console.log('🔍 Initial message IDs:', messages.map(m => m.id));
-                        } else {
-                            lastMessageId = 0;
-                            showEmptyState();
-                            console.log('📭 No messages found - showing empty state');
-                        }
-                    } else {
-                        console.error('❌ Invalid response format:', data);
-                        showEmptyState();
-                    }
-                } else {
-                    const errorText = await response.text();
-                    console.error('❌ API Error:', response.status, errorText);
-                    throw new Error(`Failed to load messages: ${response.status} - ${errorText.substring(0, 100)}`);
-                }
-            } catch (error) {
-                console.error('❌ Error loading messages:', error);
-                setConnectionStatus(false);
-                
-                let errorMessage = `Unable to load messages: ${error.message}`;
-                
-                if (error.message.includes('ngrok warning')) {
-                    errorMessage = '🚨 ngrok Warning: Please visit the backend URL in your browser first to accept the warning.';
-                } else if (error.message.includes('CORS')) {
-                    errorMessage = '🚨 CORS Error: Please check backend CORS configuration.';
-                } else if (error.message.includes('Failed to fetch')) {
-                    errorMessage = '🚨 Connection Error: Cannot reach backend server. Please check if it\'s running.';
-                }
-                
-                showError(errorMessage);
-            } finally {
-                hideLoading();
-            }
-        }
-
-        // All your existing functions from the current widget (startPolling, handleSendMessage, etc.)
-        // ... keeping all the functionality from your current widget
-
-        // Poll for new messages
-        function startPolling() {
-            console.log('🔄 Starting message polling every', CONFIG.pollInterval / 1000, 'seconds');
-            console.log('🔍 Current lastMessageId for polling:', lastMessageId);
-            
-            if (pollTimer) {
-                console.log('🔄 Clearing existing poll timer');
-                clearInterval(pollTimer);
-            }
-            
-            pollTimer = setInterval(async () => {
-                try {
-                    const url = `${CONFIG.backendUrl}/api/public/project/${CONFIG.projectToken}/messages`;
-                    
-                    const response = await fetch(url, {
-                        method: 'GET',
-                        headers: {
-                            'Accept': 'application/json',
-                            'Content-Type': 'application/json',
-                            'ngrok-skip-browser-warning': 'true',
-                            'User-Agent': 'Pleasant-Cove-Messaging-Widget'
-                        },
-                        mode: 'cors'
-                    });
-                    
-                    if (response.ok) {
-                        const contentType = response.headers.get('content-type');
-                        if (contentType && contentType.includes('application/json')) {
-                            const data = await response.json();
-                            const messages = data.messages || data;
-                            
-                            if (Array.isArray(messages)) {
-                                const newMessages = messages.filter(m => (m.id || 0) > lastMessageId);
-                                
-                                if (newMessages.length > 0) {
-                                    console.log('📨 Found', newMessages.length, 'new messages');
-                                    console.log('🔍 New message IDs:', newMessages.map(m => m.id));
-                                    console.log('🔍 Previous lastMessageId:', lastMessageId);
-                                    appendMessages(newMessages);
-                                    lastMessageId = Math.max(...messages.map(m => m.id || 0));
-                                    console.log('🔍 Updated lastMessageId to:', lastMessageId);
-                                    hideEmptyState();
-                                    setTimeout(scrollToBottom, 100);
-                                } else {
-                                    console.log('🔍 No new messages found. Current lastMessageId:', lastMessageId);
-                                    console.log('🔍 All message IDs:', messages.map(m => m.id));
-                                }
-                            }
-                            setConnectionStatus(true);
-                        }
-                    } else {
-                        setConnectionStatus(false);
-                    }
                 } catch (error) {
-                    console.error('🔄 Polling error:', error);
-                    setConnectionStatus(false);
+                    console.error('Failed to load messages:', error);
+                    this.showError('Failed to load messages');
+                } finally {
+                    const loadingElement = document.getElementById('loadingMessages');
+                    if (loadingElement) {
+                        loadingElement.style.display = 'none';
+                    }
                 }
-            }, CONFIG.pollInterval);
-        }
-
-        // Keep all your existing messaging functions from the current widget...
-        // (handleSendMessage, handleFileSelection, renderMessages, etc.)
-
-        async function handleSendMessage(e) {
-            e.preventDefault();
-            const content = document.getElementById('message-input').value.trim();
-            
-            if (!content && selectedFiles.length === 0) {
-                showError('Please enter a message or select files to send.');
-                return;
             }
 
-            try {
-                showError('⏳ Sending message...', false);
-                const attachmentKeys = [];
+            async sendMessage() {
+                const messageInput = document.getElementById('messageInput');
+                const message = messageInput.value.trim();
                 
-                // Handle file uploads with improved support for local storage
-                if (selectedFiles.length > 0) {
-                    showError('⏳ Uploading files...', false);
-                    
-                    for (const file of selectedFiles) {
-                        try {
-                            console.log('📤 Starting upload for:', file.name);
-                            
-                            // Get upload URL/endpoint
-                            const uploadUrlResponse = await fetch(
-                                `${CONFIG.backendUrl}/api/public/project/${CONFIG.projectToken}/upload-url?` +
-                                `filename=${encodeURIComponent(file.name)}&fileType=${encodeURIComponent(file.type)}`
-                            );
-                            
-                            if (!uploadUrlResponse.ok) {
-                                console.log('⚠️ Upload URL failed, skipping file:', file.name);
-                                showError(`⚠️ Could not upload ${file.name}. Your message will be sent without this file.`);
-                                continue;
-                            }
-                            
-                            const uploadData = await uploadUrlResponse.json();
-                            console.log('📁 Upload data received:', uploadData);
-                            
-                            // Check if upload is available
-                            if (!uploadData.url) {
-                                console.log('⚠️ File storage not available for:', file.name);
-                                showError(`⚠️ File storage unavailable for ${file.name}.`);
-                                continue;
-                            }
-                            
-                            let uploadResponse;
-                            let fileKey;
-                            
-                            // Handle different storage types
-                            if (uploadData.storage === 'local') {
-                                // For local storage, use FormData and POST
-                                const formData = new FormData();
-                                formData.append('file', file);
-                                
-                                uploadResponse = await fetch(`${CONFIG.backendUrl}${uploadData.url}`, {
-                                    method: 'POST',
-                                    body: formData,
-                                });
-                                
-                                if (uploadResponse.ok) {
-                                    const result = await uploadResponse.json();
-                                    fileKey = result.url; // Use the full URL path for local files
-                                    console.log('✅ Local upload successful:', result);
-                                    console.log('📁 File key assigned:', fileKey);
-                                } else {
-                                    console.error('❌ Local upload failed:', uploadResponse.status, await uploadResponse.text());
-                                    fileKey = null;
-                                }
-                            } else {
-                                // For R2/S3, use PUT with direct file
-                                uploadResponse = await fetch(uploadData.url, {
-                                    method: 'PUT',
-                                    headers: { 'Content-Type': file.type },
-                                    body: file
-                                });
-                                
-                                if (uploadResponse.ok) {
-                                    fileKey = uploadData.key;
-                                    console.log('✅ R2 upload successful, file key assigned:', fileKey);
-                                } else {
-                                    console.error('❌ R2 upload failed:', uploadResponse.status);
-                                    fileKey = null;
-                                }
-                            }
-                            
-                            // CRITICAL: Only add to attachments if upload was successful AND we have a valid key
-                            if (uploadResponse && uploadResponse.ok && fileKey) {
-                                attachmentKeys.push(fileKey);
-                                console.log('✅ File uploaded successfully:', file.name, '→', fileKey);
-                                console.log('📎 Current attachment keys:', [...attachmentKeys]);
-                            } else {
-                                console.log('⚠️ File upload failed for:', file.name, 'Status:', uploadResponse?.status, 'Key:', fileKey);
-                                showError(`⚠️ Failed to upload ${file.name}. Your message will be sent without this file.`);
-                            }
-                            
-                        } catch (uploadError) {
-                            console.error('❌ File upload error for', file.name, ':', uploadError);
-                            showError(`⚠️ Failed to upload ${file.name}: ${uploadError.message}`);
-                            continue;
-                        }
+                if (!message && this.selectedFiles.length === 0) return;
+
+                try {
+                    const formData = new FormData();
+                    formData.append('content', message || '(File attachment)');
+                    formData.append('senderName', this.userName);
+                    formData.append('senderType', 'client');
+
+                    // Add files
+                    this.selectedFiles.forEach(file => {
+                        formData.append('files', file);
+                    });
+
+                    // Disable send button
+                    document.getElementById('sendButton').disabled = true;
+
+                    const response = await fetch(`${this.config.backendUrl}/api/public/project/${this.projectToken}/messages`, {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Failed to send message');
                     }
-                    
-                    console.log('📎 Final attachment keys array:', attachmentKeys);
-                    console.log('📎 Final attachment count:', attachmentKeys.length);
-                    
-                    if (attachmentKeys.length > 0) {
-                        console.log(`✅ Successfully uploaded ${attachmentKeys.length} out of ${selectedFiles.length} files`);
-                        showError(`✅ Uploaded ${attachmentKeys.length} file${attachmentKeys.length > 1 ? 's' : ''} successfully!`, false);
-                    } else if (selectedFiles.length > 0) {
-                        showError('⚠️ No files were uploaded successfully.', true);
-                    }
+
+                    // Clear form (message will appear via WebSocket or polling)
+                    messageInput.value = '';
+                    this.selectedFiles = [];
+                    this.updateFilePreview();
+                    this.autoResizeTextarea(messageInput);
+
+                    // Reload messages to show the new one
+                    setTimeout(() => {
+                        this.loadMessages();
+                    }, 500);
+
+                } catch (error) {
+                    console.error('Failed to send message:', error);
+                    this.showError('Failed to send message');
+                } finally {
+                    document.getElementById('sendButton').disabled = false;
+                }
+            }
+
+            addMessage(message) {
+                // Avoid duplicates
+                const exists = this.messages.some(m => m.id === message.id);
+                if (exists) return;
+
+                this.messages.push(message);
+                this.messages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+                this.renderMessages();
+            }
+
+            renderMessages() {
+                const container = document.getElementById('messagesContainer');
+                const loadingElement = document.getElementById('loadingMessages');
+                
+                if (this.messages.length === 0) {
+                    container.innerHTML = `
+                        <div class="pcd-empty-state">
+                            <div class="pcd-empty-state-icon">💬</div>
+                            <p><strong>Welcome to Pleasant Cove Design!</strong></p>
+                            <p>Send us a message and we'll get back to you as soon as possible.</p>
+                        </div>
+                    `;
+                    return;
                 }
 
-                // Send message (with or without attachments)
-                const messageContent = content.trim();
-                const hasAttachments = attachmentKeys.length > 0;
-                
-                // CRITICAL FIX: Send 'attachments' not 'attachmentKeys'
-                const messageData = {
-                    content: messageContent || (hasAttachments ? `Sent ${attachmentKeys.length} file${attachmentKeys.length > 1 ? 's' : ''}` : 'Message sent'),
-                    senderName: CONFIG.memberName || CONFIG.memberEmail || 'Client',
-                    senderType: 'client',
-                    attachments: attachmentKeys  // ✅ FIXED: Backend expects 'attachments', not 'attachmentKeys'
-                };
-                
-                console.log('📤 FINAL MESSAGE DATA BEING SENT:');
-                console.log('📤 Content:', messageData.content);
-                console.log('📤 SenderName:', messageData.senderName);
-                console.log('📤 Attachments:', messageData.attachments);
-                console.log('📤 Attachments count:', messageData.attachments.length);
-                console.log('📤 Attachments array:', JSON.stringify(messageData.attachments));
-
-                console.log('📤 Sending message with', attachmentKeys.length, 'attachments to backend...');
-
-                const response = await fetch(`${CONFIG.backendUrl}/api/public/project/${CONFIG.projectToken}/messages`, {
-                    method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json' 
-                    },
-                    body: JSON.stringify(messageData)
+                let html = '';
+                this.messages.forEach(message => {
+                    const isCurrentUser = message.sender === this.userName;
+                    const messageClass = isCurrentUser ? 'sent' : 'received';
+                    
+                    html += `
+                        <div class="pcd-message ${messageClass}">
+                            <div class="pcd-message-header">
+                                <span>${message.sender}</span>
+                                <span>${this.formatTime(message.timestamp)}</span>
+                            </div>
+                            <div class="pcd-message-bubble">
+                                <p class="pcd-message-content">${this.escapeHtml(message.body)}</p>
+                                ${this.renderAttachments(message.attachments, messageClass)}
+                            </div>
+                        </div>
+                    `;
                 });
 
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(`Failed to send message: ${response.status} - ${errorText}`);
-                }
-
-                const responseData = await response.json();
-                console.log('✅ Message sent successfully, response:', responseData);
-
-                // Clear form
-                document.getElementById('message-input').value = '';
-                selectedFiles = [];
-                renderFilePreview();
-                document.getElementById('file-input').value = '';
-                
-                showError('✅ Message sent successfully!', false);
-                
-                // Reload messages to show the new one
-                setTimeout(() => {
-                    loadMessages();
-                }, 500);
-
-            } catch (error) {
-                console.error('❌ Failed to send message:', error);
-                showError(`❌ Failed to send message: ${error.message}`);
-            }
-        }
-
-        function handleFileSelection(e) {
-            const files = Array.from(e.target.files);
-            const validFiles = [];
-
-            for (const file of files) {
-                if (file.size > CONFIG.maxFileSize) {
-                    alert(`File "${file.name}" is too large. Maximum size is 10MB.`);
-                    continue;
-                }
-                
-                if (!CONFIG.allowedFileTypes.includes(file.type)) {
-                    alert(`File type "${file.type}" is not allowed.`);
-                    continue;
-                }
-                
-                validFiles.push(file);
+                container.innerHTML = html;
+                this.scrollToBottom();
             }
 
-            selectedFiles = [...selectedFiles, ...validFiles];
-            renderFilePreview();
-        }
+            renderAttachments(attachments, messageClass) {
+                if (!attachments || attachments.length === 0) return '';
 
-        function renderFilePreview() {
-            const preview = document.getElementById('file-preview');
-            
-            if (selectedFiles.length === 0) {
-                preview.style.display = 'none';
-                return;
-            }
-            
-            preview.style.display = 'flex';
-            preview.innerHTML = selectedFiles.map((file, index) => `
-                <div class="pcd-file-preview-item">
-                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path>
-                    </svg>
-                    <span title="${file.name}">${file.name.length > 20 ? file.name.substr(0, 20) + '...' : file.name}</span>
-                    <button type="button" class="pcd-file-preview-remove" onclick="removeFile(${index})">
-                        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
-                    </button>
-                </div>
-            `).join('');
-        }
-
-        function removeFile(index) {
-            selectedFiles.splice(index, 1);
-            renderFilePreview();
-        }
-
-        function renderMessages(messages) {
-            console.log('🎨 Rendering', messages.length, 'messages');
-            const messagesList = document.getElementById('messages-list');
-            messagesList.innerHTML = messages.map(renderMessage).join('');
-            scrollToBottom();
-        }
-
-        function appendMessages(messages) {
-            console.log('➕ Appending', messages.length, 'new messages');
-            const messagesList = document.getElementById('messages-list');
-            messages.forEach(message => {
-                messagesList.innerHTML += renderMessage(message);
-            });
-            scrollToBottom();
-        }
-
-        function renderMessage(message) {
-            const isClient = message.senderType === 'client' || message.senderName === CONFIG.memberEmail;
-            const attachments = message.attachments || [];
-            
-            return `
-                <div class="pcd-message ${isClient ? 'sent' : 'received'}">
-                    <div class="pcd-message-header">
-                        <span>${message.senderName || 'Unknown'}</span>
-                        <span>${formatDate(message.createdAt)}</span>
-                    </div>
-                    <div class="pcd-message-bubble">
-                        <p class="pcd-message-content">${escapeHtml(message.content)}</p>
-                        ${attachments.length > 0 ? `
-                            <div class="pcd-message-attachments">
-                                ${attachments.map(renderAttachment).join('')}
-                            </div>
-                        ` : ''}
-                    </div>
-                </div>
-            `;
-        }
-
-        function renderAttachment(url) {
-            const fileName = url.split('/').pop() || 'attachment';
-            const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(fileName);
-            const fullUrl = url.startsWith('http') ? url : `${CONFIG.backendUrl}${url}`;
-            
-            console.log('🖼️ Rendering attachment:', { url, fileName, isImage, fullUrl });
-            
-            if (isImage) {
-                return `
-                    <div class="pcd-image-attachment-container">
-                        <img src="${fullUrl}" alt="${fileName}" class="pcd-image-attachment" onclick="window.open('${fullUrl}', '_blank')" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
-                        <a href="${fullUrl}" target="_blank" class="pcd-attachment" style="display: none;">
-                            <svg class="pcd-attachment-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                            </svg>
-                            📷 ${fileName}
-                        </a>
-                    </div>
-                `;
-            } else {
-                return `
-                    <a href="${fullUrl}" target="_blank" class="pcd-attachment" download>
-                        <svg class="pcd-attachment-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                        </svg>
-                        📎 ${fileName}
-                    </a>
-                `;
-            }
-        }
-
-        // Utility functions
-        function formatDate(dateString) {
-            const date = new Date(dateString);
-            const now = new Date();
-            const diff = now - date;
-            
-            if (diff < 60000) return 'Just now';
-            if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
-            if (diff < 86400000) return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        }
-
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
-
-        function scrollToBottom() {
-            const container = document.getElementById('messages-container');
-            container.scrollTop = container.scrollHeight;
-        }
-
-        function setConnectionStatus(connected) {
-            const dot = document.getElementById('connection-status');
-            const text = document.getElementById('connection-text');
-            
-            if (connected) {
-                dot.classList.remove('disconnected');
-                text.textContent = 'Connected';
-            } else {
-                dot.classList.add('disconnected');
-                text.textContent = 'Connecting...';
-            }
-        }
-
-        function showError(message, isError = true) {
-            if (isError) {
-                console.error('💥 Error:', message);
-            } else {
-                console.log('ℹ️ Info:', message);
-            }
-            const errorEl = document.getElementById('error-message');
-            errorEl.textContent = message;
-            errorEl.style.display = 'block';
-            
-            // Auto-hide non-error messages after a few seconds
-            if (!isError) {
-                setTimeout(() => {
-                    if (errorEl.textContent === message) {
-                        errorEl.style.display = 'none';
+                let html = '<div class="pcd-message-attachments">';
+                attachments.forEach(attachment => {
+                    const fileName = attachment.split('/').pop() || 'attachment';
+                    const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(fileName);
+                    
+                    if (isImage) {
+                        html += `
+                            <img src="${attachment}" 
+                                 alt="${fileName}"
+                                 class="pcd-image-attachment"
+                                 onclick="window.open('${attachment}', '_blank')">
+                        `;
+                    } else {
+                        html += `
+                            <a href="${attachment}" 
+                               target="_blank" 
+                               class="pcd-attachment">
+                                <span class="pcd-attachment-icon">📎</span>
+                                ${fileName}
+                            </a>
+                        `;
                     }
-                }, 3000);
+                });
+                html += '</div>';
+                return html;
+            }
+
+            handleFileSelect(event) {
+                const files = Array.from(event.target.files);
+                this.selectedFiles = [...this.selectedFiles, ...files];
+                this.updateFilePreview();
+                
+                // Clear input so same file can be selected again
+                event.target.value = '';
+            }
+
+            updateFilePreview() {
+                const preview = document.getElementById('filePreview');
+                
+                if (this.selectedFiles.length === 0) {
+                    preview.innerHTML = '';
+                    return;
+                }
+
+                let html = '';
+                this.selectedFiles.forEach((file, index) => {
+                    html += `
+                        <div class="pcd-file-preview-item">
+                            <span>📎 ${file.name}</span>
+                            <button type="button" class="pcd-file-preview-remove" onclick="messagingWidget.removeFile(${index})">
+                                ✕
+                            </button>
+                        </div>
+                    `;
+                });
+                
+                preview.innerHTML = html;
+            }
+
+            removeFile(index) {
+                this.selectedFiles.splice(index, 1);
+                this.updateFilePreview();
+            }
+
+            updateConnectionStatus(status) {
+                const dot = document.getElementById('connectionDot');
+                const statusText = document.getElementById('connectionStatus');
+                
+                if (status === 'connected') {
+                    dot.className = 'pcd-status-dot';
+                    statusText.textContent = 'Connected';
+                } else {
+                    dot.className = 'pcd-status-dot disconnected';
+                    statusText.textContent = status === 'connecting' ? 'Connecting...' : 'Disconnected';
+                }
+            }
+
+            autoResizeTextarea(textarea) {
+                textarea.style.height = 'auto';
+                textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+            }
+
+            scrollToBottom() {
+                const container = document.getElementById('messagesContainer');
+                container.scrollTop = container.scrollHeight;
+            }
+
+            formatTime(timestamp) {
+                return new Date(timestamp).toLocaleTimeString('en-US', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            }
+
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
+            showLoading(show) {
+                document.getElementById('formLoading').style.display = show ? 'flex' : 'none';
+                document.getElementById('startChatBtn').style.display = show ? 'none' : 'block';
+            }
+
+            showFormError(message) {
+                // You can implement error display here
+                alert(message);
+            }
+
+            showError(message) {
+                const container = document.getElementById('messagesContainer');
+                container.innerHTML = `<div class="pcd-error-message">${message}</div>`;
             }
         }
 
-        function hideLoading() {
-            document.getElementById('loading-messages').style.display = 'none';
-        }
-
-        function showEmptyState() {
-            document.getElementById('empty-state').style.display = 'flex';
-        }
-
-        function hideEmptyState() {
-            document.getElementById('empty-state').style.display = 'none';
-        }
-
-        // Initialize when page loads
-        document.addEventListener('DOMContentLoaded', initializeMessaging);
-        
-        // Cleanup on page unload
-        window.addEventListener('beforeunload', () => {
-            if (pollTimer) clearInterval(pollTimer);
-        });
-
-        console.log('🎯 Pleasant Cove Design Unified Messaging Widget - Ready!');
+        // Initialize the widget
+        const messagingWidget = new PCDMessagingWidget();
     </script>
 </body>
 </html> 

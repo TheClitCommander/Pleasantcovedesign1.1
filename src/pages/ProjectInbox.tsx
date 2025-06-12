@@ -17,7 +17,7 @@ import {
   CheckCircle,
   RefreshCw
 } from 'lucide-react';
-import api from '../api';
+import { io, Socket } from 'socket.io-client';
 
 interface Company {
   id: number;
@@ -33,16 +33,16 @@ interface Project {
   type: string;
   stage: string;
   company?: Company;
+  accessToken?: string;
 }
 
-interface ProjectMessage {
-  id: number;
-  projectId: number;
-  senderType: 'admin' | 'client';
-  senderName: string;
-  content: string;
+interface UnifiedMessage {
+  id?: number;
+  projectToken: string;
+  sender: string;
+  body: string;
+  timestamp: string;
   attachments?: string[];
-  createdAt?: string;
 }
 
 interface AttachmentPreview {
@@ -55,12 +55,12 @@ export default function ProjectInbox() {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const socketRef = useRef<Socket | null>(null);
   
   // State
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-  const [messages, setMessages] = useState<ProjectMessage[]>([]);
+  const [messages, setMessages] = useState<UnifiedMessage[]>([]);
   const [messageText, setMessageText] = useState('');
   const [senderName, setSenderName] = useState('Ben Dickinson');
   const [attachments, setAttachments] = useState<AttachmentPreview[]>([]);
@@ -68,74 +68,136 @@ export default function ProjectInbox() {
   const [sending, setSending] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [isPolling, setIsPolling] = useState(false);
-  const [lastMessageCount, setLastMessageCount] = useState(0);
+  const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
 
   // Auto-scroll to bottom when new messages arrive
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  // Load projects on mount
-  useEffect(() => {
-    fetchProjects();
-  }, []);
-
-  // Load messages when project changes and start polling
-  useEffect(() => {
-    if (selectedProject) {
-      fetchMessages(selectedProject.id);
-      startPolling();
-    } else {
-      stopPolling();
+  // Initialize WebSocket connection
+  const connectSocket = (projectToken: string) => {
+    if (socketRef.current) {
+      socketRef.current.disconnect();
     }
     
-    return () => stopPolling();
+    console.log('🔌 Connecting to WebSocket...');
+    setConnectionStatus('connecting');
+    
+    const socket = io('http://localhost:3000', {
+      path: '/socket.io',
+      transports: ['websocket', 'polling'],
+      timeout: 20000,
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000
+    });
+    
+    socket.on('connect', () => {
+      console.log('🔌 Socket connected:', socket.id);
+      setConnectionStatus('connected');
+      
+      // Join the project room
+      socket.emit('join', projectToken);
+    });
+    
+    socket.on('joined', (data) => {
+      console.log('🏠 Joined project room:', data);
+    });
+    
+    socket.on('newMessage', (message: UnifiedMessage) => {
+      console.log('📨 Received new message:', message);
+      setMessages(prev => {
+        // Avoid duplicates by checking if message already exists
+        const exists = prev.some(m => m.id === message.id);
+        if (exists) return prev;
+        
+        // Add new message and sort by timestamp
+        const updated = [...prev, message].sort((a, b) => 
+          new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+        );
+        return updated;
+      });
+    });
+    
+    socket.on('disconnect', () => {
+      console.log('🔌 Socket disconnected');
+      setConnectionStatus('disconnected');
+    });
+    
+    socket.on('connect_error', (error) => {
+      console.error('🔌 Socket connection error:', error);
+      setConnectionStatus('disconnected');
+    });
+    
+    socket.on('reconnect', () => {
+      console.log('🔌 Socket reconnected');
+      setConnectionStatus('connected');
+      socket.emit('join', projectToken);
+    });
+    
+    socketRef.current = socket;
+  };
+
+  // Load projects on mount (with small delay to let server start)
+  useEffect(() => {
+    // Give server time to start up when running npm run dev
+    const timer = setTimeout(() => {
+      fetchProjects();
+    }, 1000);
+    
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Connect WebSocket when project changes
+  useEffect(() => {
+    if (selectedProject?.accessToken) {
+      fetchMessages(selectedProject.accessToken);
+      connectSocket(selectedProject.accessToken);
+    }
+    
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+      }
+    };
   }, [selectedProject]);
 
   // Auto-scroll when messages change
   useEffect(() => {
-    if (messages.length > lastMessageCount) {
-      scrollToBottom();
-    }
-    setLastMessageCount(messages.length);
+    scrollToBottom();
   }, [messages]);
 
-  // Clean up polling on unmount
+  // Clean up socket on unmount
   useEffect(() => {
-    return () => stopPolling();
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+      }
+    };
   }, []);
 
-  const startPolling = () => {
-    stopPolling(); // Clear any existing interval
-    
-    if (selectedProject) {
-      console.log('🔄 Starting message polling for project:', selectedProject.title);
-      pollingIntervalRef.current = setInterval(() => {
-        fetchMessages(selectedProject.id, true); // Silent fetch
-      }, 3000); // Poll every 3 seconds
-    }
-  };
-
-  const stopPolling = () => {
-    if (pollingIntervalRef.current) {
-      console.log('⏹️ Stopping message polling');
-      clearInterval(pollingIntervalRef.current);
-      pollingIntervalRef.current = null;
-    }
-  };
-
-  const fetchProjects = async () => {
+  const fetchProjects = async (retryCount = 0) => {
     try {
-      const response = await api.get('/projects');
-      const projectsData = response.data;
+      console.log(`📥 Fetching projects (attempt ${retryCount + 1})`);
+      const response = await fetch('/api/projects?token=pleasantcove2024admin');
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch projects: ${response.status}`);
+      }
+      
+      const projectsData = await response.json();
       
       // Fetch company info for each project
       const projectsWithCompanies = await Promise.all(
         projectsData.map(async (project: Project) => {
           try {
-            const companyResponse = await api.get(`/companies/${project.companyId}`);
-            return { ...project, company: companyResponse.data };
+            const companyResponse = await fetch(`/api/companies/${project.companyId}?token=pleasantcove2024admin`);
+            if (companyResponse.ok) {
+              const companyData = await companyResponse.json();
+              return { ...project, company: companyData };
+            }
+            return project;
           } catch (error) {
             console.error(`Failed to fetch company for project ${project.id}:`, error);
             return project;
@@ -149,32 +211,42 @@ export default function ProjectInbox() {
       }
     } catch (error) {
       console.error('Failed to fetch projects:', error);
+      
+      // Retry for connection refused errors (server still starting)
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (retryCount < 3 && (errorMessage.includes('ECONNREFUSED') || errorMessage.includes('Failed to fetch'))) {
+        const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
+        console.log(`🔄 Server not ready, retrying in ${delay}ms...`);
+        setTimeout(() => fetchProjects(retryCount + 1), delay);
+        return; // Don't set loading to false yet
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchMessages = async (projectId: number, silent = false) => {
+  const fetchMessages = async (projectToken: string, retryCount = 0) => {
     try {
-      if (!silent) {
-        setIsPolling(true);
+      console.log(`📥 Fetching messages for project token: ${projectToken} (attempt ${retryCount + 1})`);
+      const response = await fetch(`/api/public/project/${projectToken}/messages`);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch messages: ${response.status}`);
       }
       
-      const response = await api.get(`/projects/${projectId}/messages`);
-      const newMessages = response.data;
-      
-      // Check if we have new messages
-      if (newMessages.length !== messages.length) {
-        console.log(`📨 Updated messages: ${messages.length} → ${newMessages.length}`);
-        setMessages(newMessages);
-      }
+      const data = await response.json();
+      const messagesData = data.messages || data;
+      console.log(`📋 Retrieved ${messagesData.length} messages`);
+      setMessages(messagesData);
     } catch (error) {
-      if (!silent) {
-        console.error('Failed to fetch messages:', error);
-      }
-    } finally {
-      if (!silent) {
-        setIsPolling(false);
+      console.error('Failed to fetch messages:', error);
+      
+      // Retry up to 3 times with exponential backoff for connection issues
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (retryCount < 3 && (errorMessage.includes('Failed to fetch') || errorMessage.includes('ECONNREFUSED'))) {
+        const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
+        console.log(`🔄 Retrying to fetch messages in ${delay}ms...`);
+        setTimeout(() => fetchMessages(projectToken, retryCount + 1), delay);
       }
     }
   };
@@ -213,32 +285,28 @@ export default function ProjectInbox() {
   };
 
   const handleSendMessage = async () => {
-    if ((!messageText.trim() && attachments.length === 0) || !selectedProject || sending) return;
+    if ((!messageText.trim() && attachments.length === 0) || !selectedProject?.accessToken || sending) return;
 
     setSending(true);
     setUploading(attachments.length > 0);
 
     try {
-      // Create FormData for unified upload + message
+      // Create FormData for the public project message API
       const formData = new FormData();
       formData.append('content', messageText || '(File attachment)');
       formData.append('senderName', senderName);
       formData.append('senderType', 'admin');
-      formData.append('pushToSquarespace', 'true');
 
-      // Attach all files directly to FormData
+      // Attach all files
       attachments.forEach((attachment) => {
         formData.append('files', attachment.file);
-        console.log('📎 Adding admin file:', attachment.name);
       });
 
-      console.log('📤 Sending unified admin message with', attachments.length, 'files');
+      console.log('📤 Sending message to project:', selectedProject.accessToken, 'with', attachments.length, 'files');
 
-      // Send to the unified endpoint using authenticated fetch with proper headers
-      const response = await fetch(`/api/projects/${selectedProject.id}/messages/with-push?token=pleasantcove2024admin`, {
+      const response = await fetch(`/api/public/project/${selectedProject.accessToken}/messages`, {
         method: 'POST',
         body: formData,
-        // Don't set Content-Type - let browser set multipart boundary
       });
 
       if (!response.ok) {
@@ -247,21 +315,19 @@ export default function ProjectInbox() {
       }
 
       const result = await response.json();
-      console.log('✅ Admin unified message sent:', result);
+      console.log('✅ Message sent:', result);
 
-      if (result.message || result.success) {
-        // Immediately reload messages to show the new one
-        await fetchMessages(selectedProject.id);
-        
-        // Clear form
-        setMessageText('');
-        setAttachments([]);
-        
-        // Show success message if pushed to Squarespace
-        if (result.squarespace_push === 'success') {
-          console.log('✅ Message pushed to Squarespace successfully!');
+      // Clear form (the message will appear via WebSocket or we'll refresh)
+      setMessageText('');
+      setAttachments([]);
+      
+      // Refresh messages to show the new one
+      setTimeout(() => {
+        if (selectedProject.accessToken) {
+          fetchMessages(selectedProject.accessToken);
         }
-      }
+      }, 500);
+      
     } catch (error) {
       console.error('Failed to send message:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
@@ -272,8 +338,7 @@ export default function ProjectInbox() {
     }
   };
 
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return '';
+  const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString('en-US', {
       month: 'short',
       day: 'numeric',
@@ -364,19 +429,28 @@ export default function ProjectInbox() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  {/* Real-time indicator */}
-                  <div className="flex items-center gap-2 px-2 py-1 bg-green-50 text-green-700 rounded text-xs">
-                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                    Live updates
+                  {/* Real-time connection indicator */}
+                  <div className={`flex items-center gap-2 px-2 py-1 rounded text-xs ${
+                    connectionStatus === 'connected' ? 'bg-green-50 text-green-700' :
+                    connectionStatus === 'connecting' ? 'bg-yellow-50 text-yellow-700' :
+                    'bg-red-50 text-red-700'
+                  }`}>
+                    <div className={`w-2 h-2 rounded-full ${
+                      connectionStatus === 'connected' ? 'bg-green-500 animate-pulse' :
+                      connectionStatus === 'connecting' ? 'bg-yellow-500 animate-pulse' :
+                      'bg-red-500'
+                    }`}></div>
+                    {connectionStatus === 'connected' ? 'Live updates' :
+                     connectionStatus === 'connecting' ? 'Connecting...' :
+                     'Disconnected'}
                   </div>
                   
                   <button
-                    onClick={() => fetchMessages(selectedProject.id)}
-                    disabled={isPolling}
-                    className="p-2 hover:bg-gray-100 rounded-lg disabled:opacity-50"
+                    onClick={() => selectedProject.accessToken && fetchMessages(selectedProject.accessToken)}
+                    className="p-2 hover:bg-gray-100 rounded-lg"
                     title="Refresh messages"
                   >
-                    <RefreshCw className={`h-4 w-4 text-gray-500 ${isPolling ? 'animate-spin' : ''}`} />
+                    <RefreshCw className="h-4 w-4 text-gray-500" />
                   </button>
                   
                   <button
@@ -398,95 +472,100 @@ export default function ProjectInbox() {
                   <p className="text-gray-500">No messages yet. Start the conversation!</p>
                 </div>
               ) : (
-                messages.map((message) => (
-                  <div
-                    key={message.id}
-                    className={`flex ${message.senderType === 'admin' ? 'justify-end' : 'justify-start'}`}
-                  >
+                messages.map((message, index) => {
+                  const isAdmin = message.sender.toLowerCase().includes('ben') || 
+                                  message.sender.toLowerCase().includes('admin') ||
+                                  message.sender.toLowerCase().includes('pleasant cove');
+                  
+                  return (
                     <div
-                      className={`max-w-md px-4 py-3 rounded-lg ${
-                        message.senderType === 'admin'
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-gray-100 text-gray-900'
-                      }`}
+                      key={message.id || index}
+                      className={`flex ${isAdmin ? 'justify-end' : 'justify-start'}`}
                     >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className={`font-medium text-sm ${
-                          message.senderType === 'admin' ? 'text-blue-100' : 'text-gray-600'
-                        }`}>
-                          {message.senderName}
-                        </span>
-                        <span className={`text-xs ${
-                          message.senderType === 'admin' ? 'text-blue-200' : 'text-gray-500'
-                        }`}>
-                          {formatDate(message.createdAt)}
-                        </span>
-                      </div>
-                      <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                      
-                      {/* Attachments */}
-                      {message.attachments && message.attachments.length > 0 && (
-                        <div className="mt-3 space-y-2">
-                          {message.attachments.map((attachment, index) => {
-                            const fileName = attachment.split('/').pop() || 'attachment';
-                            const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(fileName);
-                            const attachmentUrl = attachment.startsWith('http') ? attachment : `http://localhost:3000${attachment}`;
-                            
-                            if (isImage) {
-                              return (
-                                <div key={index} className="mt-2">
-                                  <img 
-                                    src={attachmentUrl} 
-                                    alt={fileName}
-                                    className="max-w-48 max-h-32 rounded cursor-pointer border border-gray-200"
-                                    onClick={() => window.open(attachmentUrl, '_blank')}
-                                    onError={(e) => {
-                                      // Fallback to file link if image fails to load
-                                      const target = e.target as HTMLImageElement;
-                                      target.style.display = 'none';
-                                      const fallback = target.nextElementSibling as HTMLElement;
-                                      if (fallback) fallback.style.display = 'flex';
-                                    }}
-                                  />
+                      <div
+                        className={`max-w-md px-4 py-3 rounded-lg ${
+                          isAdmin
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-gray-100 text-gray-900'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span className={`font-medium text-sm ${
+                            isAdmin ? 'text-blue-100' : 'text-gray-600'
+                          }`}>
+                            {message.sender}
+                          </span>
+                          <span className={`text-xs ${
+                            isAdmin ? 'text-blue-200' : 'text-gray-500'
+                          }`}>
+                            {formatDate(message.timestamp)}
+                          </span>
+                        </div>
+                        <p className="text-sm whitespace-pre-wrap">{message.body}</p>
+                        
+                        {/* Attachments */}
+                        {message.attachments && message.attachments.length > 0 && (
+                          <div className="mt-3 space-y-2">
+                            {message.attachments.map((attachment, attachmentIndex) => {
+                              const fileName = attachment.split('/').pop() || 'attachment';
+                              const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(fileName);
+                              
+                              if (isImage) {
+                                return (
+                                  <div key={attachmentIndex} className="mt-2">
+                                    <img 
+                                      src={attachment} 
+                                      alt={fileName}
+                                      className="max-w-48 max-h-32 rounded cursor-pointer border border-gray-200"
+                                      onClick={() => window.open(attachment, '_blank')}
+                                      onError={(e) => {
+                                        // Fallback to file link if image fails to load
+                                        const target = e.target as HTMLImageElement;
+                                        target.style.display = 'none';
+                                        const fallback = target.nextElementSibling as HTMLElement;
+                                        if (fallback) fallback.style.display = 'flex';
+                                      }}
+                                    />
+                                    <a
+                                      href={attachment}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className={`items-center gap-2 text-xs underline hover:no-underline ${
+                                        isAdmin ? 'text-blue-200 hover:text-blue-100' : 'text-blue-600 hover:text-blue-800'
+                                      }`}
+                                      style={{ display: 'none' }}
+                                    >
+                                      <Download className="h-3 w-3" />
+                                      📷 {fileName}
+                                    </a>
+                                  </div>
+                                );
+                              } else {
+                                return (
                                   <a
-                                    href={attachmentUrl}
+                                    key={attachmentIndex}
+                                    href={attachment}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className={`items-center gap-2 text-xs underline hover:no-underline ${
-                                      message.senderType === 'admin' ? 'text-blue-200 hover:text-blue-100' : 'text-blue-600 hover:text-blue-800'
+                                    download
+                                    className={`flex items-center gap-2 text-xs underline hover:no-underline px-2 py-1 rounded ${
+                                      isAdmin 
+                                        ? 'text-blue-200 hover:text-blue-100 hover:bg-blue-700' 
+                                        : 'text-blue-600 hover:text-blue-800 hover:bg-blue-50'
                                     }`}
-                                    style={{ display: 'none' }}
                                   >
                                     <Download className="h-3 w-3" />
-                                    📷 {fileName}
+                                    📎 {fileName}
                                   </a>
-                                </div>
-                              );
-                            } else {
-                              return (
-                                <a
-                                  key={index}
-                                  href={attachmentUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  download
-                                  className={`flex items-center gap-2 text-xs underline hover:no-underline px-2 py-1 rounded ${
-                                    message.senderType === 'admin' 
-                                      ? 'text-blue-200 hover:text-blue-100 hover:bg-blue-700' 
-                                      : 'text-blue-600 hover:text-blue-800 hover:bg-blue-50'
-                                  }`}
-                                >
-                                  <Download className="h-3 w-3" />
-                                  📎 {fileName}
-                                </a>
-                              );
-                            }
-                          })}
-                        </div>
-                      )}
+                                );
+                              }
+                            })}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
               {/* Auto-scroll anchor */}
               <div ref={messagesEndRef} />
@@ -500,14 +579,15 @@ export default function ProjectInbox() {
                   <p className="text-sm font-medium text-gray-700 mb-2">Attachments:</p>
                   <div className="flex flex-wrap gap-2">
                     {attachments.map((attachment, index) => (
-                      <div key={index} className="flex items-center gap-2 bg-gray-100 px-3 py-2 rounded-lg">
-                        <FileText className="h-4 w-4 text-gray-500" />
-                        <span className="text-sm text-gray-700 truncate max-w-32">
-                          {attachment.name}
-                        </span>
+                      <div
+                        key={index}
+                        className="flex items-center gap-2 px-3 py-2 bg-gray-100 rounded-lg text-sm"
+                      >
+                        <Paperclip className="h-4 w-4 text-gray-500" />
+                        <span className="max-w-32 truncate">{attachment.name}</span>
                         <button
                           onClick={() => removeAttachment(index)}
-                          className="text-gray-400 hover:text-red-500"
+                          className="text-gray-500 hover:text-red-500"
                         >
                           <X className="h-4 w-4" />
                         </button>
@@ -517,54 +597,49 @@ export default function ProjectInbox() {
                 </div>
               )}
 
-              {/* Sender Name Input */}
-              <div className="mb-3">
-                <input
-                  type="text"
-                  placeholder="Your name"
-                  value={senderName}
-                  onChange={(e) => setSenderName(e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-
-              {/* Message Input */}
-              <div className="flex items-end gap-3">
+              <div className="flex gap-3 items-end">
                 <div className="flex-1">
                   <textarea
                     value={messageText}
                     onChange={(e) => setMessageText(e.target.value)}
-                    placeholder="Type your message here..."
+                    placeholder="Type your message..."
+                    className="w-full p-3 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
                         handleSendMessage();
                       }
                     }}
                   />
                 </div>
                 
-                <div className="flex flex-col gap-2">
-                  {/* File Upload Button */}
+                <div className="flex gap-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    onChange={handleFileSelect}
+                    className="hidden"
+                    accept="image/*,.pdf,.doc,.docx,.txt"
+                  />
+                  
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    disabled={uploading}
-                    className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg disabled:opacity-50"
-                    title="Attach file"
+                    className="p-3 border border-gray-300 rounded-lg hover:bg-gray-50"
+                    title="Attach files"
                   >
-                    <Paperclip className="h-5 w-5" />
+                    <Paperclip className="h-5 w-5 text-gray-500" />
                   </button>
                   
-                  {/* Send Button */}
                   <button
                     onClick={handleSendMessage}
-                    disabled={!messageText.trim() || !senderName.trim() || sending}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    disabled={sending || (!messageText.trim() && attachments.length === 0)}
+                    className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                   >
                     {sending ? (
                       <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        <RefreshCw className="h-4 w-4 animate-spin" />
                         {uploading ? 'Uploading...' : 'Sending...'}
                       </>
                     ) : (
@@ -576,24 +651,14 @@ export default function ProjectInbox() {
                   </button>
                 </div>
               </div>
-              
-              {/* Hidden File Input */}
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                onChange={handleFileSelect}
-                className="hidden"
-                accept="image/*,.pdf,.doc,.docx,.txt,.zip"
-              />
             </div>
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center">
+          <div className="flex-1 flex items-center justify-center text-gray-500">
             <div className="text-center">
               <MessageSquare className="h-16 w-16 mx-auto mb-4 text-gray-300" />
-              <p className="text-lg text-gray-500">Select a project to start messaging</p>
-              <p className="text-sm text-gray-400">Choose a project from the sidebar to view and send messages</p>
+              <h3 className="text-lg font-medium mb-2">Select a project</h3>
+              <p>Choose a project from the sidebar to start messaging</p>
             </div>
           </div>
         )}
