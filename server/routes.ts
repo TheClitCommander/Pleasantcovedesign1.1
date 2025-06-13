@@ -276,13 +276,52 @@ export async function registerRoutes(app: Express): Promise<any> {
       let projectToken = null;
       
       if (email) {
-        // Check if a project already exists for this email
+        // Enhanced client deduplication - check email, phone, and name
         try {
-          // First, try to find existing companies with this email
+          console.log(`🔍 Looking for existing client: ${email}, ${businessData.name}, ${businessData.phone}`);
+          
+          // Multi-field client matching for better deduplication
           const companies = await storage.getCompanies();
-          const existingCompany = companies.find(c => c.email?.toLowerCase() === email.toLowerCase());
+          const existingCompany = companies.find(c => {
+            // Primary match: email
+            if (c.email?.toLowerCase() === email.toLowerCase()) {
+              console.log(`✅ Found existing client by email: ${c.name} (ID: ${c.id})`);
+              return true;
+            }
+            
+            // Secondary match: phone number (if provided)
+            if (businessData.phone && c.phone && 
+                c.phone.replace(/\D/g, '') === businessData.phone.replace(/\D/g, '')) {
+              console.log(`✅ Found existing client by phone: ${c.name} (ID: ${c.id})`);
+              return true;
+            }
+            
+            // Tertiary match: company name (fuzzy match)
+            if (businessData.name && c.name &&
+                c.name.toLowerCase().includes(businessData.name.toLowerCase()) ||
+                businessData.name.toLowerCase().includes(c.name.toLowerCase())) {
+              console.log(`✅ Found existing client by name similarity: ${c.name} (ID: ${c.id})`);
+              return true;
+            }
+            
+            return false;
+          });
           
           if (existingCompany) {
+            // Update existing company with any new information
+            const updatedCompanyData = {
+              email: email, // Always update email if provided
+              phone: businessData.phone || existingCompany.phone,
+              address: businessData.address || existingCompany.address,
+              city: businessData.city || existingCompany.city,
+              state: businessData.state || existingCompany.state,
+              website: businessData.website || existingCompany.website,
+              industry: businessData.businessType || existingCompany.industry
+            };
+            
+            await storage.updateCompany(existingCompany.id!, updatedCompanyData);
+            console.log(`🔄 Updated existing company ${existingCompany.name} with new information`);
+            
             // Company exists, check if it has projects
             const projects = await storage.getProjectsByCompany(existingCompany.id!);
             if (projects && projects.length > 0) {
@@ -296,6 +335,8 @@ export async function registerRoutes(app: Express): Promise<any> {
                   accessToken: projectToken 
                 });
               }
+              
+              console.log(`🔗 Using existing project: ${existingProject.title} (Token: ${projectToken})`);
             } else {
               // Company exists but no projects, create one
               projectToken = generateProjectToken();

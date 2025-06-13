@@ -1076,10 +1076,22 @@
                 const container = document.getElementById('messagesContainer');
                 container.innerHTML = `<div class="pcd-error-message">${message}</div>`;
             }
+
+            // Development helper - clear session data
+            clearSession() {
+                localStorage.removeItem('pcd_project_token');
+                localStorage.removeItem('pcd_user_name');
+                localStorage.removeItem('pcd_user_email');
+                console.log('🧹 Session data cleared - refresh page to start fresh');
+                location.reload();
+            }
         }
 
         // Initialize the widget
         const messagingWidget = new PCDMessagingWidget();
+        
+        // Development helper - expose clear function globally
+        window.clearPCDSession = () => messagingWidget.clearSession();
     </script>
 </body>
 </html> 
