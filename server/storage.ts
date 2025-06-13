@@ -1,4 +1,5 @@
 import { db } from "./db.js";
+import { PostgreSQLStorage } from "./postgres-storage.js";
 import type { Business, NewBusiness, Activity, NewActivity, Company, NewCompany, Project, NewProject, ProjectMessage, ProjectFile } from "../shared/schema.js";
 
 // Mock schema objects for the in-memory database
@@ -521,4 +522,17 @@ export class Storage {
 }
 
 // Export singleton instance
-export const storage = new Storage(); 
+// Initialize storage based on environment
+function createStorage() {
+  const databaseUrl = process.env.DATABASE_URL;
+  
+  if (databaseUrl) {
+    console.log('🐘 Using PostgreSQL storage (persistent)');
+    return new PostgreSQLStorage(databaseUrl);
+  } else {
+    console.log('💾 Using in-memory storage (development)');
+    return new Storage();
+  }
+}
+
+export const storage = createStorage(); 
