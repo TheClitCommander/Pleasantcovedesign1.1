@@ -299,7 +299,7 @@ export async function registerRoutes(app: Express): Promise<any> {
             } else {
               // Company exists but no projects, create one
               projectToken = generateProjectToken();
-              await storage.createProject({
+              const newProject = await storage.createProject({
                 companyId: existingCompany.id!,
                 title: `${existingCompany.name} - Website Project`,
                 type: 'website',
@@ -310,6 +310,8 @@ export async function registerRoutes(app: Express): Promise<any> {
                 totalAmount: 0,
                 paidAmount: 0
               });
+              
+              console.log(`✅ Created project for existing company: ID ${newProject.id}, Token: ${projectToken}`);
             }
           } else {
             // No company exists, create company and project
@@ -326,7 +328,7 @@ export async function registerRoutes(app: Express): Promise<any> {
               website: businessData.website
             });
             
-            await storage.createProject({
+            const newProject = await storage.createProject({
               companyId: newCompany.id!,
               title: `${newCompany.name} - Website Project`,
               type: 'website',
@@ -337,6 +339,8 @@ export async function registerRoutes(app: Express): Promise<any> {
               totalAmount: 0,
               paidAmount: 0
             });
+            
+            console.log(`✅ Created new project: ID ${newProject.id}, Token: ${projectToken}`);
             
             // Log company creation activity
             await storage.createActivity({
@@ -529,18 +533,24 @@ export async function registerRoutes(app: Express): Promise<any> {
     try {
       const { token } = req.params;
       
+      console.log(`🔍 Looking for project with token: ${token}`);
+      
       if (!token) {
         return res.status(400).json({ error: "Token is required" });
       }
       
       // Find project by access token
       const project = await storage.getProjectByToken(token);
+      console.log(`🔍 Project lookup result:`, project ? `Found project ID ${project.id}` : 'Project not found');
+      
       if (!project) {
+        console.error(`❌ Project not found for token: ${token}`);
         return res.status(404).json({ error: "Project not found or invalid token" });
       }
       
       // Get messages for this project
       const messages = await storage.getProjectMessages(project.id!);
+      console.log(`📨 Found ${messages?.length || 0} messages for project ${project.id}`);
       
       res.json({
         success: true,
