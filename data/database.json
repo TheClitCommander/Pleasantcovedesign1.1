@@ -71,6 +71,20 @@
       "priority": "medium",
       "id": 46,
       "createdAt": "2025-06-16T03:22:02.951Z"
+    },
+    {
+      "name": "Different Customer",
+      "email": "different@example.com",
+      "phone": "",
+      "address": "",
+      "city": "",
+      "state": "",
+      "website": "",
+      "industry": "Web Design Client",
+      "tags": [],
+      "priority": "medium",
+      "id": 67,
+      "createdAt": "2025-06-16T03:41:27.343Z"
     }
   ],
   "projects": [
@@ -222,6 +236,30 @@
       "accessToken": "mbyjgi38_WLOqyV0puoMXiQZOC0Tfzg",
       "id": 56,
       "createdAt": "2025-06-16T03:32:28.436Z"
+    },
+    {
+      "companyId": 1,
+      "title": "Ben Dickinson - Conversation sub_1750045039088_9v6b9ha5lbp",
+      "type": "website",
+      "stage": "discovery",
+      "status": "active",
+      "totalAmount": 5000,
+      "paidAmount": 0,
+      "accessToken": "mbyjmqcw_DUbEPzFNqUM40joDmb1uYw",
+      "id": 63,
+      "createdAt": "2025-06-16T03:37:19.089Z"
+    },
+    {
+      "companyId": 67,
+      "title": "Different Customer - Conversation sub_1750045287344_v0lodta1je8",
+      "type": "website",
+      "stage": "discovery",
+      "status": "active",
+      "totalAmount": 5000,
+      "paidAmount": 0,
+      "accessToken": "mbyjs1wv_3r35zFwTDh-uce0IDSIiUw",
+      "id": 68,
+      "createdAt": "2025-06-16T03:41:27.344Z"
     }
   ],
   "projectMessages": [
@@ -368,6 +406,15 @@
       "attachments": [],
       "id": 60,
       "createdAt": "2025-06-16T03:32:37.246Z"
+    },
+    {
+      "projectId": 63,
+      "senderType": "client",
+      "senderName": "cheech",
+      "content": "sup",
+      "attachments": [],
+      "id": 65,
+      "createdAt": "2025-06-16T03:37:21.325Z"
     }
   ],
   "projectFiles": [],
@@ -483,6 +530,22 @@
       "priority": "medium",
       "id": 55,
       "createdAt": "2025-06-16T03:32:28.434Z"
+    },
+    {
+      "name": "cheech",
+      "phone": "No phone provided",
+      "email": "ben04537@gmail.com",
+      "address": "To be enriched",
+      "city": "To be enriched",
+      "state": "To be enriched",
+      "businessType": "unknown",
+      "stage": "scraped",
+      "notes": "Squarespace Lead (Score: 60)\nMessage: No message\nAuto-classified: unknown",
+      "website": "",
+      "score": 60,
+      "priority": "medium",
+      "id": 62,
+      "createdAt": "2025-06-16T03:37:19.086Z"
     }
   ],
   "activities": [
@@ -662,6 +725,21 @@
       "projectId": 56,
       "id": 61,
       "createdAt": "2025-06-16T03:32:37.248Z"
+    },
+    {
+      "type": "lead_received",
+      "description": "New Squarespace lead: cheech (Score: 60)",
+      "businessId": 62,
+      "id": 64,
+      "createdAt": "2025-06-16T03:37:19.089Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from cheech: sup",
+      "companyId": 1,
+      "projectId": 63,
+      "id": 66,
+      "createdAt": "2025-06-16T03:37:21.326Z"
     }
   ],
   "campaigns": [],
@@ -680,5 +758,5 @@
     "appointments": 0,
     "progressEntries": 0
   },
-  "nextId": 62
+  "nextId": 69
 }

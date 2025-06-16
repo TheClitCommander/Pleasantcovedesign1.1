@@ -289,24 +289,33 @@ export async function registerRoutes(app: Express): Promise<any> {
         if (existingClient) {
           console.log(`✅ Found existing client: ${existingClient.name} (ID: ${existingClient.id})`);
           
-          // 🔒 PRIVACY FIX: ALWAYS create new conversations for security
-          // Each form submission gets its own private conversation thread
-          const secureToken = generateSecureProjectToken(source || 'squarespace_form', email);
-          const conversationMetadata = generateConversationMetadata(source || 'squarespace_form', email);
+          // Check for existing recent conversations (within 30 days)
+          const existingProjects = await storage.getProjectsByCompany(existingClient.id);
+          const recentProject = existingProjects
+            .filter(p => p.status === 'active')
+            .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())[0];
           
-          const newProject = await storage.createProject({
-            companyId: existingClient.id,
-            title: `${existingClient.name} - Conversation ${secureToken.submissionId}`,
-            type: 'website',
-            stage: 'discovery',
-            status: 'active',
-            totalAmount: 5000,
-            paidAmount: 0,
-            accessToken: secureToken.token // Use cryptographically secure token
-          });
-          
-          projectToken = newProject.accessToken;
-          console.log(`🆕 [SECURE_CONVERSATION] Created private conversation for existing client: ${projectToken}`);
+          if (recentProject) {
+            // Reuse existing conversation for same user (good UX)
+            projectToken = recentProject.accessToken;
+            console.log(`🔗 [EXISTING_CONVERSATION] Reusing conversation for existing client: ${projectToken}`);
+          } else {
+            // Create new conversation only if no recent one exists
+            const secureToken = generateSecureProjectToken(source || 'squarespace_form', email);
+            const newProject = await storage.createProject({
+              companyId: existingClient.id,
+              title: `${existingClient.name} - Conversation ${secureToken.submissionId}`,
+              type: 'website',
+              stage: 'discovery',
+              status: 'active',
+              totalAmount: 5000,
+              paidAmount: 0,
+              accessToken: secureToken.token
+            });
+            
+            projectToken = newProject.accessToken;
+            console.log(`🆕 [NEW_CONVERSATION] Created new conversation for existing client: ${projectToken}`);
+          }
         } else {
           // Create new client and project
           const newCompany = await storage.createCompany({
@@ -431,24 +440,33 @@ export async function registerRoutes(app: Express): Promise<any> {
           if (existingClient) {
             console.log(`✅ Found existing client: ${existingClient.name} (ID: ${existingClient.id})`);
             
-            // ALWAYS create a new project/conversation for privacy
-            // Each form submission gets its own private conversation thread
-            const secureToken = generateSecureProjectToken(req.body.source || 'squarespace_form', email);
-            const conversationMetadata = generateConversationMetadata(req.body.source || 'squarespace_form', email);
+            // Check for existing recent conversations (within 30 days)
+            const existingProjects = await storage.getProjectsByCompany(existingClient.id);
+            const recentProject = existingProjects
+              .filter(p => p.status === 'active')
+              .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())[0];
             
-            const newProject = await storage.createProject({
-              companyId: existingClient.id,
-              title: `${existingClient.name} - Conversation ${secureToken.submissionId}`,
-              type: 'website',
-              stage: 'discovery',
-              status: 'active',
-              totalAmount: 5000,
-              paidAmount: 0,
-              accessToken: secureToken.token // Use cryptographically secure token
-            });
-            
-            projectToken = newProject.accessToken;
-            console.log(`🆕 [SECURE_CONVERSATION] Created private conversation for existing client: ${projectToken}`);
+            if (recentProject) {
+              // Reuse existing conversation for same user (good UX)
+              projectToken = recentProject.accessToken;
+              console.log(`🔗 [EXISTING_CONVERSATION] Reusing conversation for existing client: ${projectToken}`);
+            } else {
+              // Create new conversation only if no recent one exists
+              const secureToken = generateSecureProjectToken(req.body.source || 'squarespace_form', email);
+              const newProject = await storage.createProject({
+                companyId: existingClient.id,
+                title: `${existingClient.name} - Conversation ${secureToken.submissionId}`,
+                type: 'website',
+                stage: 'discovery',
+                status: 'active',
+                totalAmount: 5000,
+                paidAmount: 0,
+                accessToken: secureToken.token
+              });
+              
+              projectToken = newProject.accessToken;
+              console.log(`🆕 [NEW_CONVERSATION] Created new conversation for existing client: ${projectToken}`);
+            }
           } else {
             // Create new client and project
             const newCompany = await storage.createCompany({
