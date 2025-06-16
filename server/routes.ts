@@ -307,27 +307,21 @@ export async function registerRoutes(app: Express, io?: any): Promise<any> {
             .filter(p => p.status === 'active')
             .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())[0];
           
-          if (recentProject) {
-            // Reuse existing conversation for same user (good UX)
-            projectToken = recentProject.accessToken;
-            console.log(`🔗 [EXISTING_CONVERSATION] Reusing conversation for existing client: ${projectToken}`);
-          } else {
-            // Create new conversation only if no recent one exists
-            const secureToken = generateSecureProjectToken(source || 'squarespace_form', email);
-            const newProject = await storage.createProject({
-              companyId: existingClient.id,
-              title: `${existingClient.name} - Conversation ${secureToken.submissionId}`,
-              type: 'website',
-              stage: 'discovery',
-              status: 'active',
-              totalAmount: 5000,
-              paidAmount: 0,
-              accessToken: secureToken.token
-            });
-            
-            projectToken = newProject.accessToken;
-            console.log(`🆕 [NEW_CONVERSATION] Created new conversation for existing client: ${projectToken}`);
-          }
+          // ALWAYS create new conversations for privacy - NEVER reuse tokens
+          const secureToken = generateSecureProjectToken(source || 'squarespace_form', email);
+          const newProject = await storage.createProject({
+            companyId: existingClient.id,
+            title: `${existingClient.name} - Conversation ${secureToken.submissionId}`,
+            type: 'website',
+            stage: 'discovery',
+            status: 'active',
+            totalAmount: 5000,
+            paidAmount: 0,
+            accessToken: secureToken.token
+          });
+          
+          projectToken = newProject.accessToken;
+          console.log(`🆕 [PRIVACY_SECURE] Created new conversation for client: ${projectToken}`);
         } else {
           // Create new client and project
           const newCompany = await storage.createCompany({
@@ -458,27 +452,21 @@ export async function registerRoutes(app: Express, io?: any): Promise<any> {
               .filter(p => p.status === 'active')
               .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())[0];
             
-            if (recentProject) {
-              // Reuse existing conversation for same user (good UX)
-              projectToken = recentProject.accessToken;
-              console.log(`🔗 [EXISTING_CONVERSATION] Reusing conversation for existing client: ${projectToken}`);
-            } else {
-              // Create new conversation only if no recent one exists
-              const secureToken = generateSecureProjectToken(req.body.source || 'squarespace_form', email);
-              const newProject = await storage.createProject({
-                companyId: existingClient.id,
-                title: `${existingClient.name} - Conversation ${secureToken.submissionId}`,
-                type: 'website',
-                stage: 'discovery',
-                status: 'active',
-                totalAmount: 5000,
-                paidAmount: 0,
-                accessToken: secureToken.token
-              });
-              
-              projectToken = newProject.accessToken;
-              console.log(`🆕 [NEW_CONVERSATION] Created new conversation for existing client: ${projectToken}`);
-            }
+            // ALWAYS create new conversations for privacy - NEVER reuse tokens
+            const secureToken = generateSecureProjectToken(req.body.source || 'squarespace_form', email);
+            const newProject = await storage.createProject({
+              companyId: existingClient.id,
+              title: `${existingClient.name} - Conversation ${secureToken.submissionId}`,
+              type: 'website',
+              stage: 'discovery',
+              status: 'active',
+              totalAmount: 5000,
+              paidAmount: 0,
+              accessToken: secureToken.token
+            });
+            
+            projectToken = newProject.accessToken;
+            console.log(`🆕 [PRIVACY_SECURE] Created new conversation for client: ${projectToken}`);
           } else {
             // Create new client and project
             const newCompany = await storage.createCompany({

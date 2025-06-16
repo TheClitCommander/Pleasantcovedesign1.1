@@ -206,6 +206,35 @@
       ],
       "id": 33,
       "createdAt": "2025-06-16T20:08:17.516Z"
+    },
+    {
+      "projectId": 9,
+      "senderType": "client",
+      "senderName": "max powers1.1",
+      "content": "(File attachment)",
+      "attachments": [
+        "http://localhost:3000/uploads/project-Ae06uIlL-1750104733976-Screenshot_2025-06-12_at_10.24.19___PM.png"
+      ],
+      "id": 35,
+      "createdAt": "2025-06-16T20:12:13.985Z"
+    },
+    {
+      "projectId": 9,
+      "senderType": "admin",
+      "senderName": "Ben Dickinson",
+      "content": "hey",
+      "attachments": [],
+      "id": 37,
+      "createdAt": "2025-06-16T20:14:49.669Z"
+    },
+    {
+      "projectId": 9,
+      "senderType": "client",
+      "senderName": "max powers1.1",
+      "content": "yo",
+      "attachments": [],
+      "id": 39,
+      "createdAt": "2025-06-16T20:14:58.027Z"
     }
   ],
   "projectFiles": [],
@@ -376,6 +405,30 @@
       "projectId": 9,
       "id": 34,
       "createdAt": "2025-06-16T20:08:17.520Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from max powers1.1: (File attachment) (1 files)",
+      "companyId": 8,
+      "projectId": 9,
+      "id": 36,
+      "createdAt": "2025-06-16T20:12:13.985Z"
+    },
+    {
+      "type": "admin_message",
+      "description": "Admin message sent: hey",
+      "companyId": 8,
+      "projectId": 9,
+      "id": 38,
+      "createdAt": "2025-06-16T20:14:49.671Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from max powers1.1: yo",
+      "companyId": 8,
+      "projectId": 9,
+      "id": 40,
+      "createdAt": "2025-06-16T20:14:58.028Z"
     }
   ],
   "campaigns": [],
@@ -394,5 +447,5 @@
     "appointments": 0,
     "progressEntries": 0
   },
-  "nextId": 35
+  "nextId": 41
 }

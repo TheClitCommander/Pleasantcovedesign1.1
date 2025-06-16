@@ -8,7 +8,8 @@ import {
   Video,
   MoreVertical,
   ArrowLeft,
-  User
+  User,
+  X
 } from 'lucide-react'
 import api from '../api'
 import { io, Socket } from 'socket.io-client'
@@ -43,10 +44,12 @@ const Inbox: React.FC = () => {
   const [loading, setLoading] = useState(true)
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting')
   const [searchTerm, setSearchTerm] = useState('')
+  const [attachments, setAttachments] = useState<File[]>([])
   
   const socketRef = useRef<Socket | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const conversationsRef = useRef<Conversation[]>([])
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -273,8 +276,29 @@ const Inbox: React.FC = () => {
     }
   }, [])
 
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files
+    if (!files) return
+
+    const newFiles = Array.from(files)
+    setAttachments(prev => [...prev, ...newFiles])
+    
+    // Clear the input so same file can be selected again
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }
+
+  const removeAttachment = (index: number) => {
+    setAttachments(prev => {
+      const updated = [...prev]
+      updated.splice(index, 1)
+      return updated
+    })
+  }
+
   const handleSendMessage = async () => {
-    if (!newMessage.trim() || !selectedConversation) {
+    if ((!newMessage.trim() && attachments.length === 0) || !selectedConversation) {
       console.log('❌ Cannot send message: missing content or conversation')
       return
     }
@@ -284,20 +308,47 @@ const Inbox: React.FC = () => {
         projectId: selectedConversation.projectId,
         projectToken: selectedConversation.projectToken,
         customerName: selectedConversation.customerName,
-        messageContent: newMessage
+        messageContent: newMessage,
+        filesCount: attachments.length
       })
       
-      // Send message via ADMIN API using the project ID (not token)
-      const response = await api.post(`/projects/${selectedConversation.projectId}/messages`, {
-        content: newMessage,
-        senderName: 'Ben Dickinson',
-        senderType: 'admin'
-      })
+      let response;
+      
+      if (attachments.length > 0) {
+        // Use FormData for file uploads via public API
+        const formData = new FormData()
+        formData.append('content', newMessage || '(File attachment)')
+        formData.append('senderName', 'Ben Dickinson')
+        formData.append('senderType', 'admin')
+        
+        attachments.forEach(file => {
+          formData.append('files', file)
+        })
+        
+        response = await fetch(`http://localhost:3000/api/public/project/${selectedConversation.projectToken}/messages`, {
+          method: 'POST',
+          body: formData
+        })
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`)
+        }
+        
+        response = { data: await response.json() }
+      } else {
+        // Use JSON API for text-only messages
+        response = await api.post(`/projects/${selectedConversation.projectId}/messages`, {
+          content: newMessage,
+          senderName: 'Ben Dickinson',
+          senderType: 'admin'
+        })
+      }
 
       console.log('✅ Admin message sent successfully:', response.data)
 
       // Clear the input immediately
       setNewMessage('')
+      setAttachments([])
       
       // Add message instantly via optimistic update (WebSocket will handle real-time sync)
       const sentMessage: Message = {
@@ -588,8 +639,44 @@ const Inbox: React.FC = () => {
 
             {/* Message Input */}
             <div className="p-4 border-t border-border">
+              {/* Attachment Preview */}
+              {attachments.length > 0 && (
+                <div className="mb-3">
+                  <p className="text-sm font-medium text-gray-700 mb-2">Attachments:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {attachments.map((file, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center gap-2 px-3 py-2 bg-gray-100 rounded-lg text-sm"
+                      >
+                        <Paperclip className="h-4 w-4 text-gray-500" />
+                        <span className="max-w-32 truncate">{file.name}</span>
+                        <button
+                          onClick={() => removeAttachment(index)}
+                          className="text-gray-500 hover:text-red-500"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
               <div className="flex items-end gap-3">
-                <button className="p-2 text-muted hover:text-foreground hover:bg-gray-100 rounded-lg">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  onChange={handleFileSelect}
+                  className="hidden"
+                  accept="image/*,.pdf,.doc,.docx,.txt"
+                />
+                <button 
+                  onClick={() => fileInputRef.current?.click()}
+                  className="p-2 text-muted hover:text-foreground hover:bg-gray-100 rounded-lg"
+                  title="Attach files"
+                >
                   <Paperclip className="h-5 w-5" />
                 </button>
                 <div className="flex-1">
@@ -610,7 +697,7 @@ const Inbox: React.FC = () => {
                 </div>
                 <button
                   onClick={handleSendMessage}
-                  disabled={!newMessage.trim()}
+                  disabled={!newMessage.trim() && attachments.length === 0}
                   className="p-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Send className="h-4 w-4" />
