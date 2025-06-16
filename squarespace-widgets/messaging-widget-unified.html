@@ -578,12 +578,7 @@
             }
 
             detectBackendUrl() {
-                // Force local development for testing
-                console.log('🏠 FORCED Local environment - using localhost:3000');
-                return 'http://localhost:3000';
-                
-                // Auto-detect environment (disabled for testing)
-                /*
+                // Auto-detect environment based on hostname
                 const hostname = window.location.hostname;
                 
                 if (hostname === 'localhost' || hostname === '127.0.0.1') {
@@ -591,15 +586,11 @@
                     return 'http://localhost:3000';
                 } else if (hostname.includes('pleasantcovedesign.com')) {
                     console.log('🌐 Production environment detected - using Railway/production backend');
-                    return 'https://pleasantcovedesign-production.up.railway.app';
-                } else if (hostname.includes('ngrok')) {
-                    console.log('🔧 ngrok environment detected');
-                    return 'https://cfa1-2603-7080-e501-3f6a-b468-b0d0-1bfd-2e5.ngrok-free.app';
+                    return 'https://glistening-respect-production.up.railway.app';
                 } else {
                     console.log('🌐 Unknown environment - defaulting to Railway production');
-                    return 'https://pleasantcovedesign-production.up.railway.app';
+                    return 'https://glistening-respect-production.up.railway.app';
                 }
-                */
             }
 
             init() {

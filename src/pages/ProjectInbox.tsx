@@ -105,15 +105,36 @@ export default function ProjectInbox() {
       console.log('🏠 Joined project room:', data);
     });
     
-    socket.on('newMessage', (message: UnifiedMessage) => {
-      console.log('📨 Received new message:', message);
+    socket.on('newMessage', (message: any) => {
+      console.log('📨 Received new message via WebSocket:', message);
+      console.log('📨 Message attachments:', message.attachments);
+      console.log('📨 Message structure:', {
+        id: message.id,
+        sender: message.sender || message.senderName,
+        body: message.body || message.content,
+        timestamp: message.timestamp || message.createdAt,
+        attachments: message.attachments
+      });
+      
+      // Transform WebSocket message to UnifiedMessage format (same as fetchMessages)
+      const transformedMessage: UnifiedMessage = {
+        id: message.id,
+        projectToken: message.projectToken,
+        sender: message.sender || message.senderName,
+        body: message.body || message.content,
+        timestamp: message.timestamp || message.createdAt || new Date().toISOString(),
+        attachments: message.attachments || []
+      };
+      
+      console.log('📨 Transformed message:', transformedMessage);
+      
       setMessages(prev => {
         // Avoid duplicates by checking if message already exists
-        const exists = prev.some(m => m.id === message.id);
+        const exists = prev.some(m => m.id === transformedMessage.id);
         if (exists) return prev;
         
         // Add new message and sort by timestamp
-        const updated = [...prev, message].sort((a, b) => 
+        const updated = [...prev, transformedMessage].sort((a, b) => 
           new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
         );
         return updated;
@@ -249,6 +270,15 @@ export default function ProjectInbox() {
       
       console.log(`📋 Retrieved ${messagesData.length} messages`);
       console.log(`📎 Messages with attachments:`, messagesData.filter(m => m.attachments && m.attachments.length > 0));
+      
+      // Debug: Log each message's attachment data
+      messagesData.forEach((msg, index) => {
+        if (msg.attachments && msg.attachments.length > 0) {
+          console.log(`🖼️ Message ${index} attachments:`, msg.attachments);
+          console.log(`🖼️ Message ${index} full data:`, msg);
+        }
+      });
+      
       setMessages(messagesData);
     } catch (error) {
       console.error('Failed to fetch messages:', error);
@@ -519,8 +549,11 @@ export default function ProjectInbox() {
                         {message.attachments && message.attachments.length > 0 && (
                           <div className="mt-3 space-y-2">
                             {message.attachments.map((attachment, attachmentIndex) => {
+                              // Debug logging
+                              console.log(`🖼️ Rendering attachment ${attachmentIndex} for message ${message.id}:`, attachment);
                               const fileName = attachment.split('/').pop() || 'attachment';
                               const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(fileName);
+                              console.log(`🖼️ File: ${fileName}, isImage: ${isImage}`);
                               
                               if (isImage) {
                                 return (
