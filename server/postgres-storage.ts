@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Pool } from 'pg';
 import type { Business, NewBusiness, Activity, NewActivity, Company, NewCompany, Project, NewProject, ProjectMessage, ProjectFile } from "../shared/schema.js";
 

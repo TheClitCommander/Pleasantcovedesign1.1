@@ -210,6 +210,18 @@
       "accessToken": "mbyj47fi_KXTiKPfy0CfIto-_DxUitg",
       "id": 51,
       "createdAt": "2025-06-16T03:22:54.751Z"
+    },
+    {
+      "companyId": 1,
+      "title": "Ben Dickinson - Conversation sub_1750044748436_rfyhdc86ls",
+      "type": "website",
+      "stage": "discovery",
+      "status": "active",
+      "totalAmount": 5000,
+      "paidAmount": 0,
+      "accessToken": "mbyjgi38_WLOqyV0puoMXiQZOC0Tfzg",
+      "id": 56,
+      "createdAt": "2025-06-16T03:32:28.436Z"
     }
   ],
   "projectMessages": [
@@ -338,6 +350,24 @@
       "attachments": [],
       "id": 53,
       "createdAt": "2025-06-16T03:22:56.995Z"
+    },
+    {
+      "projectId": 56,
+      "senderType": "client",
+      "senderName": "cheech",
+      "content": "hey",
+      "attachments": [],
+      "id": 58,
+      "createdAt": "2025-06-16T03:32:30.895Z"
+    },
+    {
+      "projectId": 56,
+      "senderType": "admin",
+      "senderName": "Ben Dickinson",
+      "content": "how are you",
+      "attachments": [],
+      "id": 60,
+      "createdAt": "2025-06-16T03:32:37.246Z"
     }
   ],
   "projectFiles": [],
@@ -437,6 +467,22 @@
       "priority": "medium",
       "id": 50,
       "createdAt": "2025-06-16T03:22:54.748Z"
+    },
+    {
+      "name": "cheech",
+      "phone": "No phone provided",
+      "email": "ben04537@gmail.com",
+      "address": "To be enriched",
+      "city": "To be enriched",
+      "state": "To be enriched",
+      "businessType": "unknown",
+      "stage": "scraped",
+      "notes": "Squarespace Lead (Score: 60)\nMessage: No message\nAuto-classified: unknown",
+      "website": "",
+      "score": 60,
+      "priority": "medium",
+      "id": 55,
+      "createdAt": "2025-06-16T03:32:28.434Z"
     }
   ],
   "activities": [
@@ -593,6 +639,29 @@
       "projectId": 51,
       "id": 54,
       "createdAt": "2025-06-16T03:22:56.997Z"
+    },
+    {
+      "type": "lead_received",
+      "description": "New Squarespace lead: cheech (Score: 60)",
+      "businessId": 55,
+      "id": 57,
+      "createdAt": "2025-06-16T03:32:28.437Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from cheech: hey",
+      "companyId": 1,
+      "projectId": 56,
+      "id": 59,
+      "createdAt": "2025-06-16T03:32:30.897Z"
+    },
+    {
+      "type": "admin_message",
+      "description": "Admin message sent: how are you",
+      "companyId": 1,
+      "projectId": 56,
+      "id": 61,
+      "createdAt": "2025-06-16T03:32:37.248Z"
     }
   ],
   "campaigns": [],
@@ -611,5 +680,5 @@
     "appointments": 0,
     "progressEntries": 0
   },
-  "nextId": 55
+  "nextId": 62
 }

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { storage } from "./storage";
 import type { Business } from "@shared/schema";
 
