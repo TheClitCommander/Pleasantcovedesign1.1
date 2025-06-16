@@ -235,8 +235,20 @@ export default function ProjectInbox() {
       }
       
       const data = await response.json();
-      const messagesData = data.messages || data;
+      const rawMessages = data.messages || data;
+      
+      // Transform raw database format to UnifiedMessage format
+      const messagesData: UnifiedMessage[] = rawMessages.map((msg: any) => ({
+        id: msg.id,
+        projectToken: projectToken,
+        sender: msg.senderName || msg.sender,
+        body: msg.content || msg.body,
+        timestamp: msg.createdAt || msg.timestamp || new Date().toISOString(),
+        attachments: msg.attachments || []
+      }));
+      
       console.log(`📋 Retrieved ${messagesData.length} messages`);
+      console.log(`📎 Messages with attachments:`, messagesData.filter(m => m.attachments && m.attachments.length > 0));
       setMessages(messagesData);
     } catch (error) {
       console.error('Failed to fetch messages:', error);

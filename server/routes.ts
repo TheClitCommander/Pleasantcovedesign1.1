@@ -846,12 +846,10 @@ export async function registerRoutes(app: Express, io?: any): Promise<any> {
       if (io) {
         const broadcastMessage = {
           id: message.id,
-          projectId: projectData.id,
           projectToken: token,
-          content: message.content,
-          senderName: message.senderName,
-          senderType: message.senderType,
-          createdAt: message.createdAt,
+          sender: message.senderName,
+          body: message.content,
+          timestamp: message.createdAt,
           attachments: message.attachments || []
         };
         
@@ -1506,12 +1504,10 @@ export async function registerRoutes(app: Express, io?: any): Promise<any> {
       if (io) {
         const broadcastMessage = {
           id: message.id,
-          projectId: projectId,
           projectToken: project.accessToken,
-          content: message.content,
-          senderName: message.senderName,
-          senderType: message.senderType,
-          createdAt: message.createdAt,
+          sender: message.senderName,
+          body: message.content,
+          timestamp: message.createdAt,
           attachments: message.attachments || []
         };
         

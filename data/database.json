@@ -151,6 +151,17 @@
       "attachments": [],
       "id": 23,
       "createdAt": "2025-06-16T19:41:18.682Z"
+    },
+    {
+      "projectId": 9,
+      "senderType": "client",
+      "senderName": "max powers1.1",
+      "content": "(File attachment)",
+      "attachments": [
+        "http://localhost:3000/uploads/project-Ae06uIlL-1750103173626-Screenshot_2025-06-10_at_12.47.14___PM.png"
+      ],
+      "id": 25,
+      "createdAt": "2025-06-16T19:46:13.631Z"
     }
   ],
   "projectFiles": [],
@@ -281,6 +292,14 @@
       "projectId": 9,
       "id": 24,
       "createdAt": "2025-06-16T19:41:18.686Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from max powers1.1: (File attachment) (1 files)",
+      "companyId": 8,
+      "projectId": 9,
+      "id": 26,
+      "createdAt": "2025-06-16T19:46:13.632Z"
     }
   ],
   "campaigns": [],
@@ -299,5 +318,5 @@
     "appointments": 0,
     "progressEntries": 0
   },
-  "nextId": 25
+  "nextId": 27
 }
