@@ -4,6 +4,7 @@
   "description": "Pleasant Cove Design - Business Management Platform",
   "type": "module",
   "scripts": {
+    "start": "NODE_ENV=production tsx server/index.ts",
     "dev": "npm run clean && sleep 2 && concurrently \"npm run server\" \"npm run localbiz-pro\"",
     "server": "NODE_ENV=development tsx server/index.ts",
     "localbiz-pro": "vite --port 5173",

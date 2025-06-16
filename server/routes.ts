@@ -13,7 +13,6 @@ import fs from 'fs';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import uploadRoutes from './uploadRoutes.js';
-import { io } from './index.js';
 import { 
   generateSecureProjectToken, 
   generateConversationMetadata, 
@@ -234,14 +233,12 @@ const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
   next();
 };
 
-export async function registerRoutes(app: Express): Promise<any> {
+export async function registerRoutes(app: Express, io?: any): Promise<any> {
   
   // Mount presigned URL routes BEFORE body-parser
   app.use(uploadRoutes);
   
   // Serve uploaded files statically (for local storage)
-  const path = require('path');
-  const fs = require('fs');
   const uploadsDir = path.join(process.cwd(), 'uploads');
   
   // Ensure uploads directory exists

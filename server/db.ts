@@ -572,6 +572,21 @@ class InMemoryDatabase {
     return this.projects.filter(p => p.companyId === companyId);
   }
 
+  // Get projects by company (alias for compatibility)
+  async getProjectsByCompany(companyId: number): Promise<any[]> {
+    return this.getProjectsByCompanyId(companyId);
+  }
+
+  // Get project by access token
+  async getProjectByAccessToken(token: string): Promise<any | null> {
+    return this.projects.find(p => p.accessToken === token) || null;
+  }
+
+  // Get project by token (alias for compatibility)
+  async getProjectByToken(token: string): Promise<any | null> {
+    return this.getProjectByAccessToken(token);
+  }
+
   // Create new company
   async createCompany(data: any): Promise<number> {
     const newId = Math.max(...this.companies.map(c => c.id), 0) + 1;

@@ -3,7 +3,7 @@ import { resolve } from 'path';
 import { createServer } from "http";
 import path from "path";
 import { fileURLToPath } from "url";
-import { registerRoutes } from "./routes";
+import { registerRoutes } from "./routes.js";
 import { storage } from './storage.js';
 import { Server } from 'socket.io';
 
@@ -11,9 +11,7 @@ import { Server } from 'socket.io';
 dotenv.config({ path: resolve(process.cwd(), '.env') });
 
 // Debug: Log environment variable loading
-console.log('🔧 Environment variables loaded:');
-console.log('🔧 ACUITY_USER_ID:', process.env.ACUITY_USER_ID ? 'SET' : 'NOT SET');
-console.log('🔧 ACUITY_API_KEY:', process.env.ACUITY_API_KEY ? 'SET' : 'NOT SET');
+console.log('🔧 Environment variables loaded');
 
 import express, { type Express } from "express";
 import cors from "cors";
@@ -223,7 +221,7 @@ app.use('/api/new-lead', (req, res, next) => {
 async function startServer() {
   try {
     // Register all routes
-    await registerRoutes(app);
+    await registerRoutes(app, io);
     
     // Handle React Router - serve index.html for non-API routes
     app.get('*', (req, res) => {
@@ -283,10 +281,7 @@ async function startServer() {
         console.log(`🏠 Local development - WebSocket support active`);
       }
       
-      // Acuity webhook integration info
-      console.log(`🗓️ Acuity webhook endpoint: http://localhost:${PORT}/api/acuity-appointment`);
-      console.log(`🗓️ Set this URL in your Acuity Settings > Integrations > Webhooks`);
-      console.log(`🗓️ Webhook events: scheduled, rescheduled, canceled, changed`);
+
       
       console.log(`🚀 Server ready and waiting for webhooks!`);
     });
