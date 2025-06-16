@@ -113,10 +113,11 @@ if (useR2Storage) {
         cb(null, uploadsDir);
       },
       filename: (req, file, cb) => {
-        const projectId = req.params.id || 'unknown';
+        // Fix: Use token from the messages route (:token) not (:id)
+        const projectToken = req.params.token || req.params.id || 'unknown';
         const timestamp = Date.now();
         const safeName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
-        cb(null, `admin-project-${projectId}-${timestamp}-${safeName}`);
+        cb(null, `project-${projectToken.substring(0, 8)}-${timestamp}-${safeName}`);
       }
     }),
     limits: {
@@ -237,6 +238,20 @@ export async function registerRoutes(app: Express): Promise<any> {
   
   // Mount presigned URL routes BEFORE body-parser
   app.use(uploadRoutes);
+  
+  // Serve uploaded files statically (for local storage)
+  const path = require('path');
+  const fs = require('fs');
+  const uploadsDir = path.join(process.cwd(), 'uploads');
+  
+  // Ensure uploads directory exists
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+    console.log('📁 Created uploads directory:', uploadsDir);
+  }
+  
+  app.use('/uploads', express.static(uploadsDir));
+  console.log('📁 Serving uploads from:', uploadsDir);
   
   // Root webhook endpoint for Squarespace widget customer project creation (PUBLIC - no auth required)
   app.post("/", async (req: Request, res: Response) => {
@@ -804,7 +819,19 @@ export async function registerRoutes(app: Express): Promise<any> {
       // Handle legacy multer uploads (fallback)
       else if (req.files && Array.isArray(req.files)) {
         const uploaded = req.files as any[];
-        attachments = uploaded.map(f => f.location);
+        attachments = uploaded.map(f => {
+          // R2 uploads have .location, local uploads have .path
+          if (f.location) {
+            return f.location; // R2 upload
+          } else if (f.path) {
+            // Local upload - convert to accessible URL
+            const baseUrl = process.env.NODE_ENV === 'production' 
+              ? 'https://pleasantcovedesign-production.up.railway.app'
+              : `http://localhost:${process.env.PORT || 3000}`;
+            return `${baseUrl}/uploads/${f.filename}`;
+          }
+          return f.path || f.filename; // Fallback
+        });
         console.log('📎 Multer uploads processed:', attachments);
       }
 
