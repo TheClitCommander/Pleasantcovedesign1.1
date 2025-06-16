@@ -516,6 +516,65 @@ const Inbox: React.FC = () => {
                       : 'bg-gray-100 text-foreground'
                   }`}>
                     <p className="text-sm">{message.content}</p>
+                    
+                    {/* Attachments */}
+                    {message.attachments && message.attachments.length > 0 && (
+                      <div className="mt-3 space-y-2">
+                        {message.attachments.map((attachment, attachmentIndex) => {
+                          const fileName = attachment.split('/').pop() || 'attachment';
+                          const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(fileName);
+                          
+                          if (isImage) {
+                            return (
+                              <div key={attachmentIndex} className="mt-2">
+                                <img 
+                                  src={attachment} 
+                                  alt={fileName}
+                                  className="max-w-48 max-h-32 rounded cursor-pointer border border-gray-200"
+                                  onClick={() => window.open(attachment, '_blank')}
+                                  onError={(e) => {
+                                    // Fallback to file link if image fails to load
+                                    const target = e.target as HTMLImageElement;
+                                    target.style.display = 'none';
+                                    const fallback = target.nextElementSibling as HTMLElement;
+                                    if (fallback) fallback.style.display = 'flex';
+                                  }}
+                                />
+                                <a
+                                  href={attachment}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className={`items-center gap-2 text-xs underline hover:no-underline ${
+                                    message.senderType === 'admin' ? 'text-blue-200 hover:text-blue-100' : 'text-blue-600 hover:text-blue-800'
+                                  }`}
+                                  style={{ display: 'none' }}
+                                >
+                                  📷 {fileName}
+                                </a>
+                              </div>
+                            );
+                          } else {
+                            return (
+                              <a
+                                key={attachmentIndex}
+                                href={attachment}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                download
+                                className={`flex items-center gap-2 text-xs underline hover:no-underline px-2 py-1 rounded ${
+                                  message.senderType === 'admin' 
+                                    ? 'text-blue-200 hover:text-blue-100 hover:bg-blue-700' 
+                                    : 'text-blue-600 hover:text-blue-800 hover:bg-blue-50'
+                                }`}
+                              >
+                                📎 {fileName}
+                              </a>
+                            );
+                          }
+                        })}
+                      </div>
+                    )}
+                    
                     <p className={`text-xs mt-1 ${
                       message.senderType === 'admin' ? 'text-primary-100' : 'text-muted'
                     }`}>

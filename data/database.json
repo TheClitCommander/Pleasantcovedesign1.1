@@ -184,6 +184,28 @@
       ],
       "id": 29,
       "createdAt": "2025-06-16T19:58:19.216Z"
+    },
+    {
+      "projectId": 9,
+      "senderType": "client",
+      "senderName": "max powers1.1",
+      "content": "(File attachment)",
+      "attachments": [
+        "http://localhost:3000/uploads/project-Ae06uIlL-1750104155972-Screenshot_2025-06-10_at_12.47.14___PM.png"
+      ],
+      "id": 31,
+      "createdAt": "2025-06-16T20:02:35.978Z"
+    },
+    {
+      "projectId": 9,
+      "senderType": "client",
+      "senderName": "max powers1.1",
+      "content": "(File attachment)",
+      "attachments": [
+        "http://localhost:3000/uploads/project-Ae06uIlL-1750104497508-ChatGPT_Image_May_27__2025__04_38_15_PM.png"
+      ],
+      "id": 33,
+      "createdAt": "2025-06-16T20:08:17.516Z"
     }
   ],
   "projectFiles": [],
@@ -338,6 +360,22 @@
       "projectId": 9,
       "id": 30,
       "createdAt": "2025-06-16T19:58:19.217Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from max powers1.1: (File attachment) (1 files)",
+      "companyId": 8,
+      "projectId": 9,
+      "id": 32,
+      "createdAt": "2025-06-16T20:02:35.979Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from max powers1.1: (File attachment) (1 files)",
+      "companyId": 8,
+      "projectId": 9,
+      "id": 34,
+      "createdAt": "2025-06-16T20:08:17.520Z"
     }
   ],
   "campaigns": [],
@@ -356,5 +394,5 @@
     "appointments": 0,
     "progressEntries": 0
   },
-  "nextId": 31
+  "nextId": 35
 }
