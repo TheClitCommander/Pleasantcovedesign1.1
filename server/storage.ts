@@ -510,6 +510,12 @@ export class Storage {
     };
   }
 
+  // Alias for compatibility with existing code
+  async getProjectByAccessToken(accessToken: string): Promise<Project | null> {
+    const projectResults: any[] = db.select().from(projectsTable).where({ accessToken });
+    return (projectResults[0] as Project) || null;
+  }
+
   async getProjectSummaryByToken(accessToken: string): Promise<{
     project: Project;
     company: Company;

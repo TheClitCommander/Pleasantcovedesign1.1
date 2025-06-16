@@ -765,7 +765,7 @@ export async function registerRoutes(app: Express, io?: any): Promise<any> {
   });
 
   // Create message in project (PUBLIC - for client replies) - supports both multer and presigned URL uploads
-  app.post("/api/public/project/:token/messages", useR2Storage && upload ? upload.array('files') : (req, res, next) => next(), async (req: Request, res: Response) => {
+  app.post("/api/public/project/:token/messages", upload.array('files'), async (req: Request, res: Response) => {
     try {
       const { token } = req.params;
       const { content, senderName, senderType = 'client', attachments: attachmentKeys } = req.body;

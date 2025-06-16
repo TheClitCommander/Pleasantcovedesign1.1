@@ -29,6 +29,20 @@
       "priority": "medium",
       "id": 2,
       "createdAt": "2025-06-16T19:34:03.319Z"
+    },
+    {
+      "name": "max powers1.1",
+      "email": "harborsuits@gmail.com",
+      "phone": "No phone provided",
+      "address": "",
+      "city": "",
+      "state": "",
+      "website": "",
+      "industry": "Web Design Client",
+      "tags": [],
+      "priority": "medium",
+      "id": 8,
+      "createdAt": "2025-06-16T19:36:16.714Z"
     }
   ],
   "projects": [
@@ -60,9 +74,85 @@
       "accessToken": "WupKMIoLqLRIykGCSkgR6nTv",
       "id": 3,
       "createdAt": "2025-06-16T19:34:03.319Z"
+    },
+    {
+      "companyId": 8,
+      "title": "max powers1.1 - Conversation 1750102576",
+      "type": "website",
+      "stage": "discovery",
+      "status": "active",
+      "totalAmount": 5000,
+      "paidAmount": 0,
+      "accessToken": "Ae06uIlLwd2HlhzmojmxEwFt",
+      "id": 9,
+      "createdAt": "2025-06-16T19:36:16.715Z"
     }
   ],
-  "projectMessages": [],
+  "projectMessages": [
+    {
+      "projectId": 9,
+      "senderType": "client",
+      "senderName": "max powers1.1",
+      "content": "hey",
+      "attachments": [],
+      "id": 11,
+      "createdAt": "2025-06-16T19:36:19.376Z"
+    },
+    {
+      "projectId": 9,
+      "senderType": "client",
+      "senderName": "max powers1.1",
+      "content": "sup",
+      "attachments": [],
+      "id": 13,
+      "createdAt": "2025-06-16T19:40:41.568Z"
+    },
+    {
+      "projectId": 9,
+      "senderType": "admin",
+      "senderName": "Ben Dickinson",
+      "content": "ntm",
+      "attachments": [],
+      "id": 15,
+      "createdAt": "2025-06-16T19:40:51.467Z"
+    },
+    {
+      "projectId": 9,
+      "senderType": "admin",
+      "senderName": "Ben Dickinson",
+      "content": "ntm hbu",
+      "attachments": [],
+      "id": 17,
+      "createdAt": "2025-06-16T19:40:56.697Z"
+    },
+    {
+      "projectId": 9,
+      "senderType": "admin",
+      "senderName": "Ben Dickinson",
+      "content": "hey",
+      "attachments": [],
+      "id": 19,
+      "createdAt": "2025-06-16T19:41:02.649Z"
+    },
+    {
+      "projectId": 9,
+      "senderType": "client",
+      "senderName": "max powers1.1",
+      "content": "whats up",
+      "attachments": [],
+      "id": 21,
+      "createdAt": "2025-06-16T19:41:06.950Z"
+    },
+    {
+      "projectId": 9,
+      "senderType": "admin",
+      "senderName": "Ben Dickinson",
+      "content": "ntm just working on a jib",
+      "attachments": [],
+      "id": 23,
+      "createdAt": "2025-06-16T19:41:18.682Z"
+    }
+  ],
   "projectFiles": [],
   "businesses": [
     {
@@ -80,6 +170,38 @@
       "priority": "medium",
       "id": 1,
       "createdAt": "2025-06-16T19:34:03.318Z"
+    },
+    {
+      "name": "Ben Dickinson",
+      "phone": "No phone provided",
+      "email": "ben04537@gmail.com",
+      "address": "To be enriched",
+      "city": "To be enriched",
+      "state": "To be enriched",
+      "businessType": "unknown",
+      "stage": "scraped",
+      "notes": "Squarespace Lead (Score: 60)\nMessage: No message\nAuto-classified: unknown",
+      "website": "",
+      "score": 60,
+      "priority": "medium",
+      "id": 5,
+      "createdAt": "2025-06-16T19:35:37.469Z"
+    },
+    {
+      "name": "max powers1.1",
+      "phone": "No phone provided",
+      "email": "harborsuits@gmail.com",
+      "address": "To be enriched",
+      "city": "To be enriched",
+      "state": "To be enriched",
+      "businessType": "unknown",
+      "stage": "scraped",
+      "notes": "Squarespace Lead (Score: 60)\nMessage: No message\nAuto-classified: unknown",
+      "website": "",
+      "score": 60,
+      "priority": "medium",
+      "id": 7,
+      "createdAt": "2025-06-16T19:36:16.711Z"
     }
   ],
   "activities": [
@@ -89,6 +211,76 @@
       "businessId": 1,
       "id": 4,
       "createdAt": "2025-06-16T19:34:03.319Z"
+    },
+    {
+      "type": "lead_received",
+      "description": "New Squarespace lead: Ben Dickinson (Score: 60)",
+      "businessId": 5,
+      "id": 6,
+      "createdAt": "2025-06-16T19:35:37.471Z"
+    },
+    {
+      "type": "lead_received",
+      "description": "New Squarespace lead: max powers1.1 (Score: 60)",
+      "businessId": 7,
+      "id": 10,
+      "createdAt": "2025-06-16T19:36:16.716Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from max powers1.1: hey",
+      "companyId": 8,
+      "projectId": 9,
+      "id": 12,
+      "createdAt": "2025-06-16T19:36:19.377Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from max powers1.1: sup",
+      "companyId": 8,
+      "projectId": 9,
+      "id": 14,
+      "createdAt": "2025-06-16T19:40:41.569Z"
+    },
+    {
+      "type": "admin_message",
+      "description": "Admin message sent: ntm",
+      "companyId": 8,
+      "projectId": 9,
+      "id": 16,
+      "createdAt": "2025-06-16T19:40:51.469Z"
+    },
+    {
+      "type": "admin_message",
+      "description": "Admin message sent: ntm hbu",
+      "companyId": 8,
+      "projectId": 9,
+      "id": 18,
+      "createdAt": "2025-06-16T19:40:56.701Z"
+    },
+    {
+      "type": "admin_message",
+      "description": "Admin message sent: hey",
+      "companyId": 8,
+      "projectId": 9,
+      "id": 20,
+      "createdAt": "2025-06-16T19:41:02.656Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from max powers1.1: whats up",
+      "companyId": 8,
+      "projectId": 9,
+      "id": 22,
+      "createdAt": "2025-06-16T19:41:06.952Z"
+    },
+    {
+      "type": "admin_message",
+      "description": "Admin message sent: ntm just working on a jib",
+      "companyId": 8,
+      "projectId": 9,
+      "id": 24,
+      "createdAt": "2025-06-16T19:41:18.686Z"
     }
   ],
   "campaigns": [],
@@ -107,5 +299,5 @@
     "appointments": 0,
     "progressEntries": 0
   },
-  "nextId": 5
+  "nextId": 25
 }
