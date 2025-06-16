@@ -166,25 +166,8 @@ const ClientProfile: React.FC = () => {
         setMessages(allMessages)
       }
       
-      // Mock data for payments (replace with real API calls when available)
-      setPayments([
-        {
-          id: 1,
-          businessId: parseInt(id),
-          amount: 2500,
-          status: 'paid',
-          description: 'Initial consultation and design',
-          createdAt: '2024-01-15T10:00:00Z'
-        },
-        {
-          id: 2,
-          businessId: parseInt(id),
-          amount: 5000,
-          status: 'pending',
-          description: 'Website development phase 1',
-          createdAt: '2024-01-20T14:30:00Z'
-        }
-      ])
+      // No mock payment data - start with empty state to see real data clearly
+      setPayments([])
       
     } catch (err) {
       console.error('Failed to load client data', err)

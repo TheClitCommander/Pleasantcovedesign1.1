@@ -12,7 +12,6 @@ import Schedule from './pages/Schedule'
 import ClientProfile from './pages/ClientProfile'
 import Interactions from './pages/Interactions'
 // import ClientPortal from './pages/ClientPortal'
-import ProjectInbox from './pages/ProjectInbox'
 import BookAppointment from './pages/BookAppointment'
 
 // Error boundary component
@@ -70,7 +69,7 @@ const App: React.FC = () => {
           <Route path="/" element={<Layout />}>
             <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="dashboard" element={<Dashboard />} />
-            <Route path="project-inbox" element={<ProjectInbox />} />
+            <Route path="inbox" element={<Inbox />} />
             <Route path="leads" element={<Leads />} />
             <Route path="interactions" element={<Interactions />} />
             <Route path="progress" element={<Progress />} />

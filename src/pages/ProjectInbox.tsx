@@ -228,7 +228,7 @@ export default function ProjectInbox() {
   const fetchMessages = async (projectToken: string, retryCount = 0) => {
     try {
       console.log(`📥 Fetching messages for project token: ${projectToken} (attempt ${retryCount + 1})`);
-      const response = await fetch(`/api/public/project/${projectToken}/messages`);
+      const response = await fetch(`http://localhost:3000/api/public/project/${projectToken}/messages`);
       
       if (!response.ok) {
         throw new Error(`Failed to fetch messages: ${response.status}`);
@@ -304,7 +304,7 @@ export default function ProjectInbox() {
 
       console.log('📤 Sending message to project:', selectedProject.accessToken, 'with', attachments.length, 'files');
 
-      const response = await fetch(`/api/public/project/${selectedProject.accessToken}/messages`, {
+      const response = await fetch(`http://localhost:3000/api/public/project/${selectedProject.accessToken}/messages`, {
         method: 'POST',
         body: formData,
       });

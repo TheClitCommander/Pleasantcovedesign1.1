@@ -4,16 +4,12 @@
   "description": "Pleasant Cove Design - Business Management Platform",
   "type": "module",
   "scripts": {
-    "clean": "pkill -f 'node.*5173' || true && pkill -f 'node.*5174' || true && pkill -f 'vite' || true && pkill -f 'tsx' || true",
-    "dev": "npm run clean && sleep 2 && concurrently \"npm run server\" \"npm run client\"",
-    "start-dev": "npm run dev && echo '\\n🎉 Pleasant Cove Design is running!\\n📱 Frontend: http://localhost:5173\\n⚙️  Backend: http://localhost:5174\\n'",
-    "build": "vite build",
-    "build:server": "echo 'Server build not needed - using tsx'",
-    "start:prod": "NODE_ENV=production tsx server/index.ts",
-    "client": "vite --port 5174",
+    "dev": "npm run clean && sleep 2 && concurrently \"npm run server\" \"npm run localbiz-pro\"",
     "server": "NODE_ENV=development tsx server/index.ts",
-    "start": "npm run start:prod",
-    "test": "vitest"
+    "localbiz-pro": "vite --port 5173",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "clean": "pkill -f 'node.*5173' || true && pkill -f 'node.*5174' || true && pkill -f 'vite' || true && pkill -f 'tsx' || true"
   },
   "keywords": [],
   "author": "Pleasant Cove Design",

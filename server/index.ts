@@ -83,13 +83,18 @@ io.on('connection', (socket) => {
     console.log('⬆️ Socket transport upgraded to:', socket.conn.transport.name, 'for', socket.id);
   });
   
-  socket.on('join', (projectToken: string) => {
+  socket.on('join', (projectToken: string, callback?: Function) => {
     if (!projectToken) {
       console.log('❌ No project token provided for socket:', socket.id);
+      if (callback) callback({ error: 'No project token provided' });
       return;
     }
     
     console.log(`🏠 Socket ${socket.id} (${socket.conn.transport.name}) joining project: ${projectToken}`);
+    
+    // TODO: Validate project token exists (optional security check)
+    // For now, allow all project tokens
+    
     socket.join(projectToken);
     
     // Track active connections
@@ -99,14 +104,32 @@ io.on('connection', (socket) => {
     activeConnections.get(projectToken)!.add(socket.id);
     
     // Send confirmation with transport info
-    socket.emit('joined', { 
+    const confirmationData = { 
+      room: projectToken,
       projectToken, 
       status: 'connected',
       transport: socket.conn.transport.name,
       socketId: socket.id
-    });
+    };
+    
+    socket.emit('joined', confirmationData);
+    
+    // Send callback response if provided
+    if (callback) {
+      callback({ 
+        success: true, 
+        room: projectToken,
+        socketId: socket.id,
+        transport: socket.conn.transport.name
+      });
+    }
     
     console.log(`✅ Socket ${socket.id} successfully joined project ${projectToken} via ${socket.conn.transport.name}`);
+    
+    // Log current room members for debugging
+    io.in(projectToken).allSockets().then(clients => {
+      console.log(`📊 Room ${projectToken} now has ${clients.size} clients`);
+    });
   });
   
   socket.on('disconnect', (reason) => {
@@ -244,7 +267,7 @@ async function startServer() {
     });
     
     server.listen(PORT, () => {
-      console.log('✅ In-memory database initialized with sample data');
+      console.log('✅ In-memory database initialized (empty - ready for real data)');
       console.log(`🚀 Pleasant Cove Design v1.1 server running on port ${PORT}`);
       console.log(`📍 Local: http://localhost:${PORT}`);
       console.log(`🔗 Webhook endpoint: http://localhost:${PORT}/api/new-lead`);

@@ -395,4 +395,86 @@ export class PostgreSQLStorage {
   async deleteProjectMessage(id: number) {
     await this.pool.query('DELETE FROM project_messages WHERE id = $1', [id]);
   }
+
+  // Find client by email
+  async findClientByEmail(email: string): Promise<Company | null> {
+    const result = await this.pool.query('SELECT * FROM companies WHERE email = $1', [email]);
+    return result.rows[0] ? this.mapCompany(result.rows[0]) : null;
+  }
+
+  // Generate stable token based on email for consistent customer experience
+  private generateStableToken(email: string): string {
+    // For Ben's email, always use the same token for testing
+    if (email === 'ben04537@gmail.com') {
+      return 'Q_lXDL9XQ-Q8d-jay7W2a2ZU'; // Fixed token for testing
+    }
+    
+    // For other emails, generate a consistent token based on email hash
+    let hash = 0;
+    for (let i = 0; i < email.length; i++) {
+      const char = email.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    
+    // Convert hash to a token-like string
+    const hashStr = Math.abs(hash).toString(36);
+    return `stable_${hashStr}_${email.split('@')[0].slice(0, 5)}`;
+  }
+
+  // Find or create project with stable token for customer
+  async findOrCreateCustomerProject(email: string, name: string): Promise<{ projectId: number; token: string }> {
+    try {
+      // First, try to find existing client by email
+      const existingClient = await this.findClientByEmail(email);
+      
+      if (existingClient) {
+        console.log(`✅ Found existing client: ${existingClient.name} (ID: ${existingClient.id})`);
+        
+        // Find their existing project
+        const projects = await this.getProjectsByCompany(existingClient.id!);
+        if (projects.length > 0) {
+          const project = projects[0]; // Use first project
+          console.log(`🔗 Using existing project: ${project.title} (Token: ${project.accessToken})`);
+          return { projectId: project.id!, token: project.accessToken! };
+        }
+      }
+      
+      // Generate stable token for this customer
+      const stableToken = this.generateStableToken(email);
+      
+      // Create new client and project with stable token
+      const company = await this.createCompany({
+        name: name,
+        email: email,
+        phone: '',
+        address: '',
+        city: '',
+        state: '',
+        website: '',
+        industry: 'Web Design Client',
+        tags: [],
+        priority: 'medium'
+      });
+      
+      const project = await this.createProject({
+        title: `${name} - Website Project`,
+        companyId: company.id!,
+        type: 'website',
+        stage: 'planning',
+        status: 'active',
+        accessToken: stableToken,
+        notes: `Project created from Squarespace messaging widget - ${new Date().toISOString()}`,
+        totalAmount: 0,
+        paidAmount: 0
+      });
+      
+      console.log(`✅ Created new project with stable token: ID ${project.id}, Token: ${stableToken}`);
+      return { projectId: project.id!, token: stableToken };
+      
+    } catch (error) {
+      console.error('❌ Error in findOrCreateCustomerProject:', error);
+      throw error;
+    }
+  }
 } 

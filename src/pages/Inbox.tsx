@@ -1,264 +1,404 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { 
   Search, 
-  Filter, 
-  Plus, 
-  Mail, 
-  Phone, 
-  MessageSquare, 
-  Calendar, 
-  Bell, 
-  Clock, 
-  User, 
-  CheckCircle, 
-  AlertTriangle,
-  Star,
-  Archive,
-  MoreVertical,
-  Reply,
   Send,
   Paperclip,
-  ExternalLink
+  Phone,
+  Video,
+  MoreVertical,
+  ArrowLeft,
+  User
 } from 'lucide-react'
 import api from '../api'
+import { io, Socket } from 'socket.io-client'
 
 interface Message {
   id: number
-  type: 'email' | 'sms' | 'call' | 'notification' | 'system'
-  from: string
-  fromId?: number
-  subject?: string
   content: string
-  timestamp: string
-  isRead: boolean
-  isStarred: boolean
-  priority: 'high' | 'medium' | 'low'
-  hasAttachment?: boolean
+  senderName: string
+  senderType: 'client' | 'admin'
+  createdAt: string
+  attachments?: string[]
 }
 
-interface Business {
+interface Conversation {
   id: number
-  name: string
-  email?: string
-  phone: string
+  projectId: number
+  projectToken: string
+  projectTitle: string
+  customerName: string
+  customerEmail: string
+  lastMessage?: Message
+  lastMessageTime: string
+  unreadCount: number
+  messages: Message[]
 }
 
 const Inbox: React.FC = () => {
   const navigate = useNavigate()
-  const [messages, setMessages] = useState<Message[]>([])
-  const [businesses, setBusinesses] = useState<Business[]>([])
-  const [selectedMessage, setSelectedMessage] = useState<Message | null>(null)
-  const [filter, setFilter] = useState<'all' | 'unread' | 'starred' | 'archived'>('all')
-  const [typeFilter, setTypeFilter] = useState<string>('all')
-  const [searchTerm, setSearchTerm] = useState('')
+  const [conversations, setConversations] = useState<Conversation[]>([])
+  const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null)
+  const [newMessage, setNewMessage] = useState('')
   const [loading, setLoading] = useState(true)
-  const [isComposing, setIsComposing] = useState(false)
-  const [replyText, setReplyText] = useState('')
+  const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting')
+  const [searchTerm, setSearchTerm] = useState('')
+  
+  const socketRef = useRef<Socket | null>(null)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const conversationsRef = useRef<Conversation[]>([])
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }
+
+  // Helper function to join all conversation rooms
+  const joinAllConversationRooms = (conversationList: Conversation[]) => {
+    console.log(`🔍 [ADMIN_UI] joinAllConversationRooms called:`, {
+      hasSocket: !!socketRef.current,
+      connectionStatus,
+      conversationCount: conversationList.length,
+      socketConnected: socketRef.current?.connected
+    })
+
+    if (!socketRef.current) {
+      console.log(`❌ [ADMIN_UI] No socket available`)
+      return
+    }
+
+    if (!socketRef.current.connected) {
+      console.log(`❌ [ADMIN_UI] Socket not connected`)
+      return
+    }
+
+    if (conversationList.length === 0) {
+      console.log(`⏳ [ADMIN_UI] No conversations to join`)
+      return
+    }
+
+    console.log(`🏠 [ADMIN_UI] Starting to join ${conversationList.length} conversation rooms...`)
+    conversationList.forEach((conversation, index) => {
+      console.log(`🏠 [ADMIN_UI] Joining room ${index + 1}/${conversationList.length}: ${conversation.projectToken}`)
+      socketRef.current?.emit('join', conversation.projectToken, (response: any) => {
+        console.log(`✅ [ADMIN_UI] Successfully joined room: ${conversation.projectToken}`, response)
+      })
+    })
+  }
 
   useEffect(() => {
-    const fetchData = async () => {
+    scrollToBottom()
+  }, [selectedConversation?.messages])
+
+  useEffect(() => {
+    const fetchConversations = async () => {
       try {
-        const businessRes = await api.get<Business[]>('/businesses')
-        setBusinesses(businessRes.data)
+        console.log('📥 Fetching all project messages for inbox...')
+        const messagesRes = await api.get('/debug/all-messages')
+        const debugData = messagesRes.data
         
-        // Generate mock messages for demo
-        const mockMessages: Message[] = [
-          {
-            id: 1,
-            type: 'email',
-            from: 'Harbor Plumbing',
-            fromId: 2,
-            subject: 'Project inquiry - Website redesign',
-            content: 'Hello! We\'re interested in getting a complete website redesign for our plumbing business. We currently have an outdated site and need something modern that showcases our services and allows online booking.',
-            timestamp: '2024-01-20T09:30:00Z',
-            isRead: false,
-            isStarred: false,
-            priority: 'high',
-            hasAttachment: false
-          },
-          {
-            id: 2,
-            type: 'notification',
-            from: 'System',
-            subject: 'New appointment scheduled',
-            content: 'Coastal Electric has scheduled an appointment for tomorrow at 8:30 AM via Squarespace booking.',
-            timestamp: '2024-01-20T08:15:00Z',
-            isRead: false,
-            isStarred: true,
-            priority: 'medium'
-          },
-          {
-            id: 3,
-            type: 'sms',
-            from: 'Coastal Electric',
-            fromId: 1,
-            content: 'Quick question - can we reschedule our call to later this week? Thanks!',
-            timestamp: '2024-01-19T16:45:00Z',
-            isRead: true,
-            isStarred: false,
-            priority: 'medium'
-          },
-          {
-            id: 4,
-            type: 'email',
-            from: 'Bay Construction',
-            fromId: 3,
-            subject: 'Payment confirmation',
-            content: 'Hi there, just confirming that we\'ve sent the initial payment for the website project. Please confirm receipt when you have a chance.',
-            timestamp: '2024-01-19T14:20:00Z',
-            isRead: true,
-            isStarred: false,
-            priority: 'low',
-            hasAttachment: true
-          },
-          {
-            id: 5,
-            type: 'call',
-            from: 'Sunset Landscaping',
-            fromId: 4,
-            content: 'Missed call - left voicemail about portfolio website discussion',
-            timestamp: '2024-01-19T11:30:00Z',
-            isRead: true,
-            isStarred: false,
-            priority: 'medium'
-          },
-          {
-            id: 6,
-            type: 'system',
-            from: 'Pleasant Cove Design',
-            subject: 'Monthly report available',
-            content: 'Your monthly business report is now available. You had 15 new leads, 8 appointments scheduled, and $12,500 in new revenue this month.',
-            timestamp: '2024-01-18T09:00:00Z',
-            isRead: true,
-            isStarred: false,
-            priority: 'low'
-          }
-        ]
+        console.log('📋 Debug data received:', debugData)
         
-        setMessages(mockMessages)
+        // Transform project messages into conversations
+        const conversationList: Conversation[] = []
+        
+        if (debugData.projectMessages) {
+          console.log('🔍 Processing projects:', debugData.projectMessages.length)
+          debugData.projectMessages.forEach((project: any, index: number) => {
+            console.log(`📋 Project ${index}:`, {
+              id: project.projectId,
+              token: project.accessToken,
+              title: project.projectTitle,
+              messagesCount: project.messages?.length || 0
+            })
+            
+            if (project.messages && project.messages.length > 0) {
+              const messages: Message[] = project.messages.map((msg: any) => ({
+                id: msg.id,
+                content: msg.content || msg.body || '',
+                senderName: msg.senderName || 'Unknown',
+                senderType: msg.senderType || 'client',
+                createdAt: msg.createdAt || msg.timestamp || new Date().toISOString(),
+                attachments: msg.attachments || []
+              }))
+
+              // Sort messages by timestamp
+              messages.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+
+              const lastMessage = messages[messages.length - 1]
+              const customerName = messages.find(m => m.senderType === 'client')?.senderName || 'Unknown Customer'
+              const customerEmail = 'customer@example.com' // We don't have email in the message data
+
+              conversationList.push({
+                id: project.projectId,
+                projectId: project.projectId,
+                projectToken: project.accessToken,
+                projectTitle: project.projectTitle,
+                customerName,
+                customerEmail,
+                lastMessage,
+                lastMessageTime: lastMessage.createdAt,
+                unreadCount: 0,
+                messages
+              })
+            }
+          })
+        }
+        
+        // Sort conversations by last message time (newest first)
+        conversationList.sort((a, b) => new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime())
+        
+        setConversations(conversationList)
+        conversationsRef.current = conversationList // Keep ref updated
+        console.log(`✅ [ADMIN_UI] Loaded ${conversationList.length} conversations`)
+        
+        console.log(`🔍 [ADMIN_UI] After loading conversations - attempting to join rooms`)
+        // Join all project rooms for real-time updates
+        joinAllConversationRooms(conversationList)
+        
+        // Auto-select first conversation if none selected
+        if (conversationList.length > 0 && !selectedConversation) {
+          setSelectedConversation(conversationList[0])
+        }
+        
       } catch (err) {
-        console.error('Failed to load inbox data', err)
+        console.error('Failed to load conversations', err)
       } finally {
         setLoading(false)
       }
     }
 
-    fetchData()
+    fetchConversations()
+    
+    // Set up WebSocket connection for real-time updates
+    if (!socketRef.current) {
+      console.log('🔌 Connecting to WebSocket for real-time updates...')
+      setConnectionStatus('connecting')
+      
+      socketRef.current = io('http://localhost:3000', {
+        transports: ['websocket', 'polling'],
+        timeout: 10000,
+        forceNew: true,
+        reconnection: true,
+        reconnectionDelay: 1000,
+        reconnectionAttempts: 5
+      })
+      
+      socketRef.current.on('connect', () => {
+        console.log('✅ [ADMIN_UI] WebSocket connected for inbox updates')
+        setConnectionStatus('connected')
+        
+        console.log(`🔍 [ADMIN_UI] On connect - attempting to join rooms for ${conversationsRef.current.length} conversations`)
+        // Join all project rooms for existing conversations (if any have loaded)
+        joinAllConversationRooms(conversationsRef.current)
+      })
+      
+      socketRef.current.on('joined', (data: any) => {
+        console.log('🏠 Successfully joined project room:', data)
+      })
+      
+      socketRef.current.on('newMessage', (message: any) => {
+        console.log('📨 [ADMIN_UI] Received real-time message:', message)
+        console.log('📨 [ADMIN_UI] Current conversations count:', conversations.length)
+        
+        // Add message instantly to the UI (no HTTP call needed!)
+        const newMessage: Message = {
+          id: message.id,
+          content: message.content || '',
+          senderName: message.senderName || 'Unknown',
+          senderType: message.senderType || 'client',
+          createdAt: message.createdAt || new Date().toISOString(),
+          attachments: message.attachments || []
+        }
+        
+        // Update conversations state instantly
+        setConversations(prevConversations => {
+          const updatedConversations = prevConversations.map(conversation => {
+            if (conversation.projectToken === message.projectToken) {
+              // Check for duplicates
+              const messageExists = conversation.messages.some(m => m.id === newMessage.id)
+              if (messageExists) return conversation
+              
+              const updatedMessages = [...conversation.messages, newMessage]
+              const updatedConversation = {
+                ...conversation,
+                messages: updatedMessages,
+                lastMessage: newMessage,
+                lastMessageTime: newMessage.createdAt,
+                unreadCount: newMessage.senderType === 'client' 
+                  ? conversation.unreadCount + 1 
+                  : conversation.unreadCount
+              }
+              
+              // Update selected conversation if it's the current one
+              if (selectedConversation?.id === conversation.id) {
+                setSelectedConversation(updatedConversation)
+              }
+              
+              return updatedConversation
+            }
+            return conversation
+          })
+          
+          // Keep ref updated
+          conversationsRef.current = updatedConversations
+          return updatedConversations
+        })
+      })
+      
+      socketRef.current.on('disconnect', (reason: string) => {
+        console.log('❌ WebSocket disconnected:', reason)
+        setConnectionStatus('disconnected')
+      })
+      
+      socketRef.current.on('connect_error', (error: any) => {
+        console.error('❌ WebSocket connection error:', error)
+        setConnectionStatus('disconnected')
+      })
+    }
+
+    // Only refresh data if WebSocket is disconnected (no automatic polling when connected)
+    const interval = setInterval(() => {
+      if (connectionStatus === 'disconnected') {
+        console.log('🔄 WebSocket disconnected, refreshing conversations...')
+        fetchConversations()
+      }
+    }, 30000)
+    
+    return () => {
+      clearInterval(interval)
+      if (socketRef.current) {
+        socketRef.current.disconnect()
+        socketRef.current = null
+      }
+    }
   }, [])
 
-  const formatTimestamp = (timestamp: string) => {
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() || !selectedConversation) {
+      console.log('❌ Cannot send message: missing content or conversation')
+      return
+    }
+
+    try {
+      console.log('📤 Sending admin message to project:', {
+        projectId: selectedConversation.projectId,
+        projectToken: selectedConversation.projectToken,
+        customerName: selectedConversation.customerName,
+        messageContent: newMessage
+      })
+      
+      // Send message via ADMIN API using the project ID (not token)
+      const response = await api.post(`/projects/${selectedConversation.projectId}/messages`, {
+        content: newMessage,
+        senderName: 'Ben Dickinson',
+        senderType: 'admin'
+      })
+
+      console.log('✅ Admin message sent successfully:', response.data)
+
+      // Clear the input immediately
+      setNewMessage('')
+      
+      // Add message instantly via optimistic update (WebSocket will handle real-time sync)
+      const sentMessage: Message = {
+        id: response.data.id || Date.now(), // Use server ID or temporary ID
+        content: newMessage,
+        senderName: 'Ben Dickinson',
+        senderType: 'admin',
+        createdAt: response.data.createdAt || new Date().toISOString(),
+        attachments: response.data.attachments || []
+      }
+      
+      // Update conversations state instantly
+      setConversations(prevConversations => {
+        const updatedConversations = prevConversations.map(conversation => {
+          if (conversation.id === selectedConversation?.id) {
+            // Check for duplicates
+            const messageExists = conversation.messages.some(m => m.id === sentMessage.id)
+            if (messageExists) return conversation
+            
+            const updatedMessages = [...conversation.messages, sentMessage]
+            const updatedConversation = {
+              ...conversation,
+              messages: updatedMessages,
+              lastMessage: sentMessage,
+              lastMessageTime: sentMessage.createdAt
+            }
+            
+            // Update selected conversation
+            setSelectedConversation(updatedConversation)
+            
+            return updatedConversation
+          }
+          return conversation
+        })
+        
+        // Keep ref updated
+        conversationsRef.current = updatedConversations
+        return updatedConversations
+      })
+      
+    } catch (error) {
+      console.error('❌ Failed to send admin message:', error)
+      
+      // Show more detailed error message
+      let errorMessage = 'Failed to send message. Please try again.'
+      if (error instanceof Error) {
+        errorMessage = `Failed to send message: ${error.message}`
+      }
+      
+      alert(errorMessage)
+    }
+  }
+
+  const formatTime = (timestamp: string) => {
     const date = new Date(timestamp)
     const now = new Date()
     const diff = now.getTime() - date.getTime()
     const hours = diff / (1000 * 60 * 60)
     
     if (hours < 1) {
-      return `${Math.floor(diff / (1000 * 60))}m ago`
+      return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
     } else if (hours < 24) {
-      return `${Math.floor(hours)}h ago`
+      return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
     } else {
       return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
     }
   }
 
-  const getMessageIcon = (type: Message['type']) => {
-    switch (type) {
-      case 'email': return <Mail className="h-4 w-4" />
-      case 'sms': return <MessageSquare className="h-4 w-4" />
-      case 'call': return <Phone className="h-4 w-4" />
-      case 'notification': return <Bell className="h-4 w-4" />
-      case 'system': return <AlertTriangle className="h-4 w-4" />
-      default: return <MessageSquare className="h-4 w-4" />
-    }
-  }
-
-  const getTypeColor = (type: Message['type']) => {
-    switch (type) {
-      case 'email': return 'text-blue-600'
-      case 'sms': return 'text-green-600'
-      case 'call': return 'text-purple-600'
-      case 'notification': return 'text-orange-600'
-      case 'system': return 'text-gray-600'
-      default: return 'text-gray-600'
-    }
-  }
-
-  const getPriorityColor = (priority: Message['priority']) => {
-    switch (priority) {
-      case 'high': return 'border-l-red-500'
-      case 'medium': return 'border-l-yellow-500'
-      case 'low': return 'border-l-green-500'
-      default: return 'border-l-gray-300'
-    }
-  }
-
-  const handleMarkAsRead = (messageId: number) => {
-    setMessages(prev => prev.map(msg => 
-      msg.id === messageId ? { ...msg, isRead: true } : msg
-    ))
-  }
-
-  const handleStarMessage = (messageId: number) => {
-    setMessages(prev => prev.map(msg => 
-      msg.id === messageId ? { ...msg, isStarred: !msg.isStarred } : msg
-    ))
-  }
-
-  const handleClientClick = (clientId?: number) => {
-    if (clientId) {
-      navigate(`/admin/client/${clientId}`)
-    }
-  }
-
-  const handleSendReply = () => {
-    if (replyText.trim() && selectedMessage) {
-      // Add reply logic here
-      console.log('Sending reply:', replyText)
-      setReplyText('')
-    }
-  }
-
-  const filteredMessages = messages.filter(message => {
-    const matchesFilter = 
-      filter === 'all' || 
-      (filter === 'unread' && !message.isRead) ||
-      (filter === 'starred' && message.isStarred)
-    
-    const matchesType = typeFilter === 'all' || message.type === typeFilter
-    
-    const matchesSearch = 
-      message.from.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (message.subject?.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      message.content.toLowerCase().includes(searchTerm.toLowerCase())
-    
-    return matchesFilter && matchesType && matchesSearch
-  })
-
-  const unreadCount = messages.filter(m => !m.isRead).length
+  const filteredConversations = conversations.filter(conv =>
+    conv.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    conv.projectTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    conv.lastMessage?.content.toLowerCase().includes(searchTerm.toLowerCase())
+  )
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-64">
-        <div className="text-lg">Loading inbox...</div>
+        <div className="text-lg">Loading conversations...</div>
       </div>
     )
   }
 
   return (
-    <div className="flex h-[calc(100vh-12rem)]">
-      {/* Sidebar */}
-      <div className="w-80 bg-white rounded-l-xl shadow-sm border-r border-border flex flex-col">
+    <div className="flex h-[calc(100vh-12rem)] bg-white rounded-xl shadow-sm border border-border">
+      {/* Conversations Sidebar */}
+      <div className="w-80 border-r border-border flex flex-col">
         {/* Header */}
-        <div className="p-6 border-b border-border">
+        <div className="p-4 border-b border-border">
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-2xl font-bold text-foreground">Inbox</h1>
-            <button 
-              className="p-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
-              onClick={() => setIsComposing(true)}
-            >
-              <Plus className="h-4 w-4" />
-            </button>
+            <h1 className="text-xl font-bold text-foreground">Messages</h1>
+            {/* Connection status */}
+            <div className="flex items-center gap-2">
+              <div className={`w-2 h-2 rounded-full ${
+                connectionStatus === 'connected' ? 'bg-green-500' : 
+                connectionStatus === 'connecting' ? 'bg-yellow-500' : 'bg-red-500'
+              }`}></div>
+              <span className="text-xs text-muted">
+                {connectionStatus === 'connected' ? 'Live' : 
+                 connectionStatus === 'connecting' ? 'Connecting...' : 'Offline'}
+              </span>
+            </div>
           </div>
           
           {/* Search */}
@@ -266,7 +406,7 @@ const Inbox: React.FC = () => {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted" />
             <input
               type="text"
-              placeholder="Search messages..."
+              placeholder="Search conversations..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
@@ -274,159 +414,87 @@ const Inbox: React.FC = () => {
           </div>
         </div>
 
-        {/* Filters */}
-        <div className="p-4 border-b border-border">
-          <div className="grid grid-cols-2 gap-2 mb-3">
-            {[
-              { key: 'all', label: 'All', count: messages.length },
-              { key: 'unread', label: 'Unread', count: unreadCount },
-              { key: 'starred', label: 'Starred', count: messages.filter(m => m.isStarred).length },
-              { key: 'archived', label: 'Archived', count: 0 }
-            ].map(({ key, label, count }) => (
-              <button
-                key={key}
-                onClick={() => setFilter(key as any)}
-                className={`px-3 py-2 text-sm rounded-lg text-left ${
-                  filter === key 
-                    ? 'bg-primary-100 text-primary-700' 
-                    : 'text-muted hover:bg-gray-50'
-                }`}
-              >
-                {label} ({count})
-              </button>
-            ))}
-          </div>
-          
-          <select
-            value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value)}
-            className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:ring-2 focus:ring-primary-500"
-          >
-            <option value="all">All Types</option>
-            <option value="email">Email</option>
-            <option value="sms">SMS</option>
-            <option value="call">Calls</option>
-            <option value="notification">Notifications</option>
-            <option value="system">System</option>
-          </select>
-        </div>
-
-        {/* Messages List */}
+        {/* Conversations List */}
         <div className="flex-1 overflow-y-auto">
-          {filteredMessages.map((message) => (
+          {filteredConversations.map((conversation) => (
             <div
-              key={message.id}
-              onClick={() => {
-                setSelectedMessage(message)
-                if (!message.isRead) handleMarkAsRead(message.id)
-              }}
-              className={`p-4 border-b border-border cursor-pointer hover:bg-gray-50 border-l-4 ${
-                getPriorityColor(message.priority)
-              } ${!message.isRead ? 'bg-blue-50' : ''} ${
-                selectedMessage?.id === message.id ? 'bg-primary-50' : ''
+              key={`conversation-${conversation.id}`}
+              onClick={() => setSelectedConversation(conversation)}
+              className={`p-4 border-b border-border cursor-pointer hover:bg-gray-50 ${
+                selectedConversation?.id === conversation.id ? 'bg-primary-50 border-r-2 border-r-primary-500' : ''
               }`}
             >
-              <div className="flex items-start justify-between mb-2">
-                <div className="flex items-center gap-2 flex-1">
-                  <span className={getTypeColor(message.type)}>
-                    {getMessageIcon(message.type)}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p 
-                        className={`font-medium truncate ${!message.isRead ? 'text-foreground' : 'text-muted'} ${
-                          message.fromId ? 'hover:text-primary-600 cursor-pointer' : ''
-                        }`}
-                        onClick={(e) => {
-                          if (message.fromId) {
-                            e.stopPropagation()
-                            handleClientClick(message.fromId)
-                          }
-                        }}
-                      >
-                        {message.from}
-                        {message.fromId && <ExternalLink className="h-3 w-3 inline ml-1" />}
-                      </p>
-                      {message.isStarred && <Star className="h-3 w-3 text-yellow-500 fill-current" />}
-                    </div>
-                    {message.subject && (
-                      <p className={`text-sm truncate ${!message.isRead ? 'font-medium' : 'text-muted'}`}>
-                        {message.subject}
-                      </p>
-                    )}
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center">
+                  <User className="h-5 w-5 text-primary-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <p className="font-medium text-foreground truncate">
+                      {conversation.customerName}
+                    </p>
+                    <span className="text-xs text-muted">
+                      {formatTime(conversation.lastMessageTime)}
+                    </span>
                   </div>
+                  <p className="text-sm text-muted truncate">
+                    {conversation.projectTitle}
+                  </p>
+                  {conversation.lastMessage && (
+                    <p className="text-sm text-muted truncate mt-1">
+                      {conversation.lastMessage.senderType === 'admin' ? 'You: ' : ''}
+                      {conversation.lastMessage.content}
+                    </p>
+                  )}
+                  {conversation.unreadCount > 0 && (
+                    <div className="inline-flex items-center justify-center w-5 h-5 bg-primary-600 text-white text-xs rounded-full mt-1">
+                      {conversation.unreadCount}
+                    </div>
+                  )}
                 </div>
-                <span className="text-xs text-muted">{formatTimestamp(message.timestamp)}</span>
-              </div>
-              
-              <p className="text-sm text-muted line-clamp-2">{message.content}</p>
-              
-              <div className="flex items-center justify-between mt-2">
-                <div className="flex items-center gap-2">
-                  {message.hasAttachment && <Paperclip className="h-3 w-3 text-muted" />}
-                  {!message.isRead && <div className="w-2 h-2 bg-primary-600 rounded-full"></div>}
-                </div>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleStarMessage(message.id)
-                  }}
-                  className="text-muted hover:text-yellow-500"
-                >
-                  <Star className={`h-3 w-3 ${message.isStarred ? 'fill-current text-yellow-500' : ''}`} />
-                </button>
               </div>
             </div>
           ))}
           
-          {filteredMessages.length === 0 && (
+          {filteredConversations.length === 0 && (
             <div className="p-8 text-center text-muted">
-              <MessageSquare className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-              <p>No messages found</p>
+              <User className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+              <p>No conversations found</p>
             </div>
           )}
         </div>
       </div>
 
-      {/* Message Detail */}
-      <div className="flex-1 bg-white rounded-r-xl shadow-sm flex flex-col">
-        {selectedMessage ? (
+      {/* Chat Area */}
+      <div className="flex-1 flex flex-col">
+        {selectedConversation ? (
           <>
-            {/* Message Header */}
-            <div className="p-6 border-b border-border">
-              <div className="flex items-start justify-between">
+            {/* Chat Header */}
+            <div className="p-4 border-b border-border">
+              <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <span className={getTypeColor(selectedMessage.type)}>
-                    {getMessageIcon(selectedMessage.type)}
-                  </span>
+                  <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center">
+                    <User className="h-5 w-5 text-primary-600" />
+                  </div>
                   <div>
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-lg font-semibold">{selectedMessage.from}</h2>
-                      {selectedMessage.fromId && (
-                        <button
-                          onClick={() => handleClientClick(selectedMessage.fromId)}
-                          className="text-primary-600 hover:text-primary-700"
-                        >
-                          <ExternalLink className="h-4 w-4" />
-                        </button>
-                      )}
-                    </div>
-                    {selectedMessage.subject && (
-                      <p className="text-muted">{selectedMessage.subject}</p>
-                    )}
-                    <p className="text-sm text-muted">{formatTimestamp(selectedMessage.timestamp)}</p>
+                    <h2 className="font-semibold text-foreground">
+                      {selectedConversation.customerName}
+                    </h2>
+                    <p className="text-sm text-muted">
+                      {selectedConversation.projectTitle}
+                    </p>
+                    <p className="text-xs text-muted">
+                      Token: {selectedConversation.projectToken}
+                    </p>
                   </div>
                 </div>
                 
                 <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => handleStarMessage(selectedMessage.id)}
-                    className="p-2 hover:bg-gray-100 rounded-lg"
-                  >
-                    <Star className={`h-4 w-4 ${selectedMessage.isStarred ? 'fill-current text-yellow-500' : 'text-muted'}`} />
+                  <button className="p-2 hover:bg-gray-100 rounded-lg">
+                    <Phone className="h-4 w-4 text-muted" />
                   </button>
                   <button className="p-2 hover:bg-gray-100 rounded-lg">
-                    <Archive className="h-4 w-4 text-muted" />
+                    <Video className="h-4 w-4 text-muted" />
                   </button>
                   <button className="p-2 hover:bg-gray-100 rounded-lg">
                     <MoreVertical className="h-4 w-4 text-muted" />
@@ -435,51 +503,70 @@ const Inbox: React.FC = () => {
               </div>
             </div>
 
-            {/* Message Content */}
-            <div className="flex-1 p-6 overflow-y-auto">
-              <div className="prose max-w-none">
-                <p className="whitespace-pre-wrap">{selectedMessage.content}</p>
-              </div>
-            </div>
-
-            {/* Reply Section */}
-            {selectedMessage.type !== 'system' && selectedMessage.type !== 'notification' && (
-              <div className="p-6 border-t border-border">
-                <div className="flex items-start gap-3">
-                  <div className="flex-1">
-                    <textarea
-                      value={replyText}
-                      onChange={(e) => setReplyText(e.target.value)}
-                      placeholder="Type your reply..."
-                      className="w-full p-3 border border-border rounded-lg resize-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                      rows={3}
-                    />
-                    <div className="flex items-center justify-between mt-3">
-                      <div className="flex items-center gap-2">
-                        <button className="p-2 text-muted hover:text-foreground hover:bg-gray-100 rounded">
-                          <Paperclip className="h-4 w-4" />
-                        </button>
-                      </div>
-                      <button
-                        onClick={handleSendReply}
-                        disabled={!replyText.trim()}
-                        className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                      >
-                        <Send className="h-4 w-4" />
-                        Send Reply
-                      </button>
-                    </div>
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {selectedConversation.messages.map((message) => (
+                <div
+                  key={`message-${message.id}`}
+                  className={`flex ${message.senderType === 'admin' ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                    message.senderType === 'admin'
+                      ? 'bg-primary-600 text-white'
+                      : 'bg-gray-100 text-foreground'
+                  }`}>
+                    <p className="text-sm">{message.content}</p>
+                    <p className={`text-xs mt-1 ${
+                      message.senderType === 'admin' ? 'text-primary-100' : 'text-muted'
+                    }`}>
+                      {formatTime(message.createdAt)} • {message.senderName}
+                    </p>
                   </div>
                 </div>
+              ))}
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* Message Input */}
+            <div className="p-4 border-t border-border">
+              <div className="flex items-end gap-3">
+                <button className="p-2 text-muted hover:text-foreground hover:bg-gray-100 rounded-lg">
+                  <Paperclip className="h-5 w-5" />
+                </button>
+                <div className="flex-1">
+                  <textarea
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault()
+                        handleSendMessage()
+                      }
+                    }}
+                    placeholder="Type a message..."
+                    className="w-full p-3 border border-border rounded-lg resize-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    rows={1}
+                    style={{ minHeight: '44px', maxHeight: '120px' }}
+                  />
+                </div>
+                <button
+                  onClick={handleSendMessage}
+                  disabled={!newMessage.trim()}
+                  className="p-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Send className="h-4 w-4" />
+                </button>
               </div>
-            )}
+            </div>
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center text-muted">
-            <div className="text-center">
-              <MessageSquare className="h-16 w-16 mx-auto mb-4 text-gray-300" />
-              <p className="text-lg">Select a message to view</p>
-              <p className="text-sm">Choose a message from the inbox to read and reply</p>
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center text-muted">
+              <User className="h-16 w-16 mx-auto mb-4 text-gray-300" />
+              <h3 className="text-lg font-medium text-foreground mb-2">
+                Select a conversation
+              </h3>
+              <p>Choose a conversation from the sidebar to start messaging</p>
             </div>
           </div>
         )}

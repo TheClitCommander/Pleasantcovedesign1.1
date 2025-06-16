@@ -273,24 +273,44 @@ export class Storage {
     project?: Project, 
     business?: Business 
   } | null> {
+    console.log(`🔍 Storage: Searching for client with email: ${email}`);
+    
     // Try to find by company email first (new system)
-    const companies: any[] = db.select().from(companiesTable).where({ email });
+    // For in-memory database, we need to filter manually since the WHERE clause doesn't work properly
+    const allCompanies: any[] = db.select().from(companiesTable).orderBy({});
+    console.log(`🔍 Storage: Found ${allCompanies.length} total companies`);
+    console.log(`🔍 Storage: All company emails:`, allCompanies.map(c => c.email));
+    
+    const companies = allCompanies.filter(c => c.email === email);
+    console.log(`🔍 Storage: Filtered companies for ${email}:`, companies.length);
+    
     if (companies.length > 0) {
       const company = companies[0] as Company;
+      console.log(`✅ Storage: Found matching company: ${company.name} (${company.email})`);
       
       // Get the first project for this company
-      const projects: any[] = db.select().from(projectsTable).where({ companyId: company.id });
+      const allProjects: any[] = db.select().from(projectsTable).orderBy({});
+      const projects = allProjects.filter(p => p.companyId === company.id);
       const project = projects[0] as Project;
       
       return { company, project };
     }
 
     // Fallback to business table (legacy system)
-    const businesses: any[] = db.select().from(businessesTable).where({ email });
+    const allBusinesses: any[] = db.select().from(businessesTable).orderBy({});
+    console.log(`🔍 Storage: Found ${allBusinesses.length} total businesses`);
+    console.log(`🔍 Storage: All business emails:`, allBusinesses.map(b => b.email));
+    
+    const businesses = allBusinesses.filter(b => b.email === email);
+    console.log(`🔍 Storage: Filtered businesses for ${email}:`, businesses.length);
+    
     if (businesses.length > 0) {
-      return { business: businesses[0] as Business };
+      const business = businesses[0] as Business;
+      console.log(`✅ Storage: Found matching business: ${business.name} (${business.email})`);
+      return { business: business };
     }
 
+    console.log(`❌ Storage: No client found for email: ${email}`);
     return null;
   }
 

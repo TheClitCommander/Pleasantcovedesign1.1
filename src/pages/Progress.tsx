@@ -3,63 +3,8 @@ import { DollarSign, Clock, CheckCircle } from 'lucide-react'
 import ProgressTracker from '../components/ProgressTracker'
 
 const Progress: React.FC = () => {
-  // Mock project data
-  const projects = [
-    {
-      id: '1',
-      clientName: 'Coastal Electric',
-      projectName: 'Business Website Development',
-      stage: 'Design',
-      progress: 75,
-      totalValue: 5000,
-      paidAmount: 2500,
-      nextPayment: 1250,
-      dueDate: '2024-02-15',
-      status: 'on-track' as const,
-      timeline: [
-        { phase: 'Discovery', completed: true, date: '2024-01-10' },
-        { phase: 'Design', completed: false, date: '2024-01-20' },
-        { phase: 'Development', completed: false, date: '2024-02-01' },
-        { phase: 'Launch', completed: false, date: '2024-02-15' },
-      ]
-    },
-    {
-      id: '2',
-      clientName: 'Harbor Plumbing',
-      projectName: 'Website Redesign',
-      stage: 'Development',
-      progress: 45,
-      totalValue: 3500,
-      paidAmount: 1750,
-      nextPayment: 875,
-      dueDate: '2024-02-28',
-      status: 'at-risk' as const,
-      timeline: [
-        { phase: 'Discovery', completed: true, date: '2024-01-05' },
-        { phase: 'Design', completed: true, date: '2024-01-15' },
-        { phase: 'Development', completed: false, date: '2024-02-01' },
-        { phase: 'Launch', completed: false, date: '2024-02-28' },
-      ]
-    },
-    {
-      id: '3',
-      clientName: 'Bay Construction',
-      projectName: 'Brand & Website Package',
-      stage: 'Discovery',
-      progress: 25,
-      totalValue: 8000,
-      paidAmount: 2000,
-      nextPayment: 2000,
-      dueDate: '2024-03-15',
-      status: 'on-track' as const,
-      timeline: [
-        { phase: 'Discovery', completed: false, date: '2024-01-25' },
-        { phase: 'Design', completed: false, date: '2024-02-10' },
-        { phase: 'Development', completed: false, date: '2024-02-25' },
-        { phase: 'Launch', completed: false, date: '2024-03-15' },
-      ]
-    },
-  ]
+  // No mock project data - start with empty state to see real data clearly
+  const projects: any[] = []
 
   const totalRevenue = projects.reduce((sum, project) => sum + project.totalValue, 0)
   const totalPaid = projects.reduce((sum, project) => sum + project.paidAmount, 0)
@@ -111,10 +56,22 @@ const Progress: React.FC = () => {
         <div className="p-6 border-b border-border">
           <h3 className="text-lg font-semibold text-foreground">Active Projects</h3>
         </div>
-        <div className="p-6 space-y-6">
-          {projects.map((project) => (
-            <ProgressTracker key={project.id} project={project} />
-          ))}
+        <div className="p-6">
+          {projects.length > 0 ? (
+            <div className="space-y-6">
+              {projects.map((project) => (
+                <ProgressTracker key={project.id} project={project} />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <div className="text-gray-400 mb-4">
+                <Clock className="h-16 w-16 mx-auto" />
+              </div>
+              <h4 className="text-lg font-medium text-gray-900 mb-2">No Active Projects</h4>
+              <p className="text-gray-500">Projects will appear here when you start working with clients.</p>
+            </div>
+          )}
         </div>
       </div>
     </div>

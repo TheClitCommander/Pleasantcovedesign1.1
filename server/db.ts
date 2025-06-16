@@ -1,6 +1,18 @@
 // In-memory database implementation for quick development
 // This avoids SQLite compilation issues and gets us running fast
 
+import fs from 'fs';
+import path from 'path';
+
+// Persistent storage file paths
+const DATA_DIR = path.join(process.cwd(), 'data');
+const STORAGE_FILE = path.join(DATA_DIR, 'database.json');
+
+// Ensure data directory exists
+if (!fs.existsSync(DATA_DIR)) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+
 interface Company {
   id: number;
   name: string;
@@ -187,7 +199,73 @@ class InMemoryDatabase {
   private nextId = 1;
 
   constructor() {
+    this.loadFromDisk();
     this.initializeWithSampleData();
+  }
+
+  // Save all data to disk
+  private saveToDisk(): void {
+    try {
+      const data = {
+        companies: this.companies,
+        projects: this.projects,
+        projectMessages: this.projectMessages,
+        projectFiles: this.projectFiles,
+        businesses: this.businesses,
+        activities: this.activities,
+        campaigns: this.campaigns,
+        templates: this.templates,
+        appointments: this.appointments,
+        progressEntries: this.progressEntries,
+        counters: this.counters,
+        nextId: this.nextId
+      };
+      
+      fs.writeFileSync(STORAGE_FILE, JSON.stringify(data, null, 2));
+      console.log('💾 Data saved to disk');
+    } catch (error) {
+      console.error('❌ Error saving data to disk:', error);
+    }
+  }
+
+  // Load all data from disk
+  private loadFromDisk(): void {
+    try {
+      if (fs.existsSync(STORAGE_FILE)) {
+        const data = JSON.parse(fs.readFileSync(STORAGE_FILE, 'utf8'));
+        
+        this.companies = data.companies || [];
+        this.projects = data.projects || [];
+        this.projectMessages = data.projectMessages || [];
+        this.projectFiles = data.projectFiles || [];
+        this.businesses = data.businesses || [];
+        this.activities = data.activities || [];
+        this.campaigns = data.campaigns || [];
+        this.templates = data.templates || [];
+        this.appointments = data.appointments || [];
+        this.progressEntries = data.progressEntries || [];
+        this.counters = data.counters || {
+          companies: 0,
+          projects: 0,
+          projectMessages: 0,
+          projectFiles: 0,
+          businesses: 0,
+          activities: 0,
+          campaigns: 0,
+          templates: 0,
+          appointments: 0,
+          progressEntries: 0
+        };
+        this.nextId = data.nextId || 1;
+        
+        console.log(`📂 Loaded existing data from disk: ${this.companies.length} companies, ${this.projects.length} projects, ${this.projectMessages.length} messages`);
+      } else {
+        console.log('📂 No existing data file found, starting fresh');
+      }
+    } catch (error) {
+      console.error('❌ Error loading data from disk:', error);
+      console.log('📂 Starting with fresh data');
+    }
   }
 
   // Simulate INSERT with RETURNING
@@ -234,6 +312,9 @@ class InMemoryDatabase {
         this.progressEntries.push(newRecord);
         break;
     }
+    
+    // Save to disk after every insert
+    this.saveToDisk();
     
     return [newRecord];
   }
@@ -339,6 +420,10 @@ class InMemoryDatabase {
     const index = collection.findIndex(item => item.id === where.id);
     if (index !== -1) {
       collection[index] = { ...collection[index], ...data, updatedAt: new Date().toISOString() };
+      
+      // Save to disk after every update
+      this.saveToDisk();
+      
       return [collection[index]];
     }
     return [];
@@ -378,6 +463,9 @@ class InMemoryDatabase {
         this.progressEntries = this.progressEntries.filter(item => item.id !== where.id);
         break;
     }
+    
+    // Save to disk after every delete
+    this.saveToDisk();
   }
 
   // NEW: Generate UUID-like token for client access
@@ -387,428 +475,211 @@ class InMemoryDatabase {
            Math.random().toString(36).substring(2);
   }
 
+  // Generate stable token based on email for consistent customer experience
+  private generateStableToken(email: string): string {
+    // For Ben's email, always use the same token for testing
+    if (email === 'ben04537@gmail.com') {
+      return 'Q_lXDL9XQ-Q8d-jay7W2a2ZU'; // Fixed token for testing
+    }
+    
+    // For other emails, generate a consistent token based on email hash
+    let hash = 0;
+    for (let i = 0; i < email.length; i++) {
+      const char = email.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    
+    // Convert hash to a token-like string
+    const hashStr = Math.abs(hash).toString(36);
+    return `stable_${hashStr}_${email.split('@')[0].slice(0, 5)}`;
+  }
+
+  // 🔒 SECURITY: Always create new secure conversations for privacy
+  async findOrCreateCustomerProject(email: string, name: string, source?: string): Promise<{ projectId: number, token: string }> {
+    try {
+      // Import secure token generation
+      const { generateSecureProjectToken, generateConversationMetadata } = await import('./utils/tokenGenerator.js');
+      
+      // Check if client already exists
+      const existingClient = await this.findClientByEmail(email);
+      
+      if (existingClient) {
+        console.log(`✅ Found existing client by email: ${existingClient.name} (ID: ${existingClient.id})`);
+        
+        // 🔒 PRIVACY FIX: ALWAYS create new conversations for security
+        // Each form submission gets its own private conversation thread
+        const secureToken = generateSecureProjectToken(source || 'squarespace_form', email);
+        const conversationMetadata = generateConversationMetadata(source || 'squarespace_form', email);
+        
+        // Create new project with secure token
+        const projectId = await this.createProject({
+          title: `${existingClient.name} - Conversation ${secureToken.submissionId}`,
+          companyId: existingClient.id,
+          accessToken: secureToken.token, // Use cryptographically secure token
+          status: 'active',
+          description: `Secure conversation created from ${source || 'form submission'}`
+        });
+        
+        const project = this.projects.find(p => p.id === projectId);
+        console.log(`🆕 [SECURE_CONVERSATION] Created private conversation for existing client: ${secureToken.token}`);
+        
+        return { projectId, token: secureToken.token };
+      }
+      
+      // Create new client and project with secure token
+      const company = await this.createCompany({
+        name: name,
+        email: email,
+        phone: '',
+        address: '',
+        city: '',
+        state: '',
+        website: '',
+        industry: 'Web Design Client',
+        tags: [],
+        priority: 'medium'
+      });
+      
+      // Create project with secure token
+      const secureToken = generateSecureProjectToken(source || 'squarespace_form', email);
+      const projectId = await this.createProject({
+        title: `${name} - Conversation ${secureToken.submissionId}`,
+        companyId: company,
+        accessToken: secureToken.token, // Always use secure tokens
+        status: 'active',
+        description: `Secure conversation created from ${source || 'form submission'}`
+      });
+      
+      const project = this.projects.find(p => p.id === projectId);
+      console.log(`✅ Created new project: ID ${projectId}, Token: ${secureToken.token}`);
+      
+      return { projectId, token: secureToken.token };
+      
+    } catch (error) {
+      console.error('Error in findOrCreateCustomerProject:', error);
+      throw error;
+    }
+  }
+
+  // Find client by email
+  async findClientByEmail(email: string): Promise<any | null> {
+    return this.companies.find(c => c.email === email) || null;
+  }
+
+  // Get projects by company ID
+  async getProjectsByCompanyId(companyId: number): Promise<any[]> {
+    return this.projects.filter(p => p.companyId === companyId);
+  }
+
+  // Create new company
+  async createCompany(data: any): Promise<number> {
+    const newId = Math.max(...this.companies.map(c => c.id), 0) + 1;
+    const company = {
+      id: newId,
+      name: data.name,
+      email: data.email,
+      phone: data.phone || '',
+      address: data.address || '',
+      city: data.city || '',
+      state: data.state || '',
+      industry: data.industry || '',
+      website: data.website || '',
+      priority: 'medium',
+      tags: [],
+      notes: data.notes || '',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    this.companies.push(company);
+    
+    // Save to disk after creating company
+    this.saveToDisk();
+    
+    return newId;
+  }
+
+  // Create new project
+  async createProject(data: any): Promise<number> {
+    const newId = Math.max(...this.projects.map(p => p.id), 0) + 1;
+    const project = {
+      id: newId,
+      companyId: data.companyId,
+      title: data.title,
+      type: 'website',
+      stage: 'planning',
+      status: data.status || 'active',
+      score: 0,
+      notes: data.description || '',
+      totalAmount: 0,
+      paidAmount: 0,
+      paymentStatus: 'pending',
+      accessToken: data.token,
+      token: data.token, // Add both for compatibility
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    this.projects.push(project);
+    
+    // Save to disk after creating project
+    this.saveToDisk();
+    
+    return newId;
+  }
+
   private initializeWithSampleData() {
-    // Add sample companies (converted from original businesses)
-    this.companies = [
-      {
-        id: 1,
-        name: "Coastal Electric",
-        email: "info@coastalelectric.com",
-        phone: "(555) 123-4567",
-        address: "123 Ocean Ave",
-        city: "Virginia Beach",
-        state: "VA",
-        industry: "electrical",
-        website: "https://coastalelectric.com",
-        priority: "high",
-        tags: ["electrical", "residential", "high-value", "local"],
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 2,
-        name: "Hampton Plumbing",
-        email: "contact@hamptonplumbing.net",
-        phone: "(555) 234-5678",
-        address: "456 Business Blvd",
-        city: "Hampton",
-        state: "VA",
-        industry: "plumbing",
-        website: "https://hamptonplumbing.net",
-        priority: "high",
-        tags: ["plumbing", "family-business", "experienced", "trusted"],
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 3,
-        name: "Norfolk HVAC Solutions",
-        email: "",
-        phone: "(555) 345-6789",
-        address: "789 Industrial Way",
-        city: "Norfolk",
-        state: "VA",
-        industry: "hvac",
-        website: "",
-        priority: "medium",
-        tags: ["hvac", "commercial", "residential"],
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 4,
-        name: "Summit Roofing",
-        email: "hello@summitroofing.co",
-        phone: "(555) 456-7890",
-        address: "321 Commerce Dr",
-        city: "Chesapeake",
-        state: "VA",
-        industry: "roofing",
-        website: "https://summitroofing.co",
-        priority: "high",
-        tags: ["roofing", "storm-damage", "insurance", "urgent"],
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 5,
-        name: "Tidewater Construction",
-        email: "admin@tidewaterconstruction.net",
-        phone: "(555) 567-8901",
-        address: "654 Main St",
-        city: "Portsmouth",
-        state: "VA",
-        industry: "construction",
-        website: "https://tidewaterconstruction.net",
-        priority: "medium",
-        tags: ["construction", "full-service", "commercial"],
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 6,
-        name: "Elite Landscaping",
-        email: "",
-        phone: "(555) 678-9012",
-        address: "987 Oak Ave",
-        city: "Suffolk",
-        state: "VA",
-        industry: "landscaping",
-        website: "",
-        priority: "high",
-        tags: ["landscaping", "design", "maintenance", "seasonal"],
-        createdAt: new Date().toISOString()
+    // Only initialize if we have no existing data
+    if (this.companies.length === 0 && this.projects.length === 0) {
+      console.log("✅ No existing data found - creating test project");
+      this.ensureTestProject();
+    } else {
+      console.log(`✅ Loaded existing data: ${this.companies.length} companies, ${this.projects.length} projects, ${this.projectMessages.length} messages`);
+    }
+  }
+
+  // Ensure test project exists with stable token for Ben's email
+  private async ensureTestProject(): Promise<void> {
+    try {
+      // Check if Ben's project already exists
+      const existingClient = await this.findClientByEmail('ben04537@gmail.com');
+      
+      if (!existingClient) {
+        console.log('🔧 Creating stable test project for ben04537@gmail.com...');
+        
+        // Create Ben's company
+        const companyId = await this.createCompany({
+          name: 'Ben Dickinson',
+          email: 'ben04537@gmail.com',
+          phone: '',
+          address: '',
+          city: '',
+          state: '',
+          website: '',
+          industry: 'Testing',
+          tags: [],
+          priority: 'high'
+        });
+        
+        // Create project with stable token
+        const projectId = await this.createProject({
+          title: 'Ben Dickinson - Website Project',
+          companyId: companyId,
+          token: 'Q_lXDL9XQ-Q8d-jay7W2a2ZU', // Fixed stable token
+          status: 'active',
+          description: 'Test project for Squarespace integration',
+          totalValue: 5000,
+          paidAmount: 0,
+          nextPayment: 2500,
+          dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+        });
+        
+        console.log(`✅ Created stable test project: ID ${projectId}, Token: Q_lXDL9XQ-Q8d-jay7W2a2ZU`);
+      } else {
+        console.log('✅ Test project already exists for ben04537@gmail.com');
       }
-    ];
-
-    // Add sample projects (created from original business data)
-    this.projects = [
-      {
-        id: 1,
-        companyId: 1, // Coastal Electric
-        title: "Business Website Redesign",
-        type: "website",
-        stage: "scraped",
-        status: "active",
-        score: 75,
-        notes: "Need modern website to showcase residential electrical work",
-        accessToken: "test-project-token-123", // Stable token for testing
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 2,
-        companyId: 2, // Hampton Plumbing
-        title: "SEO Optimization Package",
-        type: "seo",
-        stage: "contacted",
-        status: "active",
-        score: 85,
-        notes: "Want to rank higher for 'Hampton plumbing services'",
-        accessToken: this.generateAccessToken(),
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 3,
-        companyId: 3, // Norfolk HVAC Solutions
-        title: "New Website Development",
-        type: "website",
-        stage: "responded",
-        status: "active",
-        score: 60,
-        notes: "Commercial and residential HVAC services website",
-        accessToken: this.generateAccessToken(),
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 4,
-        companyId: 4, // Summit Roofing
-        title: "Emergency Storm Damage Landing Page",
-        type: "website",
-        stage: "scheduled",
-        status: "active",
-        score: 90,
-        notes: "Urgent need for storm damage specialist landing page",
-        scheduledTime: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-        accessToken: this.generateAccessToken(),
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 5,
-        companyId: 5, // Tidewater Construction
-        title: "Full Website & Branding Package",
-        type: "branding",
-        stage: "quoted",
-        status: "active",
-        score: 70,
-        notes: "Complete rebrand with new website for construction company",
-        totalAmount: 2500,
-        paidAmount: 0,
-        accessToken: this.generateAccessToken(),
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 6,
-        companyId: 6, // Elite Landscaping
-        title: "Portfolio Website",
-        type: "website",
-        stage: "sold",
-        status: "active",
-        score: 80,
-        notes: "Showcase residential and commercial landscaping work",
-        totalAmount: 1200,
-        paidAmount: 600,
-        accessToken: this.generateAccessToken(),
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 7,
-        companyId: 2, // Hampton Plumbing - second project
-        title: "Google Ads Campaign Setup",
-        type: "consultation",
-        stage: "scraped",
-        status: "active",
-        score: 70,
-        notes: "Set up and manage Google Ads for emergency plumbing calls",
-        accessToken: this.generateAccessToken(),
-        createdAt: new Date().toISOString()
-      }
-    ];
-
-    this.nextId = 8;
-
-    // Add sample appointments (updated to reference projects)
-    this.appointments = [
-      {
-        id: 1,
-        companyId: 1,
-        projectId: 1, // Coastal Electric website project
-        datetime: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] + 'T08:30:00.000Z',
-        status: 'scheduled',
-        notes: 'Initial consultation for website redesign',
-        isAutoScheduled: true,
-        squarespaceId: 'acuity_123456',
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 2,
-        companyId: 4,
-        projectId: 4, // Summit Roofing landing page
-        datetime: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] + 'T09:00:00.000Z',
-        status: 'scheduled',
-        notes: 'Urgent consultation for storm damage landing page',
-        isAutoScheduled: false,
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 3,
-        companyId: 2,
-        projectId: 2, // Hampton Plumbing SEO project
-        datetime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] + 'T08:30:00.000Z',
-        status: 'scheduled',
-        notes: 'SEO strategy review and keyword planning',
-        isAutoScheduled: true,
-        squarespaceId: 'acuity_789012',
-        createdAt: new Date().toISOString()
-      }
-    ];
-
-    // Legacy businesses data (for backward compatibility)
-    this.businesses = [
-      {
-        id: 1,
-        name: "Coastal Electric",
-        email: "info@coastalelectric.com",
-        phone: "(555) 123-4567",
-        address: "123 Ocean Ave",
-        city: "Virginia Beach",
-        state: "VA",
-        businessType: "electrical",
-        stage: "scraped",
-        website: "https://coastalelectric.com",
-        notes: "Specializes in residential electrical work",
-        score: 75,
-        priority: "high",
-        tags: ["electrical", "residential", "high-value", "local"],
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 2,
-        name: "Hampton Plumbing",
-        email: "contact@hamptonplumbing.net",
-        phone: "(555) 234-5678",
-        address: "456 Business Blvd",
-        city: "Hampton",
-        state: "VA",
-        businessType: "plumbing",
-        stage: "contacted",
-        website: "https://hamptonplumbing.net",
-        notes: "Family-owned business since 1995",
-        score: 85,
-        priority: "high",
-        tags: ["plumbing", "family-business", "experienced", "trusted"],
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 3,
-        name: "Norfolk HVAC Solutions",
-        email: "",
-        phone: "(555) 345-6789",
-        address: "789 Industrial Way",
-        city: "Norfolk",
-        state: "VA",
-        businessType: "hvac",
-        stage: "responded",
-        website: "",
-        notes: "Commercial and residential HVAC services",
-        score: 60,
-        priority: "medium",
-        tags: ["hvac", "commercial", "residential"],
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 4,
-        name: "Summit Roofing",
-        email: "hello@summitroofing.co",
-        phone: "(555) 456-7890",
-        address: "321 Commerce Dr",
-        city: "Chesapeake",
-        state: "VA",
-        businessType: "roofing",
-        stage: "scheduled",
-        website: "https://summitroofing.co",
-        notes: "Storm damage specialists",
-        score: 90,
-        priority: "high",
-        tags: ["roofing", "storm-damage", "insurance", "urgent"],
-        scheduledTime: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 5,
-        name: "Tidewater Construction",
-        email: "admin@tidewaterconstruction.net",
-        phone: "(555) 567-8901",
-        address: "654 Main St",
-        city: "Portsmouth",
-        state: "VA",
-        businessType: "construction",
-        stage: "quoted",
-        website: "https://tidewaterconstruction.net",
-        notes: "Full-service construction company",
-        score: 70,
-        priority: "medium",
-        tags: ["construction", "full-service", "commercial"],
-        totalAmount: 2500,
-        paidAmount: 0,
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 6,
-        name: "Elite Landscaping",
-        email: "",
-        phone: "(555) 678-9012",
-        address: "987 Oak Ave",
-        city: "Suffolk",
-        state: "VA",
-        businessType: "landscaping",
-        stage: "sold",
-        website: "",
-        notes: "Residential and commercial landscaping",
-        score: 80,
-        priority: "high",
-        tags: ["landscaping", "design", "maintenance", "seasonal"],
-        totalAmount: 1200,
-        paidAmount: 600,
-        createdAt: new Date().toISOString()
-      }
-    ];
-
-    this.nextId = 10;
-
-    // Add sample project messages for demonstration
-    this.projectMessages = [
-      {
-        id: 1,
-        projectId: 1, // Coastal Electric website project
-        senderType: 'admin',
-        senderName: 'Ben Dickinson',
-        content: 'Hi! Welcome to your project portal. I\'ve started working on your website redesign and will keep you updated with progress here.',
-        createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString()
-      },
-      {
-        id: 2,
-        projectId: 1,
-        senderType: 'admin',
-        senderName: 'Ben Dickinson',
-        content: 'I\'ve created some initial wireframes for your homepage. Take a look and let me know your thoughts!',
-        attachments: ['/uploads/coastal-electric-wireframes.pdf'],
-        createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
-      },
-      {
-        id: 3,
-        projectId: 2, // Hampton Plumbing SEO project
-        senderType: 'admin',
-        senderName: 'Ben Dickinson',
-        content: 'I\'ve completed the initial keyword research for your SEO campaign. Found some great opportunities!',
-        attachments: ['/uploads/hampton-plumbing-keywords.xlsx'],
-        createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString()
-      },
-      {
-        id: 4,
-        projectId: 6, // Elite Landscaping portfolio
-        senderType: 'client',
-        senderName: 'Elite Landscaping Team',
-        content: 'Thanks for the great progress! We love the design direction. Can you add a section for our commercial projects?',
-        createdAt: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString()
-      }
-    ];
-
-    // Add sample project files for demonstration
-    this.projectFiles = [
-      {
-        id: 1,
-        projectId: 1, // Coastal Electric
-        fileName: 'coastal-electric-wireframes.pdf',
-        fileUrl: '/uploads/coastal-electric-wireframes.pdf',
-        fileSize: 2048000, // 2MB
-        fileType: 'application/pdf',
-        uploadedBy: 'admin',
-        uploaderName: 'Ben Dickinson',
-        description: 'Initial homepage wireframes and layout concepts',
-        createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
-      },
-      {
-        id: 2,
-        projectId: 1,
-        fileName: 'coastal-electric-logo.png',
-        fileUrl: '/uploads/coastal-electric-logo.png',
-        fileSize: 512000, // 512KB
-        fileType: 'image/png',
-        uploadedBy: 'client',
-        uploaderName: 'Coastal Electric Team',
-        description: 'Company logo and brand assets',
-        createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString()
-      },
-      {
-        id: 3,
-        projectId: 2, // Hampton Plumbing
-        fileName: 'hampton-plumbing-keywords.xlsx',
-        fileUrl: '/uploads/hampton-plumbing-keywords.xlsx',
-        fileSize: 128000, // 128KB
-        fileType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        uploadedBy: 'admin',
-        uploaderName: 'Ben Dickinson',
-        description: 'Keyword research and SEO strategy document',
-        createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString()
-      },
-      {
-        id: 4,
-        projectId: 6, // Elite Landscaping
-        fileName: 'project-photos.zip',
-        fileUrl: '/uploads/project-photos.zip',
-        fileSize: 15728640, // 15MB
-        fileType: 'application/zip',
-        uploadedBy: 'client',
-        uploaderName: 'Elite Landscaping Team',
-        description: 'High-resolution photos of completed landscaping projects',
-        createdAt: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString()
-      }
-    ];
+    } catch (error) {
+      console.error('❌ Error ensuring test project:', error);
+    }
   }
 }
 
@@ -839,8 +710,6 @@ export const db = {
     where: (condition: any) => memoryDb.delete(schema.tableName || 'businesses', condition)
   })
 };
-
-console.log("✅ In-memory database initialized with sample data");
 
 // For compatibility with existing code
 export const pool = { query: () => { throw new Error('Use db instead of pool'); } }; 

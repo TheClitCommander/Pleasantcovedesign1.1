@@ -502,6 +502,13 @@
                     <button type="submit" class="pcd-form-submit" id="startChatBtn">
                         Start Messaging
                     </button>
+                    
+                    <!-- Testing Helper -->
+                    <div style="margin-top: 10px; text-align: center;">
+                        <button type="button" onclick="localStorage.clear(); location.reload();" style="background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 12px; cursor: pointer;">
+                            🧪 Clear Session (Testing)
+                        </button>
+                    </div>
                 </form>
                 
                 <div class="pcd-form-loading" id="formLoading">
@@ -571,7 +578,12 @@
             }
 
             detectBackendUrl() {
-                // Auto-detect environment
+                // Force local development for testing
+                console.log('🏠 FORCED Local environment - using localhost:3000');
+                return 'http://localhost:3000';
+                
+                // Auto-detect environment (disabled for testing)
+                /*
                 const hostname = window.location.hostname;
                 
                 if (hostname === 'localhost' || hostname === '127.0.0.1') {
@@ -587,6 +599,7 @@
                     console.log('🌐 Unknown environment - defaulting to Railway production');
                     return 'https://pleasantcovedesign-production.up.railway.app';
                 }
+                */
             }
 
             init() {
@@ -632,16 +645,193 @@
             }
 
             checkExistingSession() {
+                // 🔒 ENHANCED USER AUTHENTICATION SYSTEM
+                console.log('🔍 Starting enhanced user authentication...');
+                
+                // Step 1: Try to get user email from multiple sources
+                const userEmail = this.getUserEmail();
+                console.log('📧 Detected user email:', userEmail);
+                
+                // Step 2: Check URL parameters (from form submissions)
+                const urlParams = new URLSearchParams(window.location.search);
+                const urlToken = urlParams.get('token');
+                const urlEmail = urlParams.get('email') || urlParams.get('userEmail');
+                const urlName = urlParams.get('name') || urlParams.get('userName');
+                
+                if (urlToken) {
+                    console.log('🔗 Found token in URL, using direct link flow');
+                    this.projectToken = urlToken;
+                    this.userName = urlName || userEmail?.split('@')[0] || 'User';
+                    this.userEmail = urlEmail || userEmail;
+                    
+                    // Save to localStorage
+                    localStorage.setItem('pcd_project_token', this.projectToken);
+                    localStorage.setItem('pcd_user_name', this.userName);
+                    localStorage.setItem('pcd_user_email', this.userEmail);
+                    
+                    this.startMessaging();
+                    return;
+                }
+                
+                // Step 3: Check existing session
                 const savedToken = localStorage.getItem('pcd_project_token');
                 const savedName = localStorage.getItem('pcd_user_name');
                 const savedEmail = localStorage.getItem('pcd_user_email');
-
-                if (savedToken && savedName && savedEmail) {
-                    this.projectToken = savedToken;
-                    this.userName = savedName;
-                    this.userEmail = savedEmail;
-                    this.startMessaging();
+                
+                // 🔒 PRIVACY CHECK: Clear session if user changed
+                if (userEmail && savedEmail && userEmail !== savedEmail) {
+                    console.log('🔒 PRIVACY PROTECTION: Different user detected, clearing session');
+                    console.log(`🔒 Saved: ${savedEmail} → Current: ${userEmail}`);
+                    this.clearSession();
+                    // Continue with authentication for new user
                 }
+                
+                // Step 4: If we have a complete valid session, verify it
+                if (savedToken && savedName && savedEmail && 
+                    savedToken.trim() !== '' && savedName.trim() !== '' && savedEmail.trim() !== '') {
+                    console.log('✅ Found existing session, verifying token...');
+                    
+                    this.validateAndUseSession(savedToken, savedName, savedEmail);
+                    return;
+                }
+                
+                // Step 5: If user is authenticated in Squarespace, get their token
+                if (userEmail) {
+                    console.log('👤 Authenticated user detected, getting conversation token...');
+                    this.getTokenForUser(userEmail);
+                    return;
+                }
+                
+                // Step 6: No authentication - show pre-chat form
+                console.log('📝 No authentication found, showing pre-chat form');
+                this.showPrechatForm();
+            }
+            
+            // NEW: Get user email from Squarespace or other sources
+            getUserEmail() {
+                // Method 1: Check if user is logged into Squarespace
+                if (window.Static && window.Static.SQUARESPACE_CONTEXT) {
+                    const context = window.Static.SQUARESPACE_CONTEXT;
+                    if (context.authenticatedUser && context.authenticatedUser.email) {
+                        console.log('🟢 Found Squarespace authenticated user');
+                        return context.authenticatedUser.email;
+                    }
+                }
+                
+                // Method 2: Check Squarespace member areas
+                if (window.Y && window.Y.Squarespace && window.Y.Squarespace.UserData) {
+                    const userData = window.Y.Squarespace.UserData;
+                    if (userData.email) {
+                        console.log('🟢 Found Squarespace member data');
+                        return userData.email;
+                    }
+                }
+                
+                // Method 3: Check for Squarespace Commerce customer data
+                if (window.UserData && window.UserData.email) {
+                    console.log('🟢 Found Squarespace Commerce user');
+                    return window.UserData.email;
+                }
+                
+                // Method 4: Check URL parameters
+                const urlParams = new URLSearchParams(window.location.search);
+                const urlEmail = urlParams.get('email') || urlParams.get('userEmail');
+                if (urlEmail) {
+                    console.log('🟢 Found email in URL parameters');
+                    return urlEmail;
+                }
+                
+                // Method 5: Check localStorage for recent session
+                const recentEmail = localStorage.getItem('pcd_user_email');
+                if (recentEmail) {
+                    console.log('🟡 Found recent email in localStorage');
+                    return recentEmail;
+                }
+                
+                console.log('❌ No user email found');
+                return null;
+            }
+            
+            // NEW: Validate existing session token
+            async validateAndUseSession(token, name, email) {
+                try {
+                    console.log(`🔍 Validating session token: ${token.substring(0, 8)}...`);
+                    
+                    const response = await fetch(`${this.config.backendUrl}/api/validate-token`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ token })
+                    });
+                    
+                    if (response.ok) {
+                        console.log('✅ Session token valid, resuming conversation');
+                        this.projectToken = token;
+                        this.userName = name;
+                        this.userEmail = email;
+                        this.startMessaging();
+                    } else {
+                        console.log('❌ Session token invalid, clearing session');
+                        this.clearSession();
+                        
+                        // Try to get new token for this user
+                        const userEmail = this.getUserEmail();
+                        if (userEmail) {
+                            this.getTokenForUser(userEmail);
+                        } else {
+                            this.showPrechatForm();
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error validating session:', error);
+                    this.clearSession();
+                    this.showPrechatForm();
+                }
+            }
+            
+            // NEW: Get or create token for authenticated user
+            async getTokenForUser(email, name = null) {
+                try {
+                    console.log(`🔄 Getting conversation token for: ${email}`);
+                    
+                    const response = await fetch(`${this.config.backendUrl}/api/get-user-token`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            email: email,
+                            name: name || email.split('@')[0]
+                        })
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`Failed to get token: ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    console.log(`✅ Got conversation token: ${data.token.substring(0, 8)}...`);
+                    
+                    // Set session data
+                    this.projectToken = data.token;
+                    this.userName = name || email.split('@')[0];
+                    this.userEmail = email;
+                    
+                    // Save to localStorage
+                    localStorage.setItem('pcd_project_token', this.projectToken);
+                    localStorage.setItem('pcd_user_name', this.userName);
+                    localStorage.setItem('pcd_user_email', this.userEmail);
+                    
+                    console.log('🚀 Starting authenticated messaging session');
+                    this.startMessaging();
+                    
+                } catch (error) {
+                    console.error('Error getting user token:', error);
+                    console.log('📝 Falling back to pre-chat form');
+                    this.showPrechatForm();
+                }
+            }
+            
+            // NEW: Show pre-chat form
+            showPrechatForm() {
+                document.getElementById('prechatOverlay').style.display = 'flex';
             }
 
             async handlePrechatSubmit() {
@@ -653,14 +843,23 @@
                     return;
                 }
 
+                // 🔒 PRIVACY CHECK: Clear session if different email
+                const savedEmail = localStorage.getItem('pcd_user_email');
+                if (savedEmail && savedEmail !== email) {
+                    console.log('🔒 PRIVACY: Different email detected, clearing old session');
+                    console.log(`🔒 Old: ${savedEmail} → New: ${email}`);
+                    this.clearSession();
+                }
+
                 try {
                     this.showLoading(true);
                     
-                    // Create or get project token via webhook
+                    // First, create/get the customer project with stable token
+                    console.log('🔍 Creating/finding customer project for:', email);
                     const response = await fetch(`${this.config.backendUrl}/api/new-lead`, {
                         method: 'POST',
                         headers: {
-                            'Content-Type': 'application/json',
+                            'Content-Type': 'application/json'
                         },
                         body: JSON.stringify({
                             name: name,
@@ -670,27 +869,27 @@
                     });
 
                     if (!response.ok) {
-                        const errorText = await response.text();
-                        console.error('Prechat submission failed:', response.status, errorText);
-                        throw new Error(`Server error: ${response.status} - ${errorText}`);
+                        throw new Error('Failed to create customer project');
                     }
 
-                    const data = await response.json();
+                    const result = await response.json();
+                    console.log('✅ Customer project result:', result);
 
-                    if (!data.projectToken) {
-                        throw new Error('Server response did not include a projectToken.');
+                    if (result.projectToken) {
+                        this.projectToken = result.projectToken;
+                        this.userName = name;
+                        this.userEmail = email;
+
+                        // Save session with stable token
+                        localStorage.setItem('pcd_project_token', this.projectToken);
+                        localStorage.setItem('pcd_user_name', this.userName);
+                        localStorage.setItem('pcd_user_email', this.userEmail);
+
+                        console.log('✅ Using stable project token:', this.projectToken);
+                        this.startMessaging();
+                    } else {
+                        throw new Error('No project token received');
                     }
-
-                    this.projectToken = data.projectToken;
-                    this.userName = name;
-                    this.userEmail = email;
-
-                    // Save session
-                    localStorage.setItem('pcd_project_token', this.projectToken);
-                    localStorage.setItem('pcd_user_name', this.userName);
-                    localStorage.setItem('pcd_user_email', this.userEmail);
-
-                    this.startMessaging();
 
                 } catch (error) {
                     console.error('Prechat error:', error);
@@ -740,7 +939,8 @@
                     this.websocketAttempted = true;
 
                     this.socket.on('connect', () => {
-                        console.log('🔌 Socket connected:', this.socket.id);
+                        console.log('🔌 [WIDGET] Socket connected:', this.socket.id);
+                        console.log('🔌 [WIDGET] Project token:', this.projectToken);
                         this.updateConnectionStatus('connected');
                         
                         // Stop polling if it was running
@@ -749,18 +949,35 @@
                             this.pollingInterval = null;
                         }
                         
-                        // Join project room
+                        // Join project room with callback for verification
                         if (this.projectToken) {
-                            this.socket.emit('join', this.projectToken);
+                            console.log('🏠 [WIDGET] Attempting to join room:', this.projectToken);
+                            this.socket.emit('join', this.projectToken, (response) => {
+                                console.log('🏠 [WIDGET] Join response:', response);
+                                if (response && response.error) {
+                                    console.error('❌ [WIDGET] Failed to join room:', response.error);
+                                }
+                            });
                         }
                     });
 
                     this.socket.on('joined', (data) => {
-                        console.log('🏠 Joined project room:', data);
+                        console.log('🏠 [WIDGET] Successfully joined project room:', data);
+                        console.log('🏠 [WIDGET] Socket ID:', this.socket.id);
+                        console.log('🏠 [WIDGET] Room info:', data);
+                        
+                        // Verify we're in the right room
+                        if (data.room !== this.projectToken) {
+                            console.error('❌ [WIDGET] Joined wrong room!', data.room, 'vs', this.projectToken);
+                        }
                     });
 
                     this.socket.on('newMessage', (message) => {
-                        console.log('📨 Received new message:', message);
+                        console.log('📨 [WIDGET] WebSocket newMessage event:', message);
+                        console.log('📨 [WIDGET] Message content:', message.content);
+                        console.log('📨 [WIDGET] Message sender:', message.senderName);
+                        console.log('📨 [WIDGET] Message type:', message.senderType);
+                        
                         this.addMessage(message);
                     });
 
@@ -845,11 +1062,29 @@
                     const response = await fetch(`${this.config.backendUrl}/api/public/project/${this.projectToken}/messages`);
                     
                     if (!response.ok) {
+                        if (response.status === 404) {
+                            console.log('❌ Project token invalid, clearing session...');
+                            this.clearSession();
+                            return;
+                        }
                         throw new Error('Failed to load messages');
                     }
                     
                     const data = await response.json();
-                    this.messages = data.messages || data;
+                    console.log('📥 Raw message data from server:', data);
+                    
+                    const serverMessages = data.messages || data;
+                    
+                    // ⚡ PRESERVE OPTIMISTIC MESSAGES - Don't wipe them out!
+                    console.log('💾 Current messages before merge:', this.messages.length);
+                    const optimisticMessages = this.messages.filter(m => m.id && typeof m.id === 'string' && m.id.startsWith('temp_'));
+                    console.log('⚡ Found optimistic messages to preserve:', optimisticMessages.length);
+                    
+                    // Merge server messages with optimistic messages
+                    this.messages = [...serverMessages, ...optimisticMessages];
+                    console.log('💾 Messages after preserving optimistic:', this.messages.length);
+                    console.log('📋 Final processed messages for rendering:', this.messages);
+                    
                     this.renderMessages();
                     
                 } catch (error) {
@@ -864,68 +1099,243 @@
             }
 
             async sendMessage() {
-                const messageInput = document.getElementById('messageInput');
-                const message = messageInput.value.trim();
+                console.log('🚀 sendMessage called!');
                 
-                if (!message && this.selectedFiles.length === 0) return;
+                const messageInput = document.getElementById('messageInput');
+                const message = messageInput ? messageInput.value.trim() : '';
+                
+                console.log('🔍 Debug sendMessage:', {
+                    messageInput: !!messageInput,
+                    message: message,
+                    userName: this.userName,
+                    projectToken: this.projectToken,
+                    selectedFiles: this.selectedFiles.length
+                });
+                
+                // Ensure we have required data FIRST
+                if (!this.projectToken || this.projectToken.trim() === '') {
+                    console.error('❌ No project token available');
+                    this.showError('Session error. Please refresh and try again.');
+                    this.clearSession(); // Force user to re-enter details
+                    return;
+                }
+
+                if (!this.userName || this.userName.trim() === '') {
+                    console.error('❌ No user name available');
+                    this.showError('Session error. Please refresh and try again.');
+                    this.clearSession(); // Force user to re-enter details
+                    return;
+                }
+                
+                // Check for content AFTER ensuring we have session data
+                if (!message && this.selectedFiles.length === 0) {
+                    console.log('📝 No message content or files to send');
+                    return;
+                }
+
+                const messageContent = message || '(File attachment)';
+                
+                // ⚡⚡⚡ BULLETPROOF INSTANT UPDATE ⚡⚡⚡
+                console.log('⚡ STEP 1: Starting instant message display...');
+                console.log('⚡ STEP 2: Message content:', messageContent);
+                console.log('⚡ STEP 3: Current messages array:', this.messages.length);
+                
+                const instantMessage = {
+                    id: `temp_${Date.now()}_${Math.random()}`,
+                    content: messageContent,
+                    senderName: this.userName,
+                    senderType: 'client',
+                    createdAt: new Date().toISOString(),
+                    attachments: [],
+                    isOptimistic: true // Debug flag
+                };
+                
+                console.log('⚡ STEP 4: Created instant message:', instantMessage);
+                
+                // Add to messages array immediately
+                this.messages.push(instantMessage);
+                console.log('⚡ STEP 5: Messages after push:', this.messages.length);
+                console.log('⚡ STEP 6: Last message in array:', this.messages[this.messages.length - 1]);
+                
+                // Force render immediately
+                console.log('⚡ STEP 7: Calling renderMessages()...');
+                this.renderMessages();
+                
+                console.log('⚡ STEP 8: Calling scrollToBottom()...');
+                this.scrollToBottom();
+                
+                console.log('⚡ STEP 9: INSTANT UPDATE COMPLETE - MESSAGE SHOULD BE VISIBLE!');
 
                 try {
-                    const formData = new FormData();
-                    formData.append('content', message || '(File attachment)');
-                    formData.append('senderName', this.userName);
-                    formData.append('senderType', 'client');
-
-                    // Add files
-                    this.selectedFiles.forEach(file => {
-                        formData.append('files', file);
-                    });
+                    console.log('📤 Now sending to server in background...');
 
                     // Disable send button
-                    document.getElementById('sendButton').disabled = true;
-
-                    const response = await fetch(`${this.config.backendUrl}/api/public/project/${this.projectToken}/messages`, {
-                        method: 'POST',
-                        body: formData
-                    });
-
-                    if (!response.ok) {
-                        throw new Error('Failed to send message');
+                    const sendButton = document.getElementById('sendButton');
+                    if (sendButton) {
+                        sendButton.disabled = true;
                     }
 
-                    // Clear form (message will appear via WebSocket or polling)
+                    let response;
+
+                    if (this.selectedFiles.length > 0) {
+                        // Use FormData for file uploads
+                        console.log('📎 Sending with files using FormData');
+                        const formData = new FormData();
+                        formData.append('content', messageContent);
+                        formData.append('senderName', this.userName);
+                        formData.append('senderType', 'client');
+
+                        // Add files
+                        this.selectedFiles.forEach((file, index) => {
+                            console.log(`📎 Adding file ${index + 1}:`, file.name);
+                            formData.append('files', file);
+                        });
+
+                        response = await fetch(`${this.config.backendUrl}/api/public/project/${this.projectToken}/messages`, {
+                            method: 'POST',
+                            body: formData
+                        });
+                    } else {
+                        // Use JSON for text-only messages
+                        console.log('📝 Sending text-only message using JSON');
+                        response = await fetch(`${this.config.backendUrl}/api/public/project/${this.projectToken}/messages`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                content: messageContent,
+                                senderName: this.userName,
+                                senderType: 'client'
+                            })
+                        });
+                    }
+
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        console.error('❌ Send message failed:', response.status, errorText);
+                        throw new Error(`Failed to send message: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    console.log('✅ Message sent successfully:', result);
+
+                    // Clear form
                     messageInput.value = '';
                     this.selectedFiles = [];
                     this.updateFilePreview();
                     this.autoResizeTextarea(messageInput);
 
-                    // Reload messages to show the new one
-                    setTimeout(() => {
-                        this.loadMessages();
-                    }, 500);
+                    // The real message will come via WebSocket and replace the optimistic one
+                    // No need for setTimeout - instant feedback!
 
                 } catch (error) {
-                    console.error('Failed to send message:', error);
-                    this.showError('Failed to send message');
+                    console.error('❌ Failed to send message:', error);
+                    this.showError('Failed to send message: ' + error.message);
                 } finally {
-                    document.getElementById('sendButton').disabled = false;
+                    const sendButton = document.getElementById('sendButton');
+                    if (sendButton) {
+                        sendButton.disabled = false;
+                    }
                 }
             }
 
             addMessage(message) {
-                // Avoid duplicates
-                const exists = this.messages.some(m => m.id === message.id);
-                if (exists) return;
+                console.log('📨 [WIDGET] Received message:', message);
+                console.log('📨 [WIDGET] Current project token:', this.projectToken);
+                console.log('📨 [WIDGET] Message for project:', message.projectToken || 'unknown');
+                
+                // Verify this message is for our project
+                if (message.projectToken && message.projectToken !== this.projectToken) {
+                    console.log('⚠️ [WIDGET] Message for different project, ignoring');
+                    return;
+                }
+                
+                // Check for duplicates using improved logic
+                if (this.isDuplicateMessage(message, this.messages)) {
+                    console.log('⚠️ [WIDGET] Ignoring duplicate message:', message.id || 'no-id');
+                    return;
+                }
+                
+                // If this is a real message from server, remove matching optimistic message
+                if (!message.isOptimistic && message.id && !message.id.toString().startsWith('temp_')) {
+                    console.log('📨 [WIDGET] Processing real message from server:', message.id);
+                    
+                    // Find and remove matching optimistic message
+                    const optimisticIndex = this.messages.findIndex(m => {
+                        if (!m.isOptimistic) return false;
+                        
+                        // More precise matching for optimistic messages
+                        const contentMatch = m.content === message.content;
+                        const senderMatch = m.senderName === message.senderName;
+                        const typeMatch = m.senderType === message.senderType;
+                        
+                        // Time-based matching (within 30 seconds)
+                        const messageTime = new Date(message.createdAt || message.timestamp).getTime();
+                        const optimisticTime = new Date(m.createdAt).getTime();
+                        const timeDiff = Math.abs(messageTime - optimisticTime);
+                        const timeMatch = timeDiff < 30000; // 30 seconds tolerance
+                        
+                        return contentMatch && senderMatch && typeMatch && timeMatch;
+                    });
+                    
+                    if (optimisticIndex !== -1) {
+                        console.log('🔄 [WIDGET] Removing optimistic message at index:', optimisticIndex);
+                        this.messages.splice(optimisticIndex, 1);
+                    }
+                }
 
                 this.messages.push(message);
-                this.messages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+                console.log('✅ [WIDGET] Added message, total count:', this.messages.length);
+                
+                // Sort messages by timestamp to ensure proper order
+                this.messages.sort((a, b) => {
+                    const timeA = new Date(a.createdAt || a.timestamp || 0).getTime();
+                    const timeB = new Date(b.createdAt || b.timestamp || 0).getTime();
+                    return timeA - timeB;
+                });
+                
                 this.renderMessages();
+            }
+            
+            // NEW: Improved duplicate detection
+            isDuplicateMessage(newMessage, existingMessages) {
+                return existingMessages.some(existing => {
+                    // Check for exact ID match
+                    if (existing.id && newMessage.id && existing.id === newMessage.id) {
+                        console.log('🔍 [WIDGET] Duplicate found: exact ID match');
+                        return true;
+                    }
+                    
+                    // Check for content + time match (for optimistic messages)
+                    const contentMatch = existing.content === newMessage.content;
+                    const senderMatch = existing.senderName === newMessage.senderName;
+                    const typeMatch = existing.senderType === newMessage.senderType;
+                    
+                    if (contentMatch && senderMatch && typeMatch) {
+                        const time1 = new Date(existing.createdAt || existing.timestamp).getTime();
+                        const time2 = new Date(newMessage.createdAt || newMessage.timestamp).getTime();
+                        const timeDiff = Math.abs(time1 - time2);
+                        
+                        // Consider duplicates if within 5 seconds
+                        if (timeDiff < 5000) {
+                            console.log('🔍 [WIDGET] Duplicate found: content + time match');
+                            return true;
+                        }
+                    }
+                    
+                    return false;
+                });
             }
 
             renderMessages() {
+                console.log('🎨 renderMessages() called - Messages to render:', this.messages.length);
+                
                 const container = document.getElementById('messagesContainer');
                 const loadingElement = document.getElementById('loadingMessages');
                 
                 if (this.messages.length === 0) {
+                    console.log('🎨 No messages to render, showing empty state');
                     container.innerHTML = `
                         <div class="pcd-empty-state">
                             <div class="pcd-empty-state-icon">💬</div>
@@ -935,27 +1345,61 @@
                     `;
                     return;
                 }
+                
+                console.log('🎨 About to render', this.messages.length, 'messages');
+
+                // Sort messages by timestamp to ensure proper order (oldest first, newest last)
+                const sortedMessages = [...this.messages].sort((a, b) => {
+                    const timeA = new Date(a.createdAt || a.timestamp || 0).getTime();
+                    const timeB = new Date(b.createdAt || b.timestamp || 0).getTime();
+                    return timeA - timeB;
+                });
 
                 let html = '';
-                this.messages.forEach(message => {
-                    const isCurrentUser = message.sender === this.userName;
-                    const messageClass = isCurrentUser ? 'sent' : 'received';
+                sortedMessages.forEach(message => {
+                    console.log('🎨 Rendering message:', message);
+                    
+                    // Handle different message formats from backend
+                    const sender = message.senderName || message.sender || 'Unknown';
+                    const content = message.content || message.body || '';
+                    const timestamp = message.createdAt || message.timestamp || new Date().toISOString();
+                    const attachments = message.attachments || [];
+                    const senderType = message.senderType || 'client';
+                    
+                    // Use senderType to determine message direction instead of name comparison
+                    // client = customer messages (sent by widget user) = blue bubbles on right
+                    // admin = admin replies (sent by Ben) = gray/white bubbles on left
+                    const isClientMessage = senderType === 'client';
+                    const messageClass = isClientMessage ? 'sent' : 'received';
+                    
+                    console.log('🎨 Message styling:', {
+                        sender,
+                        senderType,
+                        isClientMessage,
+                        messageClass
+                    });
                     
                     html += `
                         <div class="pcd-message ${messageClass}">
                             <div class="pcd-message-header">
-                                <span>${message.sender}</span>
-                                <span>${this.formatTime(message.timestamp)}</span>
+                                <span>${this.escapeHtml(sender)}</span>
+                                <span>${this.formatTime(timestamp)}</span>
                             </div>
                             <div class="pcd-message-bubble">
-                                <p class="pcd-message-content">${this.escapeHtml(message.body)}</p>
-                                ${this.renderAttachments(message.attachments, messageClass)}
+                                <p class="pcd-message-content">${this.escapeHtml(content)}</p>
+                                ${this.renderAttachments(attachments, messageClass)}
                             </div>
                         </div>
                     `;
                 });
 
+                console.log('🎨 Generated HTML length:', html.length);
+                console.log('🎨 Setting container innerHTML...');
                 container.innerHTML = html;
+                console.log('🎨 Container innerHTML set, content length:', container.innerHTML.length);
+                
+                // Always scroll to bottom to show newest messages
+                console.log('🎨 Calling scrollToBottom...');
                 this.scrollToBottom();
             }
 
@@ -1050,10 +1494,24 @@
             }
 
             formatTime(timestamp) {
-                return new Date(timestamp).toLocaleTimeString('en-US', {
-                    hour: '2-digit',
-                    minute: '2-digit'
-                });
+                if (!timestamp) {
+                    return 'Now';
+                }
+                
+                try {
+                    const date = new Date(timestamp);
+                    if (isNaN(date.getTime())) {
+                        return 'Now';
+                    }
+                    
+                    return date.toLocaleTimeString('en-US', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                } catch (error) {
+                    console.error('Error formatting time:', error, timestamp);
+                    return 'Now';
+                }
             }
 
             escapeHtml(text) {
@@ -1082,8 +1540,16 @@
                 localStorage.removeItem('pcd_project_token');
                 localStorage.removeItem('pcd_user_name');
                 localStorage.removeItem('pcd_user_email');
-                console.log('🧹 Session data cleared - refresh page to start fresh');
-                location.reload();
+                console.log('🧹 Session data cleared');
+                
+                // Reset widget state
+                this.projectToken = null;
+                this.userName = null;
+                this.userEmail = null;
+                this.messages = [];
+                
+                // Show pre-chat form again
+                document.getElementById('prechatOverlay').style.display = 'flex';
             }
         }
 
@@ -1092,6 +1558,21 @@
         
         // Development helper - expose clear function globally
         window.clearPCDSession = () => messagingWidget.clearSession();
+        
+        // Debug helper - expose widget globally for debugging
+        window.debugWidget = messagingWidget;
+        
+        // Add a clear session button for testing (only in development)
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+            const clearButton = document.createElement('button');
+            clearButton.textContent = 'Clear Session (Dev)';
+            clearButton.style.cssText = 'position: fixed; top: 10px; right: 10px; z-index: 9999; padding: 8px 12px; background: #ff4444; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer;';
+            clearButton.onclick = () => {
+                messagingWidget.clearSession();
+                window.location.reload();
+            };
+            document.body.appendChild(clearButton);
+        }
     </script>
 </body>
-</html> 
+</html>
