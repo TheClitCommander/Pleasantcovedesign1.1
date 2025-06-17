@@ -48,44 +48,46 @@ const Inbox: React.FC = () => {
   
   const socketRef = useRef<Socket | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const conversationsRef = useRef<Conversation[]>([])
+  const currentRoomRef = useRef<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
 
-  // Helper function to join all conversation rooms
-  const joinAllConversationRooms = (conversationList: Conversation[]) => {
-    console.log(`🔍 [ADMIN_UI] joinAllConversationRooms called:`, {
-      hasSocket: !!socketRef.current,
-      connectionStatus,
-      conversationCount: conversationList.length,
-      socketConnected: socketRef.current?.connected
+  // Helper function to join ONLY the selected conversation room
+  const joinConversationRoom = (projectToken: string) => {
+    console.log(`🔍 [SEPARATE_CHAT] Joining single conversation room: ${projectToken}`)
+
+    if (!socketRef.current || !socketRef.current.connected) {
+      console.log(`❌ [SEPARATE_CHAT] Socket not available or not connected`)
+      return
+    }
+
+    // Leave current room if we're in one
+    if (currentRoomRef.current && currentRoomRef.current !== projectToken) {
+      console.log(`🚪 [SEPARATE_CHAT] Leaving current room: ${currentRoomRef.current}`)
+      socketRef.current.emit('leave', currentRoomRef.current)
+    }
+
+    // Join the new room
+    console.log(`🏠 [SEPARATE_CHAT] Joining room: ${projectToken}`)
+    socketRef.current.emit('join', projectToken, (response: any) => {
+      console.log(`✅ [SEPARATE_CHAT] Successfully joined room: ${projectToken}`, response)
     })
+    
+    currentRoomRef.current = projectToken
+  }
 
-    if (!socketRef.current) {
-      console.log(`❌ [ADMIN_UI] No socket available`)
-      return
+  // Handle conversation selection - join only that room
+  const handleConversationSelect = (conversation: Conversation) => {
+    console.log(`👆 [SEPARATE_CHAT] User selected conversation: ${conversation.customerName} (${conversation.projectToken})`)
+    setSelectedConversation(conversation)
+    
+    // Join only this conversation's room
+    if (socketRef.current && socketRef.current.connected) {
+      joinConversationRoom(conversation.projectToken)
     }
-
-    if (!socketRef.current.connected) {
-      console.log(`❌ [ADMIN_UI] Socket not connected`)
-      return
-    }
-
-    if (conversationList.length === 0) {
-      console.log(`⏳ [ADMIN_UI] No conversations to join`)
-      return
-    }
-
-    console.log(`🏠 [ADMIN_UI] Starting to join ${conversationList.length} conversation rooms...`)
-    conversationList.forEach((conversation, index) => {
-      console.log(`🏠 [ADMIN_UI] Joining room ${index + 1}/${conversationList.length}: ${conversation.projectToken}`)
-      socketRef.current?.emit('join', conversation.projectToken, (response: any) => {
-        console.log(`✅ [ADMIN_UI] Successfully joined room: ${conversation.projectToken}`, response)
-      })
-    })
   }
 
   useEffect(() => {
@@ -114,36 +116,55 @@ const Inbox: React.FC = () => {
               messagesCount: project.messages?.length || 0
             })
             
-            if (project.messages && project.messages.length > 0) {
-              const messages: Message[] = project.messages.map((msg: any) => ({
-                id: msg.id,
-                content: msg.content || msg.body || '',
-                senderName: msg.senderName || 'Unknown',
-                senderType: msg.senderType || 'client',
-                createdAt: msg.createdAt || msg.timestamp || new Date().toISOString(),
-                attachments: msg.attachments || []
-              }))
+            // Create conversation entry even if no messages yet
+            const messages: Message[] = project.messages ? project.messages.map((msg: any) => ({
+              id: msg.id,
+              content: msg.content || msg.body || '',
+              senderName: msg.senderName || 'Unknown',
+              senderType: msg.senderType || 'client',
+              createdAt: msg.createdAt || msg.timestamp || new Date().toISOString(),
+              attachments: msg.attachments || []
+            })) : []
 
-              // Sort messages by timestamp
-              messages.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+            // Sort messages by timestamp
+            messages.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
 
-              const lastMessage = messages[messages.length - 1]
-              const customerName = messages.find(m => m.senderType === 'client')?.senderName || 'Unknown Customer'
-              const customerEmail = 'customer@example.com' // We don't have email in the message data
-
-              conversationList.push({
-                id: project.projectId,
-                projectId: project.projectId,
-                projectToken: project.accessToken,
-                projectTitle: project.projectTitle,
-                customerName,
-                customerEmail,
-                lastMessage,
-                lastMessageTime: lastMessage.createdAt,
-                unreadCount: 0,
-                messages
-              })
+            const lastMessage = messages.length > 0 ? messages[messages.length - 1] : undefined
+            
+            // Extract customer name from project title or first client message
+            let customerName = 'Unknown Customer'
+            if (project.projectTitle) {
+              // Extract name from titles like "Member Account 1 - Conversation 1750127649"
+              const titleMatch = project.projectTitle.match(/^(.+?)\s*-\s*Conversation/)
+              if (titleMatch) {
+                customerName = titleMatch[1].trim()
+              } else {
+                customerName = project.projectTitle
+              }
             }
+            
+            // If no name from title, try to get from first client message
+            if (customerName === 'Unknown Customer') {
+              const clientMessage = messages.find(m => m.senderType === 'client')
+              if (clientMessage) {
+                customerName = clientMessage.senderName
+              }
+            }
+
+            const customerEmail = 'customer@example.com' // We don't have email in the message data
+
+            conversationList.push({
+              id: project.projectId,
+              projectId: project.projectId,
+              projectToken: project.accessToken,
+              projectTitle: project.projectTitle,
+              customerName,
+              customerEmail,
+              lastMessage,
+              lastMessageTime: lastMessage?.createdAt || new Date().toISOString(),
+              unreadCount: 0,
+              messages
+            })
           })
         }
         
@@ -151,16 +172,13 @@ const Inbox: React.FC = () => {
         conversationList.sort((a, b) => new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime())
         
         setConversations(conversationList)
-        conversationsRef.current = conversationList // Keep ref updated
-        console.log(`✅ [ADMIN_UI] Loaded ${conversationList.length} conversations`)
-        
-        console.log(`🔍 [ADMIN_UI] After loading conversations - attempting to join rooms`)
-        // Join all project rooms for real-time updates
-        joinAllConversationRooms(conversationList)
+        console.log(`✅ [SEPARATE_CHAT] Loaded ${conversationList.length} separate conversations`)
         
         // Auto-select first conversation if none selected
         if (conversationList.length > 0 && !selectedConversation) {
-          setSelectedConversation(conversationList[0])
+          const firstConv = conversationList[0]
+          setSelectedConversation(firstConv)
+          console.log(`🎯 [SEPARATE_CHAT] Auto-selected first conversation: ${firstConv.customerName}`)
         }
         
       } catch (err) {
@@ -174,7 +192,7 @@ const Inbox: React.FC = () => {
     
     // Set up WebSocket connection for real-time updates
     if (!socketRef.current) {
-      console.log('🔌 Connecting to WebSocket for real-time updates...')
+      console.log('🔌 [SEPARATE_CHAT] Connecting to WebSocket for single-room updates...')
       setConnectionStatus('connecting')
       
       socketRef.current = io('http://localhost:3000', {
@@ -187,23 +205,30 @@ const Inbox: React.FC = () => {
       })
       
       socketRef.current.on('connect', () => {
-        console.log('✅ [ADMIN_UI] WebSocket connected for inbox updates')
+        console.log('✅ [SEPARATE_CHAT] WebSocket connected for single-room inbox')
         setConnectionStatus('connected')
         
-        console.log(`🔍 [ADMIN_UI] On connect - attempting to join rooms for ${conversationsRef.current.length} conversations`)
-        // Join all project rooms for existing conversations (if any have loaded)
-        joinAllConversationRooms(conversationsRef.current)
+        // Join only the selected conversation room (if any)
+        if (selectedConversation) {
+          console.log(`🎯 [SEPARATE_CHAT] On connect - joining selected conversation: ${selectedConversation.projectToken}`)
+          joinConversationRoom(selectedConversation.projectToken)
+        }
       })
       
       socketRef.current.on('joined', (data: any) => {
-        console.log('🏠 Successfully joined project room:', data)
+        console.log('🏠 [SEPARATE_CHAT] Successfully joined single project room:', data)
       })
       
       socketRef.current.on('newMessage', (message: any) => {
-        console.log('📨 [ADMIN_UI] Received real-time message:', message)
-        console.log('📨 [ADMIN_UI] Current conversations count:', conversations.length)
+        console.log('📨 [SEPARATE_CHAT] Received message for current room:', message)
         
-        // Add message instantly to the UI (no HTTP call needed!)
+        // Only process messages for the currently selected conversation
+        if (!selectedConversation || message.projectToken !== selectedConversation.projectToken) {
+          console.log('🚫 [SEPARATE_CHAT] Ignoring message for different conversation')
+          return
+        }
+        
+        // Add message instantly to the current conversation
         const newMessage: Message = {
           id: message.id,
           content: message.content || '',
@@ -242,39 +267,42 @@ const Inbox: React.FC = () => {
             return conversation
           })
           
-          // Keep ref updated
-          conversationsRef.current = updatedConversations
           return updatedConversations
         })
       })
       
       socketRef.current.on('disconnect', (reason: string) => {
-        console.log('❌ WebSocket disconnected:', reason)
+        console.log('❌ [SEPARATE_CHAT] WebSocket disconnected:', reason)
         setConnectionStatus('disconnected')
+        currentRoomRef.current = null
       })
       
       socketRef.current.on('connect_error', (error: any) => {
-        console.error('❌ WebSocket connection error:', error)
+        console.error('❌ [SEPARATE_CHAT] WebSocket connection error:', error)
         setConnectionStatus('disconnected')
       })
     }
 
-    // Only refresh data if WebSocket is disconnected (no automatic polling when connected)
-    const interval = setInterval(() => {
-      if (connectionStatus === 'disconnected') {
-        console.log('🔄 WebSocket disconnected, refreshing conversations...')
-        fetchConversations()
-      }
-    }, 30000)
-    
     return () => {
-      clearInterval(interval)
+      console.log('🧹 [SEPARATE_CHAT] Cleaning up WebSocket connection...')
       if (socketRef.current) {
+        if (currentRoomRef.current) {
+          console.log(`🚪 [SEPARATE_CHAT] Leaving room on cleanup: ${currentRoomRef.current}`)
+          socketRef.current.emit('leave', currentRoomRef.current)
+        }
         socketRef.current.disconnect()
         socketRef.current = null
       }
+      currentRoomRef.current = null
     }
   }, [])
+
+  // Join selected conversation room when selection changes
+  useEffect(() => {
+    if (selectedConversation && socketRef.current && socketRef.current.connected) {
+      joinConversationRoom(selectedConversation.projectToken)
+    }
+  }, [selectedConversation])
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files
@@ -317,7 +345,7 @@ const Inbox: React.FC = () => {
       if (attachments.length > 0) {
         // Use FormData for file uploads via public API
         const formData = new FormData()
-        formData.append('content', newMessage || '(File attachment)')
+        formData.append('content', newMessage || '')
         formData.append('senderName', 'Ben Dickinson')
         formData.append('senderType', 'admin')
         
@@ -384,8 +412,6 @@ const Inbox: React.FC = () => {
           return conversation
         })
         
-        // Keep ref updated
-        conversationsRef.current = updatedConversations
         return updatedConversations
       })
       
@@ -470,7 +496,7 @@ const Inbox: React.FC = () => {
           {filteredConversations.map((conversation) => (
             <div
               key={`conversation-${conversation.id}`}
-              onClick={() => setSelectedConversation(conversation)}
+              onClick={() => handleConversationSelect(conversation)}
               className={`p-4 border-b border-border cursor-pointer hover:bg-gray-50 ${
                 selectedConversation?.id === conversation.id ? 'bg-primary-50 border-r-2 border-r-primary-500' : ''
               }`}

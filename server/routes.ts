@@ -371,6 +371,69 @@ export async function registerRoutes(app: Express, io?: any): Promise<any> {
     }
   });
   
+  // NEW: Member-specific conversation retrieval (PUBLIC - no auth required)
+  app.post("/api/get-member-conversation", async (req: Request, res: Response) => {
+    try {
+      const { email, name } = req.body;
+      
+      if (!email) {
+        return res.status(400).json({ error: "Email is required" });
+      }
+      
+      console.log(`🔍 [MEMBER_AUTH] Looking for existing conversation for: ${email}`);
+      
+      // Find the member's company
+      const existingClientData = await storage.findClientByEmail(email);
+      
+      let existingClient: any = null;
+      if (existingClientData) {
+        // Handle different storage implementations
+        if ('name' in existingClientData && 'id' in existingClientData) {
+          existingClient = existingClientData;
+        } else if (typeof existingClientData === 'object' && 'company' in existingClientData && (existingClientData as any).company) {
+          existingClient = (existingClientData as any).company;
+        }
+      }
+      
+      if (existingClient) {
+        console.log(`✅ [MEMBER_AUTH] Found existing client: ${existingClient.name} (ID: ${existingClient.id})`);
+        
+        // Get all projects for this client, find the most recent active one
+        const existingProjects = await storage.getProjectsByCompany(existingClient.id);
+        const activeProjects = existingProjects
+          .filter(p => p.status === 'active')
+          .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+        
+        if (activeProjects.length > 0) {
+          const mostRecentProject = activeProjects[0];
+          console.log(`✅ [MEMBER_AUTH] Found existing conversation: ${mostRecentProject.title}`);
+          console.log(`🔑 [MEMBER_AUTH] Project token: ${mostRecentProject.accessToken}`);
+          
+          return res.status(200).json({
+            success: true,
+            existing: true,
+            projectToken: mostRecentProject.accessToken,
+            projectTitle: mostRecentProject.title,
+            clientName: existingClient.name,
+            message: "Existing conversation found"
+          });
+        }
+      }
+      
+      // No existing conversation found - this will trigger new conversation creation
+      console.log(`❌ [MEMBER_AUTH] No existing conversation found for: ${email}`);
+      return res.status(404).json({ 
+        success: false, 
+        existing: false,
+        message: "No existing conversation found" 
+      });
+      
+    } catch (error) {
+      console.error("[MEMBER_AUTH] Error:", error);
+      res.status(500).json({ error: "Failed to retrieve member conversation" });
+    }
+  });
+
   // Enhanced new lead handler with better processing (PUBLIC - no auth required)
   app.post("/api/new-lead", rateLimitConversations, securityLoggingMiddleware, async (req: Request, res: Response) => {
     const ipAddress = req.ip || req.connection.remoteAddress || 'unknown';
@@ -824,7 +887,7 @@ export async function registerRoutes(app: Express, io?: any): Promise<any> {
         projectId: projectData.id!,
         senderType: senderType as 'admin' | 'client',
         senderName,
-        content: content || '(File attachment)',
+        content: content || '',
         attachments
       });
 
@@ -869,7 +932,7 @@ export async function registerRoutes(app: Express, io?: any): Promise<any> {
       // Log activity for admin
       await storage.createActivity({
         type: 'client_message',
-        description: `New message from ${senderName}: ${content ? content.substring(0, 50) : 'File attachment'}${content && content.length > 50 ? '...' : ''}${attachments.length > 0 ? ` (${attachments.length} files)` : ''}`,
+        description: `New message from ${senderName}: ${content ? content.substring(0, 50) : attachments.length > 0 ? 'files shared' : 'message sent'}${content && content.length > 50 ? '...' : ''}${attachments.length > 0 ? ` (${attachments.length} files)` : ''}`,
         companyId: projectData.companyId,
         projectId: projectData.id!
       });
@@ -1482,7 +1545,7 @@ export async function registerRoutes(app: Express, io?: any): Promise<any> {
         projectId,
         senderType: senderType as 'admin' | 'client',
         senderName,
-        content: content || '(File attachment)',
+        content: content || '',
         attachments
       });
 
@@ -1506,7 +1569,7 @@ export async function registerRoutes(app: Express, io?: any): Promise<any> {
       // Log activity
       await storage.createActivity({
         type: 'admin_message',
-        description: `Admin message sent: ${content ? content.substring(0, 50) : 'File attachment'}${content && content.length > 50 ? '...' : ''}${attachments.length > 0 ? ` (${attachments.length} files)` : ''}`,
+        description: `Admin message sent: ${content ? content.substring(0, 50) : attachments.length > 0 ? 'files shared' : 'message sent'}${content && content.length > 50 ? '...' : ''}${attachments.length > 0 ? ` (${attachments.length} files)` : ''}`,
         companyId: project.companyId,
         projectId: project.id!
       });
@@ -2048,7 +2111,7 @@ export async function registerRoutes(app: Express, io?: any): Promise<any> {
         projectId,
         senderType: senderType as 'admin' | 'client',
         senderName,
-        content: content || '(File attachment)',
+        content: content || '',
         attachments
       });
 
@@ -2057,7 +2120,7 @@ export async function registerRoutes(app: Express, io?: any): Promise<any> {
       // Log activity
       await storage.createActivity({
         type: 'admin_message',
-        description: `Admin message sent: ${content ? content.substring(0, 50) : 'File attachment'}${content && content.length > 50 ? '...' : ''}${attachments.length > 0 ? ` (${attachments.length} files)` : ''}`,
+        description: `Admin message sent: ${content ? content.substring(0, 50) : attachments.length > 0 ? 'files shared' : 'message sent'}${content && content.length > 50 ? '...' : ''}${attachments.length > 0 ? ` (${attachments.length} files)` : ''}`,
         companyId: project.companyId,
         projectId: project.id!
       });
@@ -2074,7 +2137,7 @@ export async function registerRoutes(app: Express, io?: any): Promise<any> {
             body: JSON.stringify({
               client_email: company.email,
               project_id: projectId.toString(),
-              content: content || '(File attachment)',
+              content: content || '',
               attachments,
               sender_name: senderName
             })
@@ -2998,85 +3061,10 @@ export async function registerRoutes(app: Express, io?: any): Promise<any> {
   // PUBLIC CLIENT PORTAL ROUTES (Token-based)
   // ===================
 
-  // Serve a simple dashboard page
+  // Redirect backend dashboard to React UI (Biz Pro Inbox)
   app.get("/", (req: Request, res: Response) => {
-    res.send(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Pleasant Cove Design v1.1</title>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <style>
-            body { font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }
-            .container { max-width: 1200px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-            h1 { color: #2c3e50; text-align: center; margin-bottom: 30px; }
-            .status { background: #d4edda; color: #155724; padding: 15px; border-radius: 5px; margin-bottom: 30px; text-align: center; border: 1px solid #c3e6cb; }
-            .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 30px; }
-            .card { background: #f8f9fa; padding: 20px; border-radius: 5px; border-left: 4px solid #007bff; }
-            .card h3 { margin-top: 0; color: #495057; }
-            .webhook-info { background: #e7f3ff; padding: 20px; border-radius: 5px; border: 1px solid #b8daff; }
-            .code { background: #f4f4f4; padding: 10px; border-radius: 3px; font-family: monospace; margin: 10px 0; }
-            .btn { display: inline-block; padding: 10px 20px; background: #007bff; color: white; text-decoration: none; border-radius: 5px; margin: 5px; }
-            .btn:hover { background: #0056b3; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <h1>🚀 Pleasant Cove Design v1.1</h1>
-            
-            <div class="status">
-              ✅ <strong>FULLY OPERATIONAL</strong> - Enhanced Squarespace webhook integration active!
-            </div>
-
-            <div class="grid">
-              <div class="card">
-                <h3>📊 Dashboard</h3>
-                <p>View your lead analytics and business metrics.</p>
-                <a href="/api/stats?token=pleasantcove2024admin" class="btn">View Stats</a>
-              </div>
-              
-              <div class="card">
-                <h3>👥 Leads</h3>
-                <p>Manage your business leads and contacts.</p>
-                <a href="/api/businesses?token=pleasantcove2024admin" class="btn">View Leads</a>
-              </div>
-              
-              <div class="card">
-                <h3>🔔 Notifications</h3>
-                <p>Real-time alerts for new leads and activities.</p>
-                <a href="/api/notifications?token=pleasantcove2024admin" class="btn">View Alerts</a>
-              </div>
-              
-              <div class="card">
-                <h3>📋 Activities</h3>
-                <p>Track all lead interactions and activities.</p>
-                <a href="/api/activities?token=pleasantcove2024admin" class="btn">View Activities</a>
-              </div>
-            </div>
-
-            <div class="webhook-info">
-              <h3>🎯 Squarespace Integration</h3>
-              <p><strong>Webhook URL for Squarespace:</strong></p>
-              <div class="code">http://localhost:5173/api/new-lead</div>
-              
-              <p><strong>Supported Form Fields:</strong> name, email, phone, message, business_type, appointment_date, website</p>
-              
-              <p><strong>Admin Token:</strong> <code>pleasantcove2024admin</code></p>
-              
-              <h4>✨ Enhanced Features:</h4>
-              <ul>
-                <li>🤖 Smart lead scoring (0-100)</li>
-                <li>🎯 Auto-follow-up for high-score leads</li>
-                <li>📱 Real-time notifications</li>
-                <li>📈 Enhanced analytics</li>
-                <li>🔐 Secure admin authentication</li>
-              </ul>
-            </div>
-          </div>
-        </body>
-      </html>
-    `);
+    console.log('🔄 Backend root accessed - redirecting to React UI (Biz Pro Inbox)');
+    res.redirect('http://localhost:5173');
   });
 
   // Helper function to create properly timezone-aware appointment datetime

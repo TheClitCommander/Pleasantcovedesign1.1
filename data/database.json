@@ -43,6 +43,62 @@
       "priority": "medium",
       "id": 8,
       "createdAt": "2025-06-16T19:36:16.714Z"
+    },
+    {
+      "name": "Test User",
+      "email": "test@example.com",
+      "phone": "No phone provided",
+      "address": "",
+      "city": "",
+      "state": "",
+      "website": "",
+      "industry": "Web Design Client",
+      "tags": [],
+      "priority": "medium",
+      "id": 48,
+      "createdAt": "2025-06-17T01:31:25.523Z"
+    },
+    {
+      "name": "Member Account 1",
+      "email": "member1@test.com",
+      "phone": "No phone provided",
+      "address": "",
+      "city": "",
+      "state": "",
+      "website": "",
+      "industry": "Web Design Client",
+      "tags": [],
+      "priority": "medium",
+      "id": 65,
+      "createdAt": "2025-06-17T02:34:09.483Z"
+    },
+    {
+      "name": "Member Account 2",
+      "email": "member2@test.com",
+      "phone": "No phone provided",
+      "address": "",
+      "city": "",
+      "state": "",
+      "website": "",
+      "industry": "Web Design Client",
+      "tags": [],
+      "priority": "medium",
+      "id": 69,
+      "createdAt": "2025-06-17T02:34:16.564Z"
+    },
+    {
+      "name": "Member Account 3",
+      "email": "member3@test.com",
+      "phone": "No phone provided",
+      "address": "",
+      "city": "",
+      "state": "",
+      "website": "",
+      "industry": "Web Design Client",
+      "tags": [],
+      "priority": "medium",
+      "id": 73,
+      "createdAt": "2025-06-17T02:34:16.575Z"
     }
   ],
   "projects": [
@@ -86,6 +142,66 @@
       "accessToken": "Ae06uIlLwd2HlhzmojmxEwFt",
       "id": 9,
       "createdAt": "2025-06-16T19:36:16.715Z"
+    },
+    {
+      "companyId": 48,
+      "title": "Test User - Conversation 1750123885",
+      "type": "website",
+      "stage": "discovery",
+      "status": "active",
+      "totalAmount": 5000,
+      "paidAmount": 0,
+      "accessToken": "xSW7qvw6V5bTzDhOoFix_eTS",
+      "id": 49,
+      "createdAt": "2025-06-17T01:31:25.523Z"
+    },
+    {
+      "companyId": 1,
+      "title": "Ben Dickinson - Conversation sub_1750123927638_f3w9y4kgxlv",
+      "type": "website",
+      "stage": "discovery",
+      "status": "active",
+      "totalAmount": 5000,
+      "paidAmount": 0,
+      "accessToken": "mbzull5i_XT43KQsr_3jyoxS5ELr0fw",
+      "id": 52,
+      "createdAt": "2025-06-17T01:32:07.638Z"
+    },
+    {
+      "companyId": 65,
+      "title": "Member Account 1 - Conversation 1750127649",
+      "type": "website",
+      "stage": "discovery",
+      "status": "active",
+      "totalAmount": 5000,
+      "paidAmount": 0,
+      "accessToken": "9B3UeoGFJaj2NqAJlRVEow9P",
+      "id": 66,
+      "createdAt": "2025-06-17T02:34:09.484Z"
+    },
+    {
+      "companyId": 69,
+      "title": "Member Account 2 - Conversation 1750127656",
+      "type": "website",
+      "stage": "discovery",
+      "status": "active",
+      "totalAmount": 5000,
+      "paidAmount": 0,
+      "accessToken": "22VE-a9OHN90kEWZWUwoNUJ4",
+      "id": 70,
+      "createdAt": "2025-06-17T02:34:16.564Z"
+    },
+    {
+      "companyId": 73,
+      "title": "Member Account 3 - Conversation 1750127656",
+      "type": "website",
+      "stage": "discovery",
+      "status": "active",
+      "totalAmount": 5000,
+      "paidAmount": 0,
+      "accessToken": "fCK4z2Q5Jjw4CDXIIl5_BweM",
+      "id": 74,
+      "createdAt": "2025-06-17T02:34:16.575Z"
     }
   ],
   "projectMessages": [
@@ -235,6 +351,226 @@
       "attachments": [],
       "id": 39,
       "createdAt": "2025-06-16T20:14:58.027Z"
+    },
+    {
+      "projectId": 9,
+      "senderType": "client",
+      "senderName": "max powers1.1",
+      "content": "whats good",
+      "attachments": [],
+      "id": 41,
+      "createdAt": "2025-06-16T20:24:34.767Z"
+    },
+    {
+      "projectId": 9,
+      "senderType": "admin",
+      "senderName": "Ben Dickinson",
+      "content": "(File attachment)",
+      "attachments": [
+        "http://localhost:3000/uploads/project-Ae06uIlL-1750105491964-Screenshot_2025-06-10_at_12.47.14___PM.png"
+      ],
+      "id": 43,
+      "createdAt": "2025-06-16T20:24:51.971Z"
+    },
+    {
+      "projectId": 9,
+      "senderType": "client",
+      "senderName": "max powers1.1",
+      "content": "(File attachment)",
+      "attachments": [
+        "http://localhost:3000/uploads/project-Ae06uIlL-1750122666628-ChatGPT_Image_May_27__2025__04_38_15_PM.png"
+      ],
+      "id": 45,
+      "createdAt": "2025-06-17T01:11:06.636Z"
+    },
+    {
+      "projectId": 52,
+      "senderType": "client",
+      "senderName": "Ben Dickinson",
+      "content": "hehy",
+      "attachments": [],
+      "id": 54,
+      "createdAt": "2025-06-17T01:32:10.208Z"
+    },
+    {
+      "projectId": 52,
+      "senderType": "client",
+      "senderName": "Ben Dickinson",
+      "content": "heuy",
+      "attachments": [],
+      "id": 56,
+      "createdAt": "2025-06-17T01:59:52.431Z"
+    },
+    {
+      "projectId": 52,
+      "senderType": "client",
+      "senderName": "Ben Dickinson",
+      "content": "yo",
+      "attachments": [],
+      "id": 58,
+      "createdAt": "2025-06-17T02:17:36.856Z"
+    },
+    {
+      "projectId": 52,
+      "senderType": "client",
+      "senderName": "Ben Dickinson",
+      "content": "yo",
+      "attachments": [],
+      "id": 60,
+      "createdAt": "2025-06-17T02:18:11.719Z"
+    },
+    {
+      "projectId": 52,
+      "senderType": "client",
+      "senderName": "Ben Dickinson",
+      "content": "sup",
+      "attachments": [],
+      "id": 62,
+      "createdAt": "2025-06-17T02:18:34.474Z"
+    },
+    {
+      "projectId": 52,
+      "senderType": "client",
+      "senderName": "Ben Dickinson",
+      "content": "yo",
+      "attachments": [],
+      "id": 76,
+      "createdAt": "2025-06-17T02:46:02.124Z"
+    },
+    {
+      "projectId": 52,
+      "senderType": "client",
+      "senderName": "Ben Dickinson",
+      "content": "hey",
+      "attachments": [],
+      "id": 78,
+      "createdAt": "2025-06-17T02:46:11.315Z"
+    },
+    {
+      "projectId": 52,
+      "senderType": "client",
+      "senderName": "Ben Dickinson",
+      "content": "yo",
+      "attachments": [],
+      "id": 80,
+      "createdAt": "2025-06-17T03:42:23.929Z"
+    },
+    {
+      "projectId": 52,
+      "senderType": "client",
+      "senderName": "API Test User",
+      "content": "Test message from API - should appear in Biz Pro Inbox immediately",
+      "attachments": [],
+      "id": 82,
+      "createdAt": "2025-06-17T03:43:12.139Z"
+    },
+    {
+      "projectId": 52,
+      "senderType": "client",
+      "senderName": "Integration Test",
+      "content": "🎉 INTEGRATION TEST: This message should appear INSTANTLY in Biz Pro Inbox via WebSocket!",
+      "attachments": [],
+      "id": 84,
+      "createdAt": "2025-06-17T03:45:26.015Z"
+    },
+    {
+      "projectId": 52,
+      "senderType": "client",
+      "senderName": "Ben Dickinson",
+      "content": "yo",
+      "attachments": [],
+      "id": 86,
+      "createdAt": "2025-06-17T04:12:18.429Z"
+    },
+    {
+      "projectId": 52,
+      "senderType": "client",
+      "senderName": "Ben Dickinson",
+      "content": "hey",
+      "attachments": [],
+      "id": 88,
+      "createdAt": "2025-06-17T04:14:57.767Z"
+    },
+    {
+      "projectId": 52,
+      "senderType": "client",
+      "senderName": "Ben Dickinson",
+      "content": "heduf",
+      "attachments": [],
+      "id": 90,
+      "createdAt": "2025-06-17T04:15:01.932Z"
+    },
+    {
+      "projectId": 52,
+      "senderType": "client",
+      "senderName": "Ben Dickinson",
+      "content": "hey",
+      "attachments": [],
+      "id": 92,
+      "createdAt": "2025-06-17T04:15:41.607Z"
+    },
+    {
+      "projectId": 52,
+      "senderType": "client",
+      "senderName": "Ben Dickinson",
+      "content": "iuytfbk",
+      "attachments": [],
+      "id": 94,
+      "createdAt": "2025-06-17T04:23:36.394Z"
+    },
+    {
+      "projectId": 52,
+      "senderType": "admin",
+      "senderName": "Ben Dickinson",
+      "content": "hey",
+      "attachments": [],
+      "id": 96,
+      "createdAt": "2025-06-17T04:23:46.695Z"
+    },
+    {
+      "projectId": 52,
+      "senderType": "client",
+      "senderName": "Ben Dickinson",
+      "content": "yup",
+      "attachments": [],
+      "id": 98,
+      "createdAt": "2025-06-17T04:27:54.245Z"
+    },
+    {
+      "projectId": 52,
+      "senderType": "admin",
+      "senderName": "Ben Dickinson",
+      "content": "yup[",
+      "attachments": [],
+      "id": 100,
+      "createdAt": "2025-06-17T04:28:05.419Z"
+    },
+    {
+      "projectId": 52,
+      "senderType": "client",
+      "senderName": "Ben Dickinson",
+      "content": "hey",
+      "attachments": [],
+      "id": 102,
+      "createdAt": "2025-06-17T04:37:35.426Z"
+    },
+    {
+      "projectId": 52,
+      "senderType": "client",
+      "senderName": "Ben Dickinson",
+      "content": "how are you tonight",
+      "attachments": [],
+      "id": 104,
+      "createdAt": "2025-06-17T04:41:34.211Z"
+    },
+    {
+      "projectId": 52,
+      "senderType": "admin",
+      "senderName": "Ben Dickinson",
+      "content": "i am well, thank you",
+      "attachments": [],
+      "id": 106,
+      "createdAt": "2025-06-17T04:41:45.633Z"
     }
   ],
   "projectFiles": [],
@@ -286,6 +622,86 @@
       "priority": "medium",
       "id": 7,
       "createdAt": "2025-06-16T19:36:16.711Z"
+    },
+    {
+      "name": "Test User",
+      "phone": "No phone provided",
+      "email": "test@example.com",
+      "address": "To be enriched",
+      "city": "To be enriched",
+      "state": "To be enriched",
+      "businessType": "unknown",
+      "stage": "scraped",
+      "notes": "Squarespace Lead (Score: 60)\nMessage: No message\nAuto-classified: unknown",
+      "website": "",
+      "score": 60,
+      "priority": "medium",
+      "id": 47,
+      "createdAt": "2025-06-17T01:31:25.521Z"
+    },
+    {
+      "name": "Ben Dickinson",
+      "phone": "No phone provided",
+      "email": "ben04537@gmail.com",
+      "address": "To be enriched",
+      "city": "To be enriched",
+      "state": "To be enriched",
+      "businessType": "unknown",
+      "stage": "scraped",
+      "notes": "Squarespace Lead (Score: 60)\nMessage: No message\nAuto-classified: unknown",
+      "website": "",
+      "score": 60,
+      "priority": "medium",
+      "id": 51,
+      "createdAt": "2025-06-17T01:32:07.636Z"
+    },
+    {
+      "name": "Member Account 1",
+      "phone": "No phone provided",
+      "email": "member1@test.com",
+      "address": "To be enriched",
+      "city": "To be enriched",
+      "state": "To be enriched",
+      "businessType": "unknown",
+      "stage": "scraped",
+      "notes": "Squarespace Lead (Score: 60)\nMessage: No message\nAuto-classified: unknown",
+      "website": "",
+      "score": 60,
+      "priority": "medium",
+      "id": 64,
+      "createdAt": "2025-06-17T02:34:09.482Z"
+    },
+    {
+      "name": "Member Account 2",
+      "phone": "No phone provided",
+      "email": "member2@test.com",
+      "address": "To be enriched",
+      "city": "To be enriched",
+      "state": "To be enriched",
+      "businessType": "unknown",
+      "stage": "scraped",
+      "notes": "Squarespace Lead (Score: 60)\nMessage: No message\nAuto-classified: unknown",
+      "website": "",
+      "score": 60,
+      "priority": "medium",
+      "id": 68,
+      "createdAt": "2025-06-17T02:34:16.563Z"
+    },
+    {
+      "name": "Member Account 3",
+      "phone": "No phone provided",
+      "email": "member3@test.com",
+      "address": "To be enriched",
+      "city": "To be enriched",
+      "state": "To be enriched",
+      "businessType": "unknown",
+      "stage": "scraped",
+      "notes": "Squarespace Lead (Score: 60)\nMessage: No message\nAuto-classified: unknown",
+      "website": "",
+      "score": 60,
+      "priority": "medium",
+      "id": 72,
+      "createdAt": "2025-06-17T02:34:16.574Z"
     }
   ],
   "activities": [
@@ -429,6 +845,233 @@
       "projectId": 9,
       "id": 40,
       "createdAt": "2025-06-16T20:14:58.028Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from max powers1.1: whats good",
+      "companyId": 8,
+      "projectId": 9,
+      "id": 42,
+      "createdAt": "2025-06-16T20:24:34.770Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Ben Dickinson: (File attachment) (1 files)",
+      "companyId": 8,
+      "projectId": 9,
+      "id": 44,
+      "createdAt": "2025-06-16T20:24:51.972Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from max powers1.1: (File attachment) (1 files)",
+      "companyId": 8,
+      "projectId": 9,
+      "id": 46,
+      "createdAt": "2025-06-17T01:11:06.638Z"
+    },
+    {
+      "type": "lead_received",
+      "description": "New Squarespace lead: Test User (Score: 60)",
+      "businessId": 47,
+      "id": 50,
+      "createdAt": "2025-06-17T01:31:25.524Z"
+    },
+    {
+      "type": "lead_received",
+      "description": "New Squarespace lead: Ben Dickinson (Score: 60)",
+      "businessId": 51,
+      "id": 53,
+      "createdAt": "2025-06-17T01:32:07.639Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Ben Dickinson: hehy",
+      "companyId": 1,
+      "projectId": 52,
+      "id": 55,
+      "createdAt": "2025-06-17T01:32:10.209Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Ben Dickinson: heuy",
+      "companyId": 1,
+      "projectId": 52,
+      "id": 57,
+      "createdAt": "2025-06-17T01:59:52.432Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Ben Dickinson: yo",
+      "companyId": 1,
+      "projectId": 52,
+      "id": 59,
+      "createdAt": "2025-06-17T02:17:36.861Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Ben Dickinson: yo",
+      "companyId": 1,
+      "projectId": 52,
+      "id": 61,
+      "createdAt": "2025-06-17T02:18:11.720Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Ben Dickinson: sup",
+      "companyId": 1,
+      "projectId": 52,
+      "id": 63,
+      "createdAt": "2025-06-17T02:18:34.476Z"
+    },
+    {
+      "type": "lead_received",
+      "description": "New Squarespace lead: Member Account 1 (Score: 60)",
+      "businessId": 64,
+      "id": 67,
+      "createdAt": "2025-06-17T02:34:09.484Z"
+    },
+    {
+      "type": "lead_received",
+      "description": "New Squarespace lead: Member Account 2 (Score: 60)",
+      "businessId": 68,
+      "id": 71,
+      "createdAt": "2025-06-17T02:34:16.564Z"
+    },
+    {
+      "type": "lead_received",
+      "description": "New Squarespace lead: Member Account 3 (Score: 60)",
+      "businessId": 72,
+      "id": 75,
+      "createdAt": "2025-06-17T02:34:16.575Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Ben Dickinson: yo",
+      "companyId": 1,
+      "projectId": 52,
+      "id": 77,
+      "createdAt": "2025-06-17T02:46:02.127Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Ben Dickinson: hey",
+      "companyId": 1,
+      "projectId": 52,
+      "id": 79,
+      "createdAt": "2025-06-17T02:46:11.317Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Ben Dickinson: yo",
+      "companyId": 1,
+      "projectId": 52,
+      "id": 81,
+      "createdAt": "2025-06-17T03:42:23.931Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from API Test User: Test message from API - should appear in Biz Pro I...",
+      "companyId": 1,
+      "projectId": 52,
+      "id": 83,
+      "createdAt": "2025-06-17T03:43:12.140Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Integration Test: 🎉 INTEGRATION TEST: This message should appear IN...",
+      "companyId": 1,
+      "projectId": 52,
+      "id": 85,
+      "createdAt": "2025-06-17T03:45:26.016Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Ben Dickinson: yo",
+      "companyId": 1,
+      "projectId": 52,
+      "id": 87,
+      "createdAt": "2025-06-17T04:12:18.432Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Ben Dickinson: hey",
+      "companyId": 1,
+      "projectId": 52,
+      "id": 89,
+      "createdAt": "2025-06-17T04:14:57.769Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Ben Dickinson: heduf",
+      "companyId": 1,
+      "projectId": 52,
+      "id": 91,
+      "createdAt": "2025-06-17T04:15:01.934Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Ben Dickinson: hey",
+      "companyId": 1,
+      "projectId": 52,
+      "id": 93,
+      "createdAt": "2025-06-17T04:15:41.609Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Ben Dickinson: iuytfbk",
+      "companyId": 1,
+      "projectId": 52,
+      "id": 95,
+      "createdAt": "2025-06-17T04:23:36.397Z"
+    },
+    {
+      "type": "admin_message",
+      "description": "Admin message sent: hey",
+      "companyId": 1,
+      "projectId": 52,
+      "id": 97,
+      "createdAt": "2025-06-17T04:23:46.696Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Ben Dickinson: yup",
+      "companyId": 1,
+      "projectId": 52,
+      "id": 99,
+      "createdAt": "2025-06-17T04:27:54.248Z"
+    },
+    {
+      "type": "admin_message",
+      "description": "Admin message sent: yup[",
+      "companyId": 1,
+      "projectId": 52,
+      "id": 101,
+      "createdAt": "2025-06-17T04:28:05.421Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Ben Dickinson: hey",
+      "companyId": 1,
+      "projectId": 52,
+      "id": 103,
+      "createdAt": "2025-06-17T04:37:35.428Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Ben Dickinson: how are you tonight",
+      "companyId": 1,
+      "projectId": 52,
+      "id": 105,
+      "createdAt": "2025-06-17T04:41:34.212Z"
+    },
+    {
+      "type": "admin_message",
+      "description": "Admin message sent: i am well, thank you",
+      "companyId": 1,
+      "projectId": 52,
+      "id": 107,
+      "createdAt": "2025-06-17T04:41:45.636Z"
     }
   ],
   "campaigns": [],
@@ -447,5 +1090,5 @@
     "appointments": 0,
     "progressEntries": 0
   },
-  "nextId": 41
+  "nextId": 108
 }

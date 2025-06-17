@@ -67,7 +67,7 @@ const App: React.FC = () => {
           
           {/* Admin Routes - All use Layout with Outlet */}
           <Route path="/" element={<Layout />}>
-            <Route index element={<Navigate to="/dashboard" replace />} />
+            <Route index element={<Navigate to="/inbox" replace />} />
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="inbox" element={<Inbox />} />
             <Route path="leads" element={<Leads />} />
@@ -80,7 +80,7 @@ const App: React.FC = () => {
           </Route>
           
           {/* Fallback for any unmatched routes */}
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          <Route path="*" element={<Navigate to="/inbox" replace />} />
         </Routes>
       </Router>
     </ErrorBoundary>
