@@ -585,7 +585,7 @@
                     console.log('🏠 Local environment detected - using localhost:3000');
                     return 'http://localhost:3000';
                 } else if (hostname.includes('pleasantcovedesign.com')) {
-                    console.log('🌐 Production environment detected - using Railway/production backend');
+                    console.log('🌐 Production environment detected - using Railway production backend');
                     return 'https://pleasantcovedesign-production.up.railway.app';
                 } else {
                     console.log('🌐 Unknown environment - defaulting to Railway production');
@@ -596,6 +596,8 @@
             init() {
                 this.bindEvents();
                 this.addDebugBanner();
+                
+                // Add enhanced member isolation check
                 this.checkExistingSession();
             }
 
@@ -638,6 +640,7 @@
 
             addDebugBanner() {
                 const detectedUser = this.getUserEmail();
+                const backendUrl = this.config.backendUrl;
                 const debugBanner = document.createElement('div');
                 debugBanner.id = 'pcd-debug-banner';
                 debugBanner.style.cssText = `
@@ -655,62 +658,77 @@
                     text-align: center;
                 `;
                 debugBanner.innerHTML = `
-                    🔍 MEMBER AUTH DEBUG: ${detectedUser || 'NO SQUARESPACE MEMBER DETECTED'} 
+                    🔍 MEMBER: ${detectedUser || 'NO SQUARESPACE MEMBER DETECTED'} 
+                    | Backend: ${backendUrl.includes('localhost') ? 'LOCAL' : 'RAILWAY'} 
                     | Domain: ${window.location.hostname} 
                     | <span onclick="this.parentElement.style.display='none'" style="cursor:pointer;background:#333;padding:2px 5px;border-radius:3px;">✕ Hide</span>
                 `;
                 document.body.insertBefore(debugBanner, document.body.firstChild);
                 
                 console.log("✅ DEBUG: Detected user:", detectedUser);
+                console.log("✅ DEBUG: Backend URL:", backendUrl);
                 console.log("✅ DEBUG: Current domain:", window.location.hostname);
             }
 
             checkExistingSession() {
-                // 🔒 STRICT MEMBER ISOLATION SYSTEM - NO SHARED CONVERSATIONS
-                console.log('🔍 [MEMBER_ISOLATION] Starting strict member isolation check...');
+                // 🔒 ENHANCED MEMBER ISOLATION SYSTEM - ZERO SHARED CONVERSATIONS
+                console.log('🔍 [MEMBER_ISOLATION] Starting enhanced member isolation check...');
                 console.log('🌐 [MEMBER_ISOLATION] Current domain:', window.location.hostname);
+                console.log('🌐 [MEMBER_ISOLATION] Backend URL:', this.config.backendUrl);
                 console.log('🌐 [MEMBER_ISOLATION] Current URL:', window.location.href);
                 
-                // CRITICAL: Handle localhost testing vs production
+                // CRITICAL: Handle localhost testing vs production differently
                 const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
                 
-                // For localhost testing: ALWAYS clear localStorage and show form
+                // For localhost testing: Clear localStorage and show form (no member auth possible)
                 if (isLocalhost) {
-                    console.log('🧪 [MEMBER_ISOLATION] LOCALHOST DETECTED - Clearing all sessions for testing');
-                    console.log('🧪 [MEMBER_ISOLATION] Note: Squarespace member auth only works on actual site');
+                    console.log('🧪 [MEMBER_ISOLATION] LOCALHOST DETECTED - Development Mode');
+                    console.log('🧪 [MEMBER_ISOLATION] Note: SquareSpace member auth only works on live site');
+                    console.log('🧪 [MEMBER_ISOLATION] Clearing sessions for clean testing');
                     this.clearSession();
                     this.showPrechatForm();
                     return;
                 }
                 
-                // Step 1: FIRST detect current Squarespace member (BEFORE checking localStorage)
+                // Step 1: FIRST detect current SquareSpace member (BEFORE checking localStorage)
                 const currentMemberEmail = this.getUserEmail();
-                console.log('📧 [MEMBER_ISOLATION] Current Squarespace member detected:', currentMemberEmail);
+                console.log('📧 [MEMBER_ISOLATION] Current SquareSpace member detected:', currentMemberEmail);
                 
                 // Step 2: Get any existing session data
                 const savedToken = localStorage.getItem('pcd_project_token');
                 const savedName = localStorage.getItem('pcd_user_name');
                 const savedEmail = localStorage.getItem('pcd_user_email');
                 const sessionTimestamp = localStorage.getItem('pcd_session_timestamp');
+                const sessionDomain = localStorage.getItem('pcd_session_domain');
                 
                 console.log('💾 [MEMBER_ISOLATION] Existing session data:', {
                     hasToken: !!savedToken,
                     savedEmail: savedEmail,
                     currentMemberEmail: currentMemberEmail,
-                    sessionAge: sessionTimestamp ? Math.round((Date.now() - parseInt(sessionTimestamp)) / 1000 / 60) + ' minutes' : 'N/A'
+                    sessionDomain: sessionDomain,
+                    currentDomain: window.location.hostname
                 });
                 
-                // Step 3: CRITICAL - If no current member detected, IMMEDIATELY clear all sessions
+                // Step 3: CRITICAL - Domain-based session isolation
+                if (sessionDomain && sessionDomain !== window.location.hostname) {
+                    console.log('🚨 [MEMBER_ISOLATION] DOMAIN CHANGE DETECTED!');
+                    console.log(`🚨 [MEMBER_ISOLATION] Previous: ${sessionDomain} → Current: ${window.location.hostname}`);
+                    console.log('🧹 [MEMBER_ISOLATION] FORCE CLEARING all session data for security');
+                    this.clearSession();
+                    // Continue to authenticate new member below
+                }
+                
+                // Step 4: CRITICAL - If no current member detected, IMMEDIATELY clear all sessions
                 if (!currentMemberEmail) {
                     console.log('🚨 [MEMBER_ISOLATION] NO SQUARESPACE MEMBER DETECTED');
-                    console.log('🚨 [MEMBER_ISOLATION] This means user is logged out or not authenticated');
+                    console.log('🚨 [MEMBER_ISOLATION] User is logged out or not authenticated');
                     console.log('🧹 [MEMBER_ISOLATION] FORCE CLEARING all session data for security');
                     this.clearSession();
                     this.showPrechatForm();
                     return;
                 }
                 
-                // Step 4: CRITICAL - If different member detected, IMMEDIATELY clear sessions
+                // Step 5: CRITICAL - If different member detected, IMMEDIATELY clear sessions
                 if (savedEmail && savedEmail !== currentMemberEmail) {
                     console.log('🚨 [MEMBER_ISOLATION] DIFFERENT MEMBER DETECTED!');
                     console.log(`🚨 [MEMBER_ISOLATION] Previous: ${savedEmail}`);
@@ -720,16 +738,16 @@
                     // Continue to authenticate new member below
                 }
                 
-                // Step 5: Check URL parameters for direct conversation links
+                // Step 6: Check URL parameters for authenticated tokens (from SquareSpace redirects)
                 const urlParams = new URLSearchParams(window.location.search);
-                const urlToken = urlParams.get('token');
+                const urlToken = urlParams.get('token') || urlParams.get('projectToken');
                 const urlEmail = urlParams.get('email') || urlParams.get('userEmail') || urlParams.get('member_email');
                 const urlName = urlParams.get('name') || urlParams.get('userName') || urlParams.get('member_name');
                 
                 if (urlToken && urlEmail === currentMemberEmail) {
                     console.log('🔗 [MEMBER_ISOLATION] Found valid token in URL for current member');
                     this.projectToken = urlToken;
-                    this.userName = urlName || currentMemberEmail?.split('@')[0] || 'User';
+                    this.userName = urlName || currentMemberEmail?.split('@')[0] || 'Member';
                     this.userEmail = currentMemberEmail;
                     
                     // Save new session for this member
@@ -740,12 +758,12 @@
                     console.log('🚨 [MEMBER_ISOLATION] URL token is for different member - ignoring for security');
                 }
                 
-                // Step 6: Check if we have a valid recent session for THIS SPECIFIC MEMBER
+                // Step 7: Check if we have a valid recent session for THIS SPECIFIC MEMBER
                 if (savedToken && savedEmail === currentMemberEmail && sessionTimestamp) {
                     const sessionAge = Date.now() - parseInt(sessionTimestamp);
-                    const thirtyMinutes = 30 * 60 * 1000; // Much shorter for security
+                    const sessionValidDuration = 30 * 60 * 1000; // 30 minutes
                     
-                    if (sessionAge < thirtyMinutes) {
+                    if (sessionAge < sessionValidDuration) {
                         console.log('✅ [MEMBER_ISOLATION] Found valid recent session for current member');
                         console.log(`✅ [MEMBER_ISOLATION] Session age: ${Math.round(sessionAge/1000/60)} minutes`);
                         this.projectToken = savedToken;
@@ -759,7 +777,7 @@
                     }
                 }
                 
-                // Step 7: Get new conversation for current authenticated member
+                // Step 8: Get new conversation for current authenticated member
                 console.log('🔄 [MEMBER_ISOLATION] Getting new conversation for current member:', currentMemberEmail);
                 this.getTokenForUser(currentMemberEmail);
             }
@@ -1067,22 +1085,58 @@
             async getTokenForUser(email, name = null) {
                 try {
                     console.log(`🔄 [MEMBER_AUTH] Getting conversation for member: ${email}`);
+                    console.log(`🌐 [MEMBER_AUTH] Backend URL: ${this.config.backendUrl}`);
                     
                     // Use detected name if available
                     const memberName = name || this.detectedUserName || email.split('@')[0];
                     
+                    // Enhanced Railway connectivity check
+                    const isRailway = this.config.backendUrl.includes('railway.app');
+                    
+                    if (isRailway) {
+                        console.log('🚂 [RAILWAY] Using Railway production backend');
+                        console.log('🚂 [RAILWAY] Testing connectivity...');
+                        
+                        // Test Railway connectivity first
+                        try {
+                            const healthCheck = await fetch(`${this.config.backendUrl}/api/health`, {
+                                method: 'GET',
+                                timeout: 10000,
+                                headers: {
+                                    'User-Agent': 'PleasantCove-Widget/1.0'
+                                }
+                            });
+                            
+                            if (healthCheck.ok) {
+                                console.log('✅ [RAILWAY] Backend connectivity verified');
+                            } else {
+                                console.log('⚠️ [RAILWAY] Backend responding but not healthy');
+                            }
+                        } catch (healthError) {
+                            console.error('❌ [RAILWAY] Backend connectivity test failed:', healthError);
+                            console.log('⚠️ [RAILWAY] Proceeding anyway, may be normal...');
+                        }
+                    }
+                    
                     // Step 1: Try to find existing conversation for this member
                     console.log(`🔍 [MEMBER_AUTH] Step 1: Checking for existing conversation...`);
-                    const existingResponse = await fetch(`${this.config.backendUrl}/api/get-member-conversation`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ 
-                            email: email,
-                            name: memberName
-                        })
-                    });
                     
-                    if (existingResponse.ok) {
+                    let existingResponse;
+                    try {
+                        existingResponse = await this.makeRequest(`${this.config.backendUrl}/api/get-member-conversation`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ 
+                                email: email,
+                                name: memberName
+                            })
+                        });
+                    } catch (error) {
+                        console.log('⚠️ [MEMBER_AUTH] Error checking existing conversation:', error.message);
+                        console.log('🔄 [MEMBER_AUTH] Will proceed to create new conversation...');
+                    }
+                    
+                    if (existingResponse && existingResponse.ok) {
                         const existingData = await existingResponse.json();
                         if (existingData.success && existingData.projectToken) {
                             console.log(`✅ [MEMBER_AUTH] Found existing conversation: ${existingData.projectTitle}`);
@@ -1104,13 +1158,14 @@
                     
                     // Step 2: No existing conversation found, create new one
                     console.log(`🆕 [MEMBER_AUTH] Step 2: Creating new conversation for member...`);
-                    const newConversationResponse = await fetch(`${this.config.backendUrl}/api/new-lead`, {
+                    
+                    const newConversationResponse = await this.makeRequest(`${this.config.backendUrl}/api/new-lead`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ 
                             name: memberName,
                             email: email,
-                            source: 'Squarespace Member Authentication'
+                            source: 'SquareSpace Member Authentication'
                         })
                     });
                     
@@ -1140,9 +1195,102 @@
                     
                 } catch (error) {
                     console.error('[MEMBER_AUTH] Error getting/creating conversation:', error);
+                    
+                    // Enhanced error handling for Railway
+                    if (this.config.backendUrl.includes('railway.app')) {
+                        console.log('🚂 [RAILWAY] Error on Railway backend - checking specific issues...');
+                        
+                        if (error.message.includes('502') || error.message.includes('Bad Gateway')) {
+                            console.log('❌ [RAILWAY] 502 Bad Gateway - Railway may be starting up');
+                            this.showError('Backend is starting up, please wait a moment and try again.');
+                        } else if (error.message.includes('CORS')) {
+                            console.log('❌ [RAILWAY] CORS error - configuration issue');
+                            this.showError('Configuration error. Please contact support.');
+                        } else if (error.message.includes('timeout') || error.message.includes('fetch')) {
+                            console.log('❌ [RAILWAY] Network timeout or connectivity issue');
+                            this.showError('Connection timeout. Please check your internet and try again.');
+                        } else {
+                            console.log('❌ [RAILWAY] Unknown Railway error:', error.message);
+                            this.showError('Backend connection error. Please try again.');
+                        }
+                    } else {
+                        console.log('❌ [LOCAL] Local backend error:', error.message);
+                        this.showError('Local backend error. Please check your development setup.');
+                    }
+                    
                     console.log('📝 [MEMBER_AUTH] Falling back to pre-chat form');
                     this.showPrechatForm();
                 }
+            }
+
+            // Enhanced request method with Railway-specific handling
+            async makeRequest(url, options = {}) {
+                const isRailway = url.includes('railway.app');
+                
+                // Railway-specific timeouts and headers
+                const requestOptions = {
+                    ...options,
+                    timeout: isRailway ? 15000 : 10000, // Longer timeout for Railway
+                    headers: {
+                        ...options.headers,
+                        'User-Agent': 'PleasantCove-Widget/1.0',
+                        ...(isRailway && {
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'Accept': 'application/json'
+                        })
+                    }
+                };
+                
+                // Enhanced error handling with retries for Railway
+                let lastError;
+                const maxRetries = isRailway ? 2 : 1;
+                
+                for (let attempt = 1; attempt <= maxRetries; attempt++) {
+                    try {
+                        console.log(`🔄 Request attempt ${attempt}/${maxRetries} to: ${url}`);
+                        
+                        const response = await fetch(url, requestOptions);
+                        
+                        if (response.ok) {
+                            console.log(`✅ Request successful on attempt ${attempt}`);
+                            return response;
+                        } else {
+                            console.log(`⚠️ Request failed with status ${response.status} on attempt ${attempt}`);
+                            
+                            // For Railway, retry on 502/503 (service starting up)
+                            if (isRailway && (response.status === 502 || response.status === 503) && attempt < maxRetries) {
+                                console.log('🚂 [RAILWAY] Service may be starting, retrying in 2 seconds...');
+                                await new Promise(resolve => setTimeout(resolve, 2000));
+                                continue;
+                            }
+                            
+                            lastError = new Error(`HTTP ${response.status}: ${response.statusText}`);
+                            if (attempt === maxRetries) {
+                                throw lastError;
+                            }
+                        }
+                    } catch (error) {
+                        console.log(`❌ Request error on attempt ${attempt}:`, error.message);
+                        lastError = error;
+                        
+                        // For Railway, retry on network errors
+                        if (isRailway && attempt < maxRetries && (
+                            error.message.includes('fetch') ||
+                            error.message.includes('network') ||
+                            error.message.includes('timeout')
+                        )) {
+                            console.log('🚂 [RAILWAY] Network error, retrying in 1 second...');
+                            await new Promise(resolve => setTimeout(resolve, 1000));
+                            continue;
+                        }
+                        
+                        if (attempt === maxRetries) {
+                            throw lastError;
+                        }
+                    }
+                }
+                
+                throw lastError || new Error('Max retries exceeded');
             }
             
             // NEW: Show pre-chat form
