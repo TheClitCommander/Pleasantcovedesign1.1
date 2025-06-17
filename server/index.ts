@@ -38,8 +38,13 @@ const io = new Server(server, {
       'https://localhost:5173', 
       'http://localhost:5174',
       'https://localhost:5174',
+      // SquareSpace domains
       /\.squarespace\.com$/,
       /\.squarespace-cdn\.com$/,
+      'https://www.pleasantcovedesign.com',
+      'http://www.pleasantcovedesign.com',
+      'https://pleasantcovedesign.com',
+      'http://pleasantcovedesign.com',
       /pleasantcove/,
       // Railway production
       'https://pleasantcovedesign-production.up.railway.app',
@@ -161,9 +166,16 @@ app.use(cors({
     'https://localhost:5173', 
     'http://localhost:5174',
     'https://localhost:5174',
+    // SquareSpace domains
     /\.squarespace\.com$/,
     /\.squarespace-cdn\.com$/,
+    'https://www.pleasantcovedesign.com',
+    'http://www.pleasantcovedesign.com',
+    'https://pleasantcovedesign.com',
+    'http://pleasantcovedesign.com',
     /pleasantcove/,
+    // Railway production
+    'https://pleasantcovedesign-production.up.railway.app',
     // ngrok support
     /\.ngrok-free\.app$/,
     /\.ngrok\.io$/,

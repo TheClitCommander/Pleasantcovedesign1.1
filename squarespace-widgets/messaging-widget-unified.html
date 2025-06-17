@@ -586,15 +586,16 @@
                     return 'http://localhost:3000';
                 } else if (hostname.includes('pleasantcovedesign.com')) {
                     console.log('🌐 Production environment detected - using Railway/production backend');
-                    return 'https://glistening-respect-production.up.railway.app';
+                    return 'https://pleasantcovedesign-production.up.railway.app';
                 } else {
                     console.log('🌐 Unknown environment - defaulting to Railway production');
-                    return 'https://glistening-respect-production.up.railway.app';
+                    return 'https://pleasantcovedesign-production.up.railway.app';
                 }
             }
 
             init() {
                 this.bindEvents();
+                this.addDebugBanner();
                 this.checkExistingSession();
             }
 
@@ -635,112 +636,395 @@
                 });
             }
 
+            addDebugBanner() {
+                const detectedUser = this.getUserEmail();
+                const debugBanner = document.createElement('div');
+                debugBanner.id = 'pcd-debug-banner';
+                debugBanner.style.cssText = `
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    background: #111;
+                    color: #fff;
+                    padding: 10px;
+                    font-size: 14px;
+                    font-family: monospace;
+                    z-index: 999999;
+                    border-bottom: 2px solid #00ff00;
+                    text-align: center;
+                `;
+                debugBanner.innerHTML = `
+                    🔍 MEMBER AUTH DEBUG: ${detectedUser || 'NO SQUARESPACE MEMBER DETECTED'} 
+                    | Domain: ${window.location.hostname} 
+                    | <span onclick="this.parentElement.style.display='none'" style="cursor:pointer;background:#333;padding:2px 5px;border-radius:3px;">✕ Hide</span>
+                `;
+                document.body.insertBefore(debugBanner, document.body.firstChild);
+                
+                console.log("✅ DEBUG: Detected user:", detectedUser);
+                console.log("✅ DEBUG: Current domain:", window.location.hostname);
+            }
+
             checkExistingSession() {
-                // 🔒 ENHANCED USER AUTHENTICATION SYSTEM
-                console.log('🔍 Starting enhanced user authentication...');
+                // 🔒 STRICT MEMBER ISOLATION SYSTEM - NO SHARED CONVERSATIONS
+                console.log('🔍 [MEMBER_ISOLATION] Starting strict member isolation check...');
+                console.log('🌐 [MEMBER_ISOLATION] Current domain:', window.location.hostname);
+                console.log('🌐 [MEMBER_ISOLATION] Current URL:', window.location.href);
                 
-                // Step 1: Try to get user email from multiple sources
-                const userEmail = this.getUserEmail();
-                console.log('📧 Detected user email:', userEmail);
+                // CRITICAL: Handle localhost testing vs production
+                const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
                 
-                // Step 2: Check URL parameters (from form submissions)
-                const urlParams = new URLSearchParams(window.location.search);
-                const urlToken = urlParams.get('token');
-                const urlEmail = urlParams.get('email') || urlParams.get('userEmail');
-                const urlName = urlParams.get('name') || urlParams.get('userName');
-                
-                if (urlToken) {
-                    console.log('🔗 Found token in URL, using direct link flow');
-                    this.projectToken = urlToken;
-                    this.userName = urlName || userEmail?.split('@')[0] || 'User';
-                    this.userEmail = urlEmail || userEmail;
-                    
-                    // Save to localStorage
-                    localStorage.setItem('pcd_project_token', this.projectToken);
-                    localStorage.setItem('pcd_user_name', this.userName);
-                    localStorage.setItem('pcd_user_email', this.userEmail);
-                    
-                    this.startMessaging();
+                // For localhost testing: ALWAYS clear localStorage and show form
+                if (isLocalhost) {
+                    console.log('🧪 [MEMBER_ISOLATION] LOCALHOST DETECTED - Clearing all sessions for testing');
+                    console.log('🧪 [MEMBER_ISOLATION] Note: Squarespace member auth only works on actual site');
+                    this.clearSession();
+                    this.showPrechatForm();
                     return;
                 }
                 
-                // Step 3: Check existing session
+                // Step 1: FIRST detect current Squarespace member (BEFORE checking localStorage)
+                const currentMemberEmail = this.getUserEmail();
+                console.log('📧 [MEMBER_ISOLATION] Current Squarespace member detected:', currentMemberEmail);
+                
+                // Step 2: Get any existing session data
                 const savedToken = localStorage.getItem('pcd_project_token');
                 const savedName = localStorage.getItem('pcd_user_name');
                 const savedEmail = localStorage.getItem('pcd_user_email');
+                const sessionTimestamp = localStorage.getItem('pcd_session_timestamp');
                 
-                // 🔒 PRIVACY CHECK: Clear session if user changed
-                if (userEmail && savedEmail && userEmail !== savedEmail) {
-                    console.log('🔒 PRIVACY PROTECTION: Different user detected, clearing session');
-                    console.log(`🔒 Saved: ${savedEmail} → Current: ${userEmail}`);
+                console.log('💾 [MEMBER_ISOLATION] Existing session data:', {
+                    hasToken: !!savedToken,
+                    savedEmail: savedEmail,
+                    currentMemberEmail: currentMemberEmail,
+                    sessionAge: sessionTimestamp ? Math.round((Date.now() - parseInt(sessionTimestamp)) / 1000 / 60) + ' minutes' : 'N/A'
+                });
+                
+                // Step 3: CRITICAL - If no current member detected, IMMEDIATELY clear all sessions
+                if (!currentMemberEmail) {
+                    console.log('🚨 [MEMBER_ISOLATION] NO SQUARESPACE MEMBER DETECTED');
+                    console.log('🚨 [MEMBER_ISOLATION] This means user is logged out or not authenticated');
+                    console.log('🧹 [MEMBER_ISOLATION] FORCE CLEARING all session data for security');
                     this.clearSession();
-                    // Continue with authentication for new user
+                    this.showPrechatForm();
+                    return;
                 }
                 
-                // Step 4: If we have a complete valid session, verify it
-                if (savedToken && savedName && savedEmail && 
-                    savedToken.trim() !== '' && savedName.trim() !== '' && savedEmail.trim() !== '') {
-                    console.log('✅ Found existing session, verifying token...');
+                // Step 4: CRITICAL - If different member detected, IMMEDIATELY clear sessions
+                if (savedEmail && savedEmail !== currentMemberEmail) {
+                    console.log('🚨 [MEMBER_ISOLATION] DIFFERENT MEMBER DETECTED!');
+                    console.log(`🚨 [MEMBER_ISOLATION] Previous: ${savedEmail}`);
+                    console.log(`🚨 [MEMBER_ISOLATION] Current: ${currentMemberEmail}`);
+                    console.log('🧹 [MEMBER_ISOLATION] FORCE CLEARING all previous member data');
+                    this.clearSession();
+                    // Continue to authenticate new member below
+                }
+                
+                // Step 5: Check URL parameters for direct conversation links
+                const urlParams = new URLSearchParams(window.location.search);
+                const urlToken = urlParams.get('token');
+                const urlEmail = urlParams.get('email') || urlParams.get('userEmail') || urlParams.get('member_email');
+                const urlName = urlParams.get('name') || urlParams.get('userName') || urlParams.get('member_name');
+                
+                if (urlToken && urlEmail === currentMemberEmail) {
+                    console.log('🔗 [MEMBER_ISOLATION] Found valid token in URL for current member');
+                    this.projectToken = urlToken;
+                    this.userName = urlName || currentMemberEmail?.split('@')[0] || 'User';
+                    this.userEmail = currentMemberEmail;
                     
-                    this.validateAndUseSession(savedToken, savedName, savedEmail);
+                    // Save new session for this member
+                    this.saveSession(true); // true = member authenticated
+                    this.startMessaging();
                     return;
+                } else if (urlToken && urlEmail !== currentMemberEmail) {
+                    console.log('🚨 [MEMBER_ISOLATION] URL token is for different member - ignoring for security');
                 }
                 
-                // Step 5: If user is authenticated in Squarespace, get their token
-                if (userEmail) {
-                    console.log('👤 Authenticated user detected, getting conversation token...');
-                    this.getTokenForUser(userEmail);
-                    return;
+                // Step 6: Check if we have a valid recent session for THIS SPECIFIC MEMBER
+                if (savedToken && savedEmail === currentMemberEmail && sessionTimestamp) {
+                    const sessionAge = Date.now() - parseInt(sessionTimestamp);
+                    const thirtyMinutes = 30 * 60 * 1000; // Much shorter for security
+                    
+                    if (sessionAge < thirtyMinutes) {
+                        console.log('✅ [MEMBER_ISOLATION] Found valid recent session for current member');
+                        console.log(`✅ [MEMBER_ISOLATION] Session age: ${Math.round(sessionAge/1000/60)} minutes`);
+                        this.projectToken = savedToken;
+                        this.userName = savedName || currentMemberEmail.split('@')[0];
+                        this.userEmail = currentMemberEmail;
+                        this.validateAndUseSession(savedToken, this.userName, currentMemberEmail);
+                        return;
+                    } else {
+                        console.log('⏰ [MEMBER_ISOLATION] Session too old (> 30 minutes), will re-authenticate');
+                        this.clearSession();
+                    }
                 }
                 
-                // Step 6: No authentication - show pre-chat form
-                console.log('📝 No authentication found, showing pre-chat form');
-                this.showPrechatForm();
+                // Step 7: Get new conversation for current authenticated member
+                console.log('🔄 [MEMBER_ISOLATION] Getting new conversation for current member:', currentMemberEmail);
+                this.getTokenForUser(currentMemberEmail);
             }
             
-            // NEW: Get user email from Squarespace or other sources
+            // ENHANCED: Comprehensive Squarespace member authentication detection
             getUserEmail() {
-                // Method 1: Check if user is logged into Squarespace
+                console.log('🔍 SQUARESPACE AUTH DEBUG: Starting comprehensive detection...');
+                console.log('🌐 Current URL:', window.location.href);
+                console.log('🌐 Origin:', window.location.origin);
+                
+                let detectedEmail = null;
+                let detectedName = null;
+                let authMethod = null;
+                
+                // ✅ METHOD 1: EXPLICIT MEMBER INFO INJECTION (MOST RELIABLE)
+                // This should be injected by SquareSpace template code
+                if (window.PCD_MEMBER_INFO) {
+                    console.log('🎯 [MEMBER_INJECTION] Found explicitly injected member info:', window.PCD_MEMBER_INFO);
+                    
+                    if (window.PCD_MEMBER_INFO.email) {
+                        detectedEmail = window.PCD_MEMBER_INFO.email;
+                        detectedName = window.PCD_MEMBER_INFO.name || window.PCD_MEMBER_INFO.firstName;
+                        authMethod = 'PCD_MEMBER_INFO (Template Injection)';
+                        console.log('✅ [MEMBER_INJECTION] Using explicitly injected member data');
+                    } else {
+                        console.log('❌ [MEMBER_INJECTION] Member info object exists but no email found');
+                    }
+                } else {
+                    console.log('❌ [MEMBER_INJECTION] No PCD_MEMBER_INFO found - add SquareSpace template injection');
+                }
+                
+                // If no explicit injection, fall back to detection methods
+                if (!detectedEmail) {
+                    console.log('🔍 [FALLBACK] Trying automatic detection methods...');
+                    
+                    // COMPREHENSIVE DEBUG: Log ALL window objects
+                    console.log('🔍 Available window objects:', {
+                        Static: !!window.Static,
+                        Y: !!window.Y,
+                        UserData: !!window.UserData,
+                        squarespace: !!window.squarespace,
+                        __INITIAL_SQUARESPACE_7_1_WEBSITE_CONTEXT__: !!window.__INITIAL_SQUARESPACE_7_1_WEBSITE_CONTEXT__,
+                        SQS: !!window.SQS,
+                        SquarespaceCommerce: !!window.SquarespaceCommerce,
+                        Squarespace: !!window.Squarespace
+                    });
+                    
+                    // DEBUG: List ALL window properties that contain 'user', 'member', 'auth', or 'squarespace'
+                    console.log('🔍 Searching for authentication-related window properties...');
+                    const authRelatedProps = [];
+                    for (const prop in window) {
+                        const lowerProp = prop.toLowerCase();
+                        if (lowerProp.includes('user') || lowerProp.includes('member') || 
+                            lowerProp.includes('auth') || lowerProp.includes('squarespace') ||
+                            lowerProp.includes('login') || lowerProp.includes('session')) {
+                            authRelatedProps.push({
+                                property: prop,
+                                type: typeof window[prop],
+                                hasEmail: window[prop] && typeof window[prop] === 'object' && window[prop].email
+                            });
+                        }
+                    }
+                    console.log('🔍 Found auth-related properties:', authRelatedProps);
+                    
+                    // DEBUG: Check document for member data
+                    const scripts = document.querySelectorAll('script');
+                    console.log('🔍 Checking', scripts.length, 'script tags for member data...');
+                    scripts.forEach((script, index) => {
+                        if (script.textContent && (
+                            script.textContent.includes('authenticatedUser') ||
+                            script.textContent.includes('memberEmail') ||
+                            script.textContent.includes('userEmail') ||
+                            script.textContent.includes('"email"')
+                        )) {
+                            console.log(`🔍 Script ${index} contains potential member data:`, script.textContent.substring(0, 200) + '...');
+                        }
+                    });
+                }
+                
+                // Method 1: Modern Squarespace 7.1 member authentication
                 if (window.Static && window.Static.SQUARESPACE_CONTEXT) {
                     const context = window.Static.SQUARESPACE_CONTEXT;
-                    if (context.authenticatedUser && context.authenticatedUser.email) {
-                        console.log('🟢 Found Squarespace authenticated user');
-                        return context.authenticatedUser.email;
+                    console.log('🔍 SQUARESPACE_CONTEXT found:', context);
+                    
+                    if (context.authenticatedUser) {
+                        console.log('🔍 authenticatedUser:', context.authenticatedUser);
+                        if (context.authenticatedUser.email) {
+                            detectedEmail = context.authenticatedUser.email;
+                            detectedName = context.authenticatedUser.firstName || context.authenticatedUser.displayName;
+                            authMethod = 'Static.SQUARESPACE_CONTEXT.authenticatedUser';
+                        }
+                    }
+                    
+                    if (context.memberAccounts) {
+                        console.log('🔍 memberAccounts:', context.memberAccounts);
                     }
                 }
                 
-                // Method 2: Check Squarespace member areas
-                if (window.Y && window.Y.Squarespace && window.Y.Squarespace.UserData) {
-                    const userData = window.Y.Squarespace.UserData;
-                    if (userData.email) {
-                        console.log('🟢 Found Squarespace member data');
-                        return userData.email;
+                // Method 2: Check window.__INITIAL_SQUARESPACE_7_1_WEBSITE_CONTEXT__
+                if (!detectedEmail && window.__INITIAL_SQUARESPACE_7_1_WEBSITE_CONTEXT__) {
+                    const ctx = window.__INITIAL_SQUARESPACE_7_1_WEBSITE_CONTEXT__;
+                    console.log('🔍 Initial context found:', ctx);
+                    
+                    if (ctx.authenticatedUser && ctx.authenticatedUser.email) {
+                        detectedEmail = ctx.authenticatedUser.email;
+                        detectedName = ctx.authenticatedUser.firstName || ctx.authenticatedUser.displayName;
+                        authMethod = '__INITIAL_SQUARESPACE_7_1_WEBSITE_CONTEXT__.authenticatedUser';
                     }
                 }
                 
-                // Method 3: Check for Squarespace Commerce customer data
-                if (window.UserData && window.UserData.email) {
-                    console.log('🟢 Found Squarespace Commerce user');
-                    return window.UserData.email;
+                // Method 3: Check modern window.squarespace object
+                if (!detectedEmail && window.squarespace) {
+                    console.log('🔍 window.squarespace found:', window.squarespace);
+                    
+                    if (window.squarespace.userAccountApi) {
+                        console.log('🔍 userAccountApi found:', window.squarespace.userAccountApi);
+                    }
+                    
+                    if (window.squarespace.memberAreas) {
+                        console.log('🔍 memberAreas found:', window.squarespace.memberAreas);
+                    }
                 }
                 
-                // Method 4: Check URL parameters
-                const urlParams = new URLSearchParams(window.location.search);
-                const urlEmail = urlParams.get('email') || urlParams.get('userEmail');
-                if (urlEmail) {
-                    console.log('🟢 Found email in URL parameters');
-                    return urlEmail;
+                // Method 4: Legacy Squarespace Y.Squarespace (older sites)
+                if (!detectedEmail && window.Y && window.Y.Squarespace) {
+                    console.log('🔍 Y.Squarespace found:', window.Y.Squarespace);
+                    
+                    if (window.Y.Squarespace.UserData) {
+                        const userData = window.Y.Squarespace.UserData;
+                        console.log('🔍 Y.Squarespace.UserData:', userData);
+                        if (userData.email) {
+                            detectedEmail = userData.email;
+                            detectedName = userData.firstName || userData.displayName;
+                            authMethod = 'Y.Squarespace.UserData';
+                        }
+                    }
                 }
                 
-                // Method 5: Check localStorage for recent session
-                const recentEmail = localStorage.getItem('pcd_user_email');
-                if (recentEmail) {
-                    console.log('🟡 Found recent email in localStorage');
-                    return recentEmail;
+                // Method 5: Check for Squarespace Commerce customer data
+                if (!detectedEmail && window.UserData) {
+                    console.log('🔍 UserData found:', window.UserData);
+                    if (window.UserData.email) {
+                        detectedEmail = window.UserData.email;
+                        detectedName = window.UserData.firstName || window.UserData.displayName;
+                        authMethod = 'window.UserData';
+                    }
                 }
                 
-                console.log('❌ No user email found');
-                return null;
+                // Method 6: Check cookies for member session (ENHANCED)
+                if (!detectedEmail) {
+                    const cookies = document.cookie.split(';');
+                    console.log('🔍 Checking cookies for member data...');
+                    
+                    cookies.forEach(cookie => {
+                        const [name, value] = cookie.trim().split('=');
+                        
+                        // CRITICAL: Parse SiteUserInfo cookie for SquareSpace member authentication
+                        if (name === 'SiteUserInfo' && value) {
+                            try {
+                                console.log('🍪 [AUTH] Found SiteUserInfo cookie, attempting to parse...');
+                                const userInfo = JSON.parse(decodeURIComponent(value));
+                                console.log('🍪 [AUTH] Parsed SiteUserInfo:', userInfo);
+                                
+                                if (userInfo.authenticated) {
+                                    // SquareSpace stores siteUserId, not email - create unique identifier
+                                    detectedEmail = userInfo.email || `${userInfo.siteUserId}@squarespace.member`;
+                                    detectedName = userInfo.firstName || userInfo.name || userInfo.displayName || `Member ${userInfo.siteUserId?.substring(0, 8)}`;
+                                    authMethod = 'cookie_SiteUserInfo';
+                                    console.log('🍪 [AUTH] Successfully extracted member data:', {
+                                        email: detectedEmail,
+                                        name: detectedName,
+                                        siteUserId: userInfo.siteUserId,
+                                        authenticated: userInfo.authenticated
+                                    });
+                                }
+                            } catch (e) {
+                                console.log('🍪 [AUTH] Failed to parse SiteUserInfo cookie:', e);
+                            }
+                        }
+                        
+                        // Also check for other auth cookies for debugging
+                        if (name.includes('member') || name.includes('auth') || name.includes('user')) {
+                            console.log(`🔍 Found potential auth cookie: ${name}`);
+                        }
+                    });
+                }
+                
+                // Method 7: Check URL parameters (from authenticated redirects)
+                if (!detectedEmail) {
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const urlEmail = urlParams.get('email') || urlParams.get('userEmail') || urlParams.get('member_email');
+                    const urlName = urlParams.get('name') || urlParams.get('userName') || urlParams.get('member_name');
+                    
+                    if (urlEmail) {
+                        detectedEmail = urlEmail;
+                        detectedName = urlName;
+                        authMethod = 'URL parameters';
+                        console.log('🔍 Found email in URL parameters:', urlEmail);
+                    }
+                }
+                
+                // Method 8: Check meta tags for member data
+                if (!detectedEmail) {
+                    console.log('🔍 Checking meta tags for member data...');
+                    const metaTags = document.querySelectorAll('meta[name*="user"], meta[name*="member"], meta[property*="user"], meta[property*="member"]');
+                    metaTags.forEach(meta => {
+                        console.log('🔍 Found member-related meta tag:', {
+                            name: meta.getAttribute('name') || meta.getAttribute('property'),
+                            content: meta.getAttribute('content')
+                        });
+                        if (meta.getAttribute('content') && meta.getAttribute('content').includes('@')) {
+                            detectedEmail = meta.getAttribute('content');
+                            authMethod = 'Meta tag';
+                        }
+                    });
+                }
+                
+                // Method 9: CRITICAL - Domain-based session isolation and forced clearing
+                console.log('🔍 Checking domain-based session isolation...');
+                const currentDomain = window.location.hostname;
+                const sessionDomain = localStorage.getItem('pcd_session_domain');
+                
+                // If we're on a different domain, FORCE clear everything
+                if (sessionDomain && sessionDomain !== currentDomain) {
+                    console.log(`🚨 DOMAIN CHANGE DETECTED: ${sessionDomain} → ${currentDomain}`);
+                    console.log('🧹 FORCE CLEARING all session data for security');
+                    this.clearSession();
+                    // Do not use localStorage data - force fresh authentication
+                } else {
+                    // STRICT SECURITY: NEVER use localStorage for member detection
+                    console.log('🚨 [MEMBER_ISOLATION] No current Squarespace member authentication detected');
+                    console.log('🚨 [MEMBER_ISOLATION] Will not fall back to localStorage - this could be a different user');
+                    
+                    // Clear any existing localStorage to prevent session sharing between different users
+                    const existingEmail = localStorage.getItem('pcd_user_email');
+                    if (existingEmail) {
+                        console.log(`🧹 [MEMBER_ISOLATION] Clearing stale session data for: ${existingEmail}`);
+                        this.clearSession();
+                    }
+                }
+                
+                // Final result
+                if (detectedEmail) {
+                    console.log(`✅ SQUARESPACE AUTH SUCCESS: ${detectedEmail} via ${authMethod}`);
+                    console.log(`👤 Detected name: ${detectedName || 'Not provided'}`);
+                    
+                    // Store the successful detection method and domain for future reference
+                    localStorage.setItem('pcd_auth_method', authMethod);
+                    localStorage.setItem('pcd_session_timestamp', Date.now().toString());
+                    localStorage.setItem('pcd_session_domain', window.location.hostname);
+                    
+                    // Return both email and name
+                    this.detectedUserName = detectedName;
+                    return detectedEmail;
+                } else {
+                    console.log('❌ SQUARESPACE AUTH FAILED: No authentication detected');
+                    console.log('🚨 CLEARING any existing localStorage for security');
+                    
+                    // SECURITY: If we can't detect Squarespace authentication, clear everything
+                    // This prevents different users from sharing sessions
+                    this.clearSession();
+                    
+                    console.log('📝 User will need to use pre-chat form for new authentication');
+                    return null;
+                }
             }
             
             // NEW: Validate existing session token
@@ -779,43 +1063,84 @@
                 }
             }
             
-            // NEW: Get or create token for authenticated user
+            // ENHANCED: Get or create conversation for authenticated member
             async getTokenForUser(email, name = null) {
                 try {
-                    console.log(`🔄 Getting conversation token for: ${email}`);
+                    console.log(`🔄 [MEMBER_AUTH] Getting conversation for member: ${email}`);
                     
-                    const response = await fetch(`${this.config.backendUrl}/api/get-user-token`, {
+                    // Use detected name if available
+                    const memberName = name || this.detectedUserName || email.split('@')[0];
+                    
+                    // Step 1: Try to find existing conversation for this member
+                    console.log(`🔍 [MEMBER_AUTH] Step 1: Checking for existing conversation...`);
+                    const existingResponse = await fetch(`${this.config.backendUrl}/api/get-member-conversation`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ 
                             email: email,
-                            name: name || email.split('@')[0]
+                            name: memberName
                         })
                     });
                     
-                    if (!response.ok) {
-                        throw new Error(`Failed to get token: ${response.status}`);
+                    if (existingResponse.ok) {
+                        const existingData = await existingResponse.json();
+                        if (existingData.success && existingData.projectToken) {
+                            console.log(`✅ [MEMBER_AUTH] Found existing conversation: ${existingData.projectTitle}`);
+                            console.log(`🔑 [MEMBER_AUTH] Using token: ${existingData.projectToken.substring(0, 8)}...`);
+                            
+                            // Set session data for existing conversation
+                            this.projectToken = existingData.projectToken;
+                            this.userName = existingData.clientName || memberName;
+                            this.userEmail = email;
+                            
+                            // Save session with member authentication flag
+                            this.saveSession(true);
+                            
+                            console.log('🚀 [MEMBER_AUTH] Resuming existing conversation - No form needed!');
+                            this.startMessaging();
+                            return;
+                        }
                     }
                     
-                    const data = await response.json();
-                    console.log(`✅ Got conversation token: ${data.token.substring(0, 8)}...`);
+                    // Step 2: No existing conversation found, create new one
+                    console.log(`🆕 [MEMBER_AUTH] Step 2: Creating new conversation for member...`);
+                    const newConversationResponse = await fetch(`${this.config.backendUrl}/api/new-lead`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            name: memberName,
+                            email: email,
+                            source: 'Squarespace Member Authentication'
+                        })
+                    });
                     
-                    // Set session data
-                    this.projectToken = data.token;
-                    this.userName = name || email.split('@')[0];
-                    this.userEmail = email;
+                    if (!newConversationResponse.ok) {
+                        throw new Error(`Failed to create conversation: ${newConversationResponse.status}`);
+                    }
                     
-                    // Save to localStorage
-                    localStorage.setItem('pcd_project_token', this.projectToken);
-                    localStorage.setItem('pcd_user_name', this.userName);
-                    localStorage.setItem('pcd_user_email', this.userEmail);
-                    
-                    console.log('🚀 Starting authenticated messaging session');
-                    this.startMessaging();
+                    const newConversationData = await newConversationResponse.json();
+                    if (newConversationData.success && newConversationData.projectToken) {
+                        console.log(`✅ [MEMBER_AUTH] Created new conversation for member`);
+                        console.log(`🔑 [MEMBER_AUTH] New token: ${newConversationData.projectToken.substring(0, 8)}...`);
+                        
+                        // Set session data for new conversation
+                        this.projectToken = newConversationData.projectToken;
+                        this.userName = memberName;
+                        this.userEmail = email;
+                        
+                        // Save session with member authentication flag
+                        this.saveSession(true);
+                        
+                        console.log('🚀 [MEMBER_AUTH] Starting new authenticated conversation - No form needed!');
+                        this.startMessaging();
+                        return;
+                    } else {
+                        throw new Error('No project token received from new conversation creation');
+                    }
                     
                 } catch (error) {
-                    console.error('Error getting user token:', error);
-                    console.log('📝 Falling back to pre-chat form');
+                    console.error('[MEMBER_AUTH] Error getting/creating conversation:', error);
+                    console.log('📝 [MEMBER_AUTH] Falling back to pre-chat form');
                     this.showPrechatForm();
                 }
             }
@@ -834,19 +1159,53 @@
                     return;
                 }
 
+                console.log(`📝 [FORM] Form submission for: ${email}`);
+
                 // 🔒 PRIVACY CHECK: Clear session if different email
                 const savedEmail = localStorage.getItem('pcd_user_email');
                 if (savedEmail && savedEmail !== email) {
-                    console.log('🔒 PRIVACY: Different email detected, clearing old session');
-                    console.log(`🔒 Old: ${savedEmail} → New: ${email}`);
+                    console.log('🔒 [FORM] Different email detected, clearing old session');
+                    console.log(`🔒 [FORM] Old: ${savedEmail} → New: ${email}`);
                     this.clearSession();
                 }
 
                 try {
                     this.showLoading(true);
                     
-                    // First, create/get the customer project with stable token
-                    console.log('🔍 Creating/finding customer project for:', email);
+                    // Use the same member authentication flow as getTokenForUser
+                    // Step 1: Try to find existing conversation for this user
+                    console.log(`🔍 [FORM] Step 1: Checking for existing conversation...`);
+                    const existingResponse = await fetch(`${this.config.backendUrl}/api/get-member-conversation`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            email: email,
+                            name: name
+                        })
+                    });
+                    
+                    if (existingResponse.ok) {
+                        const existingData = await existingResponse.json();
+                        if (existingData.success && existingData.projectToken) {
+                            console.log(`✅ [FORM] Found existing conversation: ${existingData.projectTitle}`);
+                            console.log(`🔑 [FORM] Using token: ${existingData.projectToken.substring(0, 8)}...`);
+                            
+                            // Set session data for existing conversation
+                            this.projectToken = existingData.projectToken;
+                            this.userName = existingData.clientName || name;
+                            this.userEmail = email;
+                            
+                            // Save session (form-based, not member authenticated)
+                            this.saveSession(false);
+                            
+                            console.log('🚀 [FORM] Resuming existing conversation');
+                            this.startMessaging();
+                            return;
+                        }
+                    }
+                    
+                    // Step 2: No existing conversation found, create new one
+                    console.log(`🆕 [FORM] Step 2: Creating new conversation...`);
                     const response = await fetch(`${this.config.backendUrl}/api/new-lead`, {
                         method: 'POST',
                         headers: {
@@ -855,7 +1214,7 @@
                         body: JSON.stringify({
                             name: name,
                             email: email,
-                            source: 'Squarespace Widget'
+                            source: 'Squarespace Widget Form'
                         })
                     });
 
@@ -864,26 +1223,24 @@
                     }
 
                     const result = await response.json();
-                    console.log('✅ Customer project result:', result);
+                    console.log('✅ [FORM] Customer project result:', result);
 
                     if (result.projectToken) {
                         this.projectToken = result.projectToken;
                         this.userName = name;
                         this.userEmail = email;
 
-                        // Save session with stable token
-                        localStorage.setItem('pcd_project_token', this.projectToken);
-                        localStorage.setItem('pcd_user_name', this.userName);
-                        localStorage.setItem('pcd_user_email', this.userEmail);
+                        // Save session (form-based, not member authenticated)
+                        this.saveSession(false);
 
-                        console.log('✅ Using stable project token:', this.projectToken);
+                        console.log('🚀 [FORM] Starting new conversation');
                         this.startMessaging();
                     } else {
                         throw new Error('No project token received');
                     }
 
                 } catch (error) {
-                    console.error('Prechat error:', error);
+                    console.error('[FORM] Prechat error:', error);
                     this.showFormError('Failed to start conversation. Please try again.');
                 } finally {
                     this.showLoading(false);
@@ -1124,7 +1481,7 @@
                     return;
                 }
 
-                const messageContent = message || '(File attachment)';
+                const messageContent = message || '';
                 
                 // ⚡⚡⚡ BULLETPROOF INSTANT UPDATE ⚡⚡⚡
                 console.log('⚡ STEP 1: Starting instant message display...');
@@ -1526,21 +1883,132 @@
                 container.innerHTML = `<div class="pcd-error-message">${message}</div>`;
             }
 
-            // Development helper - clear session data
+            // ENHANCED: Clear all session data including member authentication
             clearSession() {
+                // Clear all localStorage data
                 localStorage.removeItem('pcd_project_token');
                 localStorage.removeItem('pcd_user_name');
                 localStorage.removeItem('pcd_user_email');
-                console.log('🧹 Session data cleared');
+                localStorage.removeItem('pcd_member_authenticated');
+                localStorage.removeItem('pcd_session_timestamp');
+                localStorage.removeItem('pcd_auth_method');
+                localStorage.removeItem('pcd_session_domain');
+                
+                console.log('🧹 [SESSION] All session data cleared including domain tracking');
                 
                 // Reset widget state
                 this.projectToken = null;
                 this.userName = null;
                 this.userEmail = null;
+                this.detectedUserName = null;
                 this.messages = [];
                 
+                // Disconnect any active sockets
+                if (this.socket) {
+                    this.socket.disconnect();
+                    this.socket = null;
+                }
+                
+                // Clear any polling intervals
+                if (this.pollingInterval) {
+                    clearInterval(this.pollingInterval);
+                    this.pollingInterval = null;
+                }
+                
+                // Clear logout watcher
+                if (this.logoutWatcher) {
+                    clearInterval(this.logoutWatcher);
+                    this.logoutWatcher = null;
+                }
+                
+                // Update debug banner
+                const debugBanner = document.getElementById('pcd-debug-banner');
+                if (debugBanner) {
+                    debugBanner.innerHTML = `
+                        🔍 MEMBER AUTH DEBUG: SESSION CLEARED - NO MEMBER DETECTED
+                        | Domain: ${window.location.hostname} 
+                        | <span onclick="this.parentElement.style.display='none'" style="cursor:pointer;background:#333;padding:2px 5px;border-radius:3px;">✕ Hide</span>
+                    `;
+                    debugBanner.style.background = '#990000'; // Red to indicate no member
+                }
+                
                 // Show pre-chat form again
-                document.getElementById('prechatOverlay').style.display = 'flex';
+                const overlay = document.getElementById('prechatOverlay');
+                if (overlay) {
+                    overlay.style.display = 'flex';
+                }
+            }
+
+            // NEW: Save session data with member authentication flag
+            saveSession(isMemberAuthenticated = false) {
+                console.log('💾 [MEMBER_ISOLATION] Saving session data:', {
+                    email: this.userEmail,
+                    name: this.userName,
+                    token: this.projectToken?.substring(0, 8) + '...',
+                    isMemberAuthenticated
+                });
+                
+                localStorage.setItem('pcd_project_token', this.projectToken);
+                localStorage.setItem('pcd_user_name', this.userName);
+                localStorage.setItem('pcd_user_email', this.userEmail);
+                localStorage.setItem('pcd_member_authenticated', isMemberAuthenticated.toString());
+                localStorage.setItem('pcd_session_timestamp', Date.now().toString());
+                localStorage.setItem('pcd_session_domain', window.location.hostname);
+                
+                // Update debug banner with success
+                const debugBanner = document.getElementById('pcd-debug-banner');
+                if (debugBanner) {
+                    debugBanner.innerHTML = `
+                        🔍 MEMBER AUTH DEBUG: ✅ ${this.userEmail} (${isMemberAuthenticated ? 'MEMBER AUTH' : 'FORM AUTH'})
+                        | Domain: ${window.location.hostname} 
+                        | <span onclick="this.parentElement.style.display='none'" style="cursor:pointer;background:#333;padding:2px 5px;border-radius:3px;">✕ Hide</span>
+                    `;
+                    debugBanner.style.background = isMemberAuthenticated ? '#006600' : '#666600'; // Green for member, yellow for form
+                }
+                
+                // Start watching for logout if this is a member session
+                if (isMemberAuthenticated) {
+                    this.watchForLogout();
+                }
+                
+                console.log('✅ [MEMBER_ISOLATION] Session saved successfully');
+            }
+            
+            // NEW: Watch for logout events and force reload
+            watchForLogout() {
+                console.log('👀 [LOGOUT_WATCHER] Starting logout detection...');
+                
+                // Clear any existing watcher
+                if (this.logoutWatcher) {
+                    clearInterval(this.logoutWatcher);
+                }
+                
+                // Check for member logout every 30 seconds
+                this.logoutWatcher = setInterval(() => {
+                    const currentMember = this.getUserEmail();
+                    const savedEmail = localStorage.getItem('pcd_user_email');
+                    const wasMemberAuth = localStorage.getItem('pcd_member_authenticated') === 'true';
+                    
+                    // If we had a member session but now don't detect one, they logged out
+                    if (wasMemberAuth && savedEmail && !currentMember) {
+                        console.log('🚨 [LOGOUT_DETECTED] Member logged out - force clearing session');
+                        this.clearSession();
+                        
+                        // Force reload widget to show logged-out state
+                        const overlay = document.getElementById('prechatOverlay');
+                        if (overlay) {
+                            overlay.style.display = 'flex';
+                        }
+                        
+                        // Stop watching since we're now logged out
+                        clearInterval(this.logoutWatcher);
+                        this.logoutWatcher = null;
+                        
+                        console.log('🔄 [LOGOUT_DETECTED] Widget reset to logged-out state');
+                    }
+                }, 30000); // Check every 30 seconds
+                
+                console.log('👀 [LOGOUT_WATCHER] Logout detection active');
             }
         }
 
@@ -1553,16 +2021,82 @@
         // Debug helper - expose widget globally for debugging
         window.debugWidget = messagingWidget;
         
-        // Add a clear session button for testing (only in development)
+        // Add development helper buttons for testing
         if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+            console.log('🧪 [DEV] Adding testing interface for member simulation');
+            
+            // Create test panel
+            const testPanel = document.createElement('div');
+            testPanel.style.cssText = 'position: fixed; top: 10px; right: 10px; z-index: 9999; background: rgba(0,0,0,0.8); color: white; padding: 15px; border-radius: 8px; font-family: monospace; font-size: 12px; min-width: 200px;';
+            testPanel.innerHTML = `
+                <div style="margin-bottom: 10px; font-weight: bold;">🧪 TESTING MODE</div>
+                <div style="margin-bottom: 8px;">Simulate Member Accounts:</div>
+            `;
+            
+            // Test member accounts
+            const testMembers = [
+                { name: 'Member Account 1', email: 'member1@test.com' },
+                { name: 'Member Account 2', email: 'member2@test.com' },
+                { name: 'Member Account 3', email: 'member3@test.com' }
+            ];
+            
+            testMembers.forEach((member, index) => {
+                const memberButton = document.createElement('button');
+                memberButton.textContent = `👤 ${member.name}`;
+                memberButton.style.cssText = 'display: block; width: 100%; margin: 3px 0; padding: 5px; background: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px;';
+                memberButton.onclick = () => {
+                    console.log(`🧪 [DEV] Testing with ${member.name} (${member.email})`);
+                    
+                    // Clear existing session
+                    messagingWidget.clearSession();
+                    
+                    // Simulate member authentication
+                    messagingWidget.projectToken = null;
+                    messagingWidget.userName = member.name;
+                    messagingWidget.userEmail = member.email;
+                    messagingWidget.detectedUserName = member.name;
+                    
+                    // Call the member authentication flow directly
+                    messagingWidget.getTokenForUser(member.email, member.name);
+                };
+                testPanel.appendChild(memberButton);
+            });
+            
+            // Clear Session Button
             const clearButton = document.createElement('button');
-            clearButton.textContent = 'Clear Session (Dev)';
-            clearButton.style.cssText = 'position: fixed; top: 10px; right: 10px; z-index: 9999; padding: 8px 12px; background: #ff4444; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer;';
+            clearButton.textContent = '🧹 Clear All Sessions';
+            clearButton.style.cssText = 'display: block; width: 100%; margin: 8px 0 3px 0; padding: 5px; background: #ff4444; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px;';
             clearButton.onclick = () => {
+                console.log('🧪 [DEV] Manual session clear triggered');
                 messagingWidget.clearSession();
                 window.location.reload();
             };
-            document.body.appendChild(clearButton);
+            testPanel.appendChild(clearButton);
+            
+            // Debug Authentication Button
+            const debugButton = document.createElement('button');
+            debugButton.textContent = '🔍 Debug Current State';
+            debugButton.style.cssText = 'display: block; width: 100%; margin: 3px 0; padding: 5px; background: #4444ff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px;';
+            debugButton.onclick = () => {
+                console.log('🧪 [DEV] Manual authentication debug triggered');
+                const email = messagingWidget.getUserEmail();
+                console.log('🧪 [DEV] Detected email:', email);
+                
+                const debugInfo = {
+                    detectedEmail: email || 'None',
+                    currentDomain: window.location.hostname,
+                    authMethod: localStorage.getItem('pcd_auth_method') || 'None',
+                    projectToken: localStorage.getItem('pcd_project_token') || 'None',
+                    userName: localStorage.getItem('pcd_user_name') || 'None',
+                    userEmail: localStorage.getItem('pcd_user_email') || 'None'
+                };
+                
+                console.log('🧪 [DEV] Current state:', debugInfo);
+                alert(`Debug Results:\n${JSON.stringify(debugInfo, null, 2)}`);
+            };
+            testPanel.appendChild(debugButton);
+            
+            document.body.appendChild(testPanel);
         }
     </script>
 </body>
