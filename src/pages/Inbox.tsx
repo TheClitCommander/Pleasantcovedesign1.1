@@ -42,56 +42,63 @@ const Inbox: React.FC = () => {
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null)
   const [newMessage, setNewMessage] = useState('')
   const [loading, setLoading] = useState(true)
-  const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting')
+  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'connecting' | 'disconnected'>('disconnected')
   const [searchTerm, setSearchTerm] = useState('')
   const [attachments, setAttachments] = useState<File[]>([])
   
   const socketRef = useRef<Socket | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const currentRoomRef = useRef<string | null>(null)
+  const selectedConversationRef = useRef<Conversation | null>(null)
+  const autoSelectedRef = useRef(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const autoSelectedRef = useRef<boolean>(false) // Track if we've auto-selected
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' })
+    }
   }
 
-  // 🔒 CRITICAL: Ensure ONLY ONE conversation room is active at a time
   const joinConversationRoom = (projectToken: string) => {
-    console.log(`🔍 [SEPARATE_CHAT] Request to join conversation room: ${projectToken}`)
+    console.log(`🔍 [ROOM_DEBUG] Request to join room: ${projectToken}`)
+    console.log(`🔍 [ROOM_DEBUG] Current room: ${currentRoomRef.current}`)
+    console.log(`🔍 [ROOM_DEBUG] Socket connected: ${socketRef.current?.connected}`)
 
     if (!socketRef.current || !socketRef.current.connected) {
-      console.log(`❌ [SEPARATE_CHAT] Socket not available or not connected`)
+      console.log(`❌ [ROOM_DEBUG] Socket not available or not connected`)
       return
     }
 
     // CRITICAL: If we're already in this room, don't rejoin
     if (currentRoomRef.current === projectToken) {
-      console.log(`✅ [SEPARATE_CHAT] Already in room ${projectToken} - no action needed`)
+      console.log(`✅ [ROOM_DEBUG] Already in room ${projectToken} - no action needed`)
       return
     }
 
-    // CRITICAL: Leave ALL previous rooms to ensure isolation
+    // CRITICAL: Leave ALL previous rooms first
     if (currentRoomRef.current) {
-      console.log(`🚪 [SEPARATE_CHAT] Leaving previous room: ${currentRoomRef.current}`)
+      console.log(`🚪 [ROOM_DEBUG] Leaving previous room: ${currentRoomRef.current}`)
       socketRef.current.emit('leave', currentRoomRef.current)
+      currentRoomRef.current = null // Clear immediately
     }
 
     // Join the new room ONLY
-    console.log(`🏠 [SEPARATE_CHAT] Joining SINGLE room: ${projectToken}`)
+    console.log(`🏠 [ROOM_DEBUG] Joining SINGLE room: ${projectToken}`)
     socketRef.current.emit('join', projectToken, (response: any) => {
-      console.log(`✅ [SEPARATE_CHAT] Successfully joined room: ${projectToken}`, response)
+      console.log(`✅ [ROOM_DEBUG] Successfully joined room: ${projectToken}`, response)
     })
     
     currentRoomRef.current = projectToken
+    console.log(`🔒 [ROOM_DEBUG] Room state updated to: ${currentRoomRef.current}`)
   }
 
   // Handle conversation selection - join only that room
   const handleConversationSelect = (conversation: Conversation) => {
-    console.log(`👆 [SEPARATE_CHAT] User manually selected conversation: ${conversation.customerName} (${conversation.projectToken})`)
+    console.log(`👆 [ROOM_DEBUG] User manually selected conversation: ${conversation.customerName} (${conversation.projectToken})`)
     
     // Update selected conversation FIRST
     setSelectedConversation(conversation)
+    selectedConversationRef.current = conversation // Update ref immediately
     
     // Then join only this conversation's room
     if (socketRef.current && socketRef.current.connected) {
@@ -106,225 +113,190 @@ const Inbox: React.FC = () => {
   useEffect(() => {
     const fetchConversations = async () => {
       try {
-        console.log('📥 Fetching all project messages for inbox...')
+        console.log('📥 [FIXED] Fetching all project messages for inbox...')
         const messagesRes = await api.get('/debug/all-messages')
         const debugData = messagesRes.data
-        
-        console.log('📋 Debug data received:', debugData)
         
         // Transform project messages into conversations
         const conversationList: Conversation[] = []
         
         if (debugData.projectMessages) {
-          console.log('🔍 Processing projects:', debugData.projectMessages.length)
-          debugData.projectMessages.forEach((project: any, index: number) => {
-            console.log(`📋 Project ${index}:`, {
-              id: project.projectId,
-              token: project.accessToken,
-              title: project.projectTitle,
-              messagesCount: project.messages?.length || 0
-            })
-            
-            // Create conversation entry even if no messages yet
+          debugData.projectMessages.forEach((project: any) => {
             const messages: Message[] = project.messages ? project.messages.map((msg: any) => ({
               id: msg.id,
               content: msg.content || msg.body || '',
               senderName: msg.senderName || 'Unknown',
               senderType: msg.senderType || 'client',
-              createdAt: msg.createdAt || msg.timestamp || new Date().toISOString(),
+              createdAt: msg.createdAt || new Date().toISOString(),
               attachments: msg.attachments || []
             })) : []
 
-            // Sort messages by timestamp
-            messages.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
-
-            const lastMessage = messages.length > 0 ? messages[messages.length - 1] : undefined
-            
-            // Extract customer name from project title or first client message
-            let customerName = 'Unknown Customer'
-            if (project.projectTitle) {
-              // Extract name from titles like "Member Account 1 - Conversation 1750127649"
-              const titleMatch = project.projectTitle.match(/^(.+?)\s*-\s*Conversation/)
-              if (titleMatch) {
-                customerName = titleMatch[1].trim()
-              } else {
-                customerName = project.projectTitle
-              }
-            }
-            
-            // If no name from title, try to get from first client message
-            if (customerName === 'Unknown Customer') {
-              const clientMessage = messages.find(m => m.senderType === 'client')
-              if (clientMessage) {
-                customerName = clientMessage.senderName
-              }
-            }
-
-            const customerEmail = 'customer@example.com' // We don't have email in the message data
-
             conversationList.push({
-              id: project.projectId,
-              projectId: project.projectId,
-              projectToken: project.accessToken,
-              projectTitle: project.projectTitle,
-              customerName,
-              customerEmail,
-              lastMessage,
-              lastMessageTime: lastMessage?.createdAt || new Date().toISOString(),
+              id: project.id,
+              projectId: project.id,
+              projectToken: project.token,
+              projectTitle: project.title,
+              customerName: project.customerName || 'Unknown Customer',
+              customerEmail: project.customerEmail || 'unknown@email.com',
+              lastMessage: messages[messages.length - 1],
+              lastMessageTime: messages.length > 0 ? messages[messages.length - 1].createdAt : new Date().toISOString(),
               unreadCount: 0,
-              messages
+              messages: messages
             })
           })
         }
-        
-        // Sort conversations by last message time (newest first)
-        conversationList.sort((a, b) => new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime())
-        
+
         setConversations(conversationList)
-        console.log(`✅ [SEPARATE_CHAT] Loaded ${conversationList.length} separate conversations`)
+        console.log(`📥 [FIXED] Loaded ${conversationList.length} conversations`)
         
-        // 🔒 CRITICAL: Auto-select ONLY if no conversation is selected AND we haven't auto-selected before
-        if (conversationList.length > 0 && !selectedConversation && !autoSelectedRef.current) {
-          const firstConv = conversationList[0]
-          setSelectedConversation(firstConv)
-          autoSelectedRef.current = true // Prevent multiple auto-selections
-          console.log(`🎯 [SEPARATE_CHAT] Auto-selected first conversation: ${firstConv.customerName}`)
-          
-          // Don't join room here - let the effect handle it
+        // 🔧 CRITICAL FIX: Do NOT auto-join rooms here!
+        // Only join a room when a conversation is explicitly selected
+        
+        // Auto-select first conversation if none selected and conversations exist
+        if (!selectedConversation && !autoSelectedRef.current && conversationList.length > 0) {
+          console.log(`🎯 [FIXED] Auto-selecting first conversation: ${conversationList[0].customerName}`)
+          setSelectedConversation(conversationList[0])
+          autoSelectedRef.current = true
         }
         
-      } catch (err) {
-        console.error('Failed to load conversations', err)
+      } catch (error) {
+        console.error('❌ [FIXED] Error fetching conversations:', error)
       } finally {
         setLoading(false)
       }
     }
 
     fetchConversations()
+  }, [])
+
+  // 🚀 SETUP WEBSOCKET CONNECTION  
+  useEffect(() => {
+    console.log(`🔌 [WEBSOCKET] Setting up WebSocket connection...`)
     
-    // Set up WebSocket connection for real-time updates
-    if (!socketRef.current) {
-      console.log('🔌 [SEPARATE_CHAT] Connecting to WebSocket for SINGLE-ROOM updates...')
-      setConnectionStatus('connecting')
+    const backendUrl = window.location.hostname === 'localhost' 
+      ? 'http://localhost:3000' 
+      : 'https://pleasantcovedesign-production.up.railway.app'
+    
+    console.log(`🔌 [WEBSOCKET] Connecting to: ${backendUrl}`)
+    setConnectionStatus('connecting')
+    
+    const socket = io(backendUrl, {
+      transports: ['websocket'],
+      autoConnect: true,
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+    })
+    
+    socketRef.current = socket
+    
+    // Connection event handlers
+    socket.on('connect', () => {
+      console.log(`✅ [WEBSOCKET] Connected to backend`)
+      setConnectionStatus('connected')
       
-      socketRef.current = io('http://localhost:3000', {
-        transports: ['websocket', 'polling'],
-        timeout: 10000,
-        forceNew: true,
-        reconnection: true,
-        reconnectionDelay: 1000,
-        reconnectionAttempts: 5
-      })
+      // 🔧 CRITICAL FIX: DO NOT auto-join any rooms here!
+      // Room joining happens only when a conversation is selected
+      console.log(`🔧 [WEBSOCKET] Connection established - no auto-joining rooms`)
+    })
+
+    socket.on('disconnect', (reason) => {
+      console.log(`❌ [WEBSOCKET] Disconnected:`, reason)
+      setConnectionStatus('disconnected')
+      currentRoomRef.current = null
+    })
+
+    socket.on('reconnect', () => {
+      console.log(`🔄 [WEBSOCKET] Reconnected`)
+      setConnectionStatus('connected')
+    })
+
+    // 🔧 FIXED MESSAGE HANDLER - uses refs to avoid closure issues
+    socket.on('newMessage', (message: any) => {
+      console.log('📨 [DEBUG] Received message:', message)
+      console.log('📨 [DEBUG] Message projectToken:', message.projectToken)
       
-      socketRef.current.on('connect', () => {
-        console.log('✅ [SEPARATE_CHAT] WebSocket connected for SINGLE-ROOM inbox')
-        setConnectionStatus('connected')
-        
-        // CRITICAL: Do NOT auto-join any rooms on connect
-        // Let the conversation selection effect handle room joining
-        console.log('🔒 [SEPARATE_CHAT] Connected but NOT auto-joining any rooms')
-      })
+      // Use ref to get current selected conversation (avoids stale closure)
+      const currentConversation = selectedConversationRef.current
+      console.log('📨 [DEBUG] Current conversation:', currentConversation?.customerName, currentConversation?.projectToken)
+      console.log('📨 [DEBUG] Current room:', currentRoomRef.current)
       
-      socketRef.current.on('joined', (data: any) => {
-        console.log('🏠 [SEPARATE_CHAT] Successfully joined single project room:', data)
-      })
+      if (!currentConversation) {
+        console.log('🚫 [DEBUG] No conversation selected, ignoring message')
+        return
+      }
       
-      socketRef.current.on('newMessage', (message: any) => {
-        console.log('📨 [SEPARATE_CHAT] Received message for current room:', message)
-        
-        // Only process messages for the currently selected conversation
-        if (!selectedConversation || message.projectToken !== selectedConversation.projectToken) {
-          console.log(`🚫 [SEPARATE_CHAT] Ignoring message for different conversation (expected: ${selectedConversation?.projectToken}, got: ${message.projectToken})`)
-          return
+      if (message.projectToken !== currentConversation.projectToken) {
+        console.log(`🚫 [DEBUG] Message for different conversation (expected: ${currentConversation.projectToken}, got: ${message.projectToken})`)
+        return
+      }
+      
+      console.log('✅ [DEBUG] Message matches current conversation - processing')
+      
+      // ✅ FIX: Map server fields to client fields correctly
+      const newMessage: Message = {
+        id: message.id,
+        content: message.content || message.body || '',  // Server sends "body", client expects "content"
+        senderName: message.senderName || message.sender || 'Unknown',  // Server sends "sender", client expects "senderName"
+        senderType: message.senderType || (message.sender !== 'Ben Dickinson' ? 'client' : 'admin') || 'client',  // Auto-detect client vs admin
+        createdAt: message.createdAt || message.timestamp || new Date().toISOString(),  // Server sends "timestamp", client expects "createdAt"
+        attachments: message.attachments || []
+      }
+      
+      console.log('📨 [DEBUG] Processed message:', newMessage)
+      
+      // Update the current conversation with the new message
+      setSelectedConversation(prev => {
+        if (!prev) return prev
+        return {
+          ...prev,
+          messages: [...prev.messages, newMessage],
+          lastMessage: newMessage,
+          lastMessageTime: newMessage.createdAt
         }
-        
-        // ✅ FIX: Map server fields to client fields correctly
-        const newMessage: Message = {
-          id: message.id,
-          content: message.content || message.body || '',  // Server sends "body", client expects "content"
-          senderName: message.senderName || message.sender || 'Unknown',  // Server sends "sender", client expects "senderName"
-          senderType: message.senderType || (message.sender !== 'Ben Dickinson' ? 'client' : 'admin') || 'client',  // Auto-detect client vs admin
-          createdAt: message.createdAt || message.timestamp || new Date().toISOString(),  // Server sends "timestamp", client expects "createdAt"
-          attachments: message.attachments || []
-        }
-        
-        console.log('✅ [FIELD_MAPPING] Mapped server message to client format:', {
-          serverFields: { body: message.body, sender: message.sender, timestamp: message.timestamp },
-          clientMessage: newMessage
-        })
-        
-        // Add message instantly to the current conversation
-        setConversations(prevConversations => {
-          const updatedConversations = prevConversations.map(conversation => {
-            if (conversation.projectToken === message.projectToken) {
-              // Check for duplicates
-              const messageExists = conversation.messages.some(m => m.id === newMessage.id)
-              if (messageExists) {
-                console.log(`🔄 [DUPLICATE] Message ${newMessage.id} already exists, skipping`)
-                return conversation
-              }
-              
-              console.log(`📩 [MESSAGE_ADDED] Adding message to conversation: ${conversation.customerName}`)
-              const updatedMessages = [...conversation.messages, newMessage]
-              const updatedConversation = {
-                ...conversation,
-                messages: updatedMessages,
-                lastMessage: newMessage,
-                lastMessageTime: newMessage.createdAt,
-                unreadCount: newMessage.senderType === 'client' 
-                  ? conversation.unreadCount + 1 
-                  : conversation.unreadCount
-              }
-              
-              // Update selected conversation if it's the current one
-              if (selectedConversation?.id === conversation.id) {
-                console.log(`🎯 [SELECTED_UPDATE] Updating selected conversation with new message`)
-                setSelectedConversation(updatedConversation)
-              }
-              
-              return updatedConversation
-            }
-            return conversation
-          })
-          
-          return updatedConversations
-        })
       })
       
-      socketRef.current.on('disconnect', (reason: string) => {
-        console.log('❌ [SEPARATE_CHAT] WebSocket disconnected:', reason)
-        setConnectionStatus('disconnected')
-        currentRoomRef.current = null
-      })
+      // Update conversations list
+      setConversations(prev => prev.map(conv => 
+        conv.projectToken === currentConversation.projectToken
+          ? { ...conv, messages: [...conv.messages, newMessage], lastMessage: newMessage, lastMessageTime: newMessage.createdAt }
+          : conv
+      ))
       
-      socketRef.current.on('connect_error', (error: any) => {
-        console.error('❌ [SEPARATE_CHAT] WebSocket connection error:', error)
-        setConnectionStatus('disconnected')
-      })
-    }
+      console.log('✅ [DEBUG] Message added to conversation')
+    })
 
     return () => {
-      console.log('🧹 [SEPARATE_CHAT] Cleaning up WebSocket connection...')
-      if (socketRef.current) {
-        if (currentRoomRef.current) {
-          console.log(`🚪 [SEPARATE_CHAT] Leaving room on cleanup: ${currentRoomRef.current}`)
-          socketRef.current.emit('leave', currentRoomRef.current)
-        }
-        socketRef.current.disconnect()
-        socketRef.current = null
-      }
-      currentRoomRef.current = null
-      autoSelectedRef.current = false // Reset for next mount
+      console.log(`🔌 [WEBSOCKET] Cleaning up connection...`)
+      socket.disconnect()
     }
-  }, []) // Empty dependency array - only run once
+  }, [])
 
-  // 🔒 CRITICAL: Join selected conversation room when selection changes
+  // 🔒 HANDLE CONVERSATION SELECTION CHANGES
   useEffect(() => {
+    console.log(`🎯 [DEBUG] Conversation selection effect triggered`)
+    console.log(`🎯 [DEBUG] selectedConversation:`, selectedConversation?.customerName, selectedConversation?.projectToken)
+    console.log(`🎯 [DEBUG] Socket connected:`, socketRef.current?.connected)
+    console.log(`🎯 [DEBUG] Current room:`, currentRoomRef.current)
+    
     if (selectedConversation && socketRef.current && socketRef.current.connected) {
-      console.log(`🎯 [SEPARATE_CHAT] Selected conversation changed to: ${selectedConversation.customerName} (${selectedConversation.projectToken})`)
+      console.log(`🎯 [DEBUG] ✅ CONDITIONS MET - Processing conversation selection`)
+      
+      // Update ref immediately to avoid closure issues
+      selectedConversationRef.current = selectedConversation
+      console.log(`🎯 [DEBUG] Updated selectedConversationRef to:`, selectedConversation.customerName)
+      
+      // 🔧 CRITICAL FIX: Join room for selected conversation ONLY
+      console.log(`🎯 [DEBUG] About to join room for: ${selectedConversation.projectToken}`)
       joinConversationRoom(selectedConversation.projectToken)
+      
+    } else {
+      console.log(`🎯 [DEBUG] ❌ CONDITIONS NOT MET:`)
+      console.log(`🎯 [DEBUG] - selectedConversation:`, !!selectedConversation)
+      console.log(`🎯 [DEBUG] - socket exists:`, !!socketRef.current)
+      console.log(`🎯 [DEBUG] - socket connected:`, socketRef.current?.connected)
     }
-  }, [selectedConversation]) // Only trigger when selectedConversation changes
+  }, [selectedConversation])
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files
