@@ -2,18 +2,14 @@ import React from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import Layout from './Layout'
 
-// Page imports
+// Import all the restored components for the full dashboard
 import Dashboard from './pages/Dashboard'
 import Inbox from './pages/Inbox'
 import Leads from './pages/Leads'
-import Progress from './pages/Progress'
-import Settings from './pages/Settings'
-import Schedule from './pages/Schedule'
-import ClientProfile from './pages/ClientProfile'
 import Interactions from './pages/Interactions'
-// import ClientPortal from './pages/ClientPortal'
-import BookAppointment from './pages/BookAppointment'
-import BusinessInbox from './pages/BusinessInbox'
+import Progress from './pages/Progress'
+import Schedule from './pages/Schedule'
+import Settings from './pages/Settings'
 
 // Error boundary component
 class ErrorBoundary extends React.Component<
@@ -60,30 +56,23 @@ const App: React.FC = () => {
     <ErrorBoundary>
       <Router>
         <Routes>
-          {/* Public Routes */}
-          <Route path="/book" element={<BookAppointment />} />
-          
-          {/* Client Portal Route - Public access with token */}
-          {/* <Route path="/client/:token" element={<ClientPortal />} /> */}
-          
-          {/* Admin Routes - All use Layout with Outlet */}
+          {/* All routes wrapped in Layout for full dashboard */}
           <Route path="/" element={<Layout />}>
-            <Route index element={<Navigate to="/inbox" replace />} />
+            {/* Default redirect to Dashboard */}
+            <Route index element={<Navigate to="/dashboard" replace />} />
+            
+            {/* LOCKED IN - Single source of truth messaging system */}
             <Route path="dashboard" element={<Dashboard />} />
-            <Route path="inbox" element={<Inbox />} />
-            <Route path="inbox/:projectToken" element={<Inbox />} />
-            <Route path="business/:businessId/inbox" element={<BusinessInbox />} />
+            <Route path="business/1/inbox" element={<Inbox />} />
             <Route path="leads" element={<Leads />} />
             <Route path="interactions" element={<Interactions />} />
             <Route path="progress" element={<Progress />} />
             <Route path="schedule" element={<Schedule />} />
             <Route path="settings" element={<Settings />} />
-            {/* Admin client profile - use admin/ prefix to avoid conflicts */}
-            <Route path="admin/client/:id" element={<ClientProfile />} />
           </Route>
           
-          {/* Fallback for any unmatched routes */}
-          <Route path="*" element={<Navigate to="/inbox" replace />} />
+          {/* Fallback redirect */}
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </Router>
     </ErrorBoundary>

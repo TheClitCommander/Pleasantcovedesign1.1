@@ -193,7 +193,7 @@ const ClientSummaryCard: React.FC<ClientSummaryCardProps> = ({
           </div>
         </div>
         
-        {showTags && Array.isArray(client.tags) && client.tags.length > 0 && (
+        {showTags && client.tags && client.tags.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-2">
             {client.tags.slice(0, 3).map((tag, index) => (
               <span
@@ -327,7 +327,7 @@ const ClientSummaryCard: React.FC<ClientSummaryCardProps> = ({
       )}
 
       {/* Tags */}
-      {showTags && Array.isArray(client.tags) && client.tags.length > 0 && (
+      {showTags && client.tags && client.tags.length > 0 && (
         <div className="mb-3">
           <div className="flex flex-wrap gap-1">
             {client.tags.map((tag, index) => (

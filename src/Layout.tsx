@@ -3,6 +3,7 @@ import { NavLink, Outlet } from 'react-router-dom'
 import { Home, Users, TrendingUp, Calendar, Settings, Inbox, MessageCircle } from 'lucide-react'
 import { clsx } from 'clsx'
 
+// Navigation configuration for Pleasant Cove Design dashboard
 interface NavItem {
   label: string
   path: string
@@ -11,7 +12,7 @@ interface NavItem {
 
 const navigation: NavItem[] = [
   { path: '/dashboard', label: 'Dashboard', icon: Home },
-  { path: '/inbox', label: 'LocalBiz Pro Inbox', icon: Inbox },
+  { path: '/business/1/inbox', label: 'Biz Pro Inbox', icon: Inbox },
   { path: '/leads', label: 'Leads', icon: Users },
   { path: '/interactions', label: 'Interactions', icon: MessageCircle },
   { path: '/progress', label: 'Progress', icon: TrendingUp },
@@ -30,10 +31,10 @@ const Layout: React.FC = () => {
             <div className="flex items-center">
               <h1 className="text-xl font-bold text-primary-600">Pleasant Cove Design</h1>
             </div>
-            <div className="text-sm text-muted">LocalBiz Pro Dashboard</div>
+            <div className="text-sm text-muted">Biz Pro Dashboard</div>
           </div>
           
-          {/* Tab Navigation */}
+          {/* Tab Navigation - Full Dashboard */}
           <div className="flex space-x-8 -mb-px">
             {navigation.map((item) => {
               const Icon = item.icon

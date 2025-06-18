@@ -115,15 +115,17 @@ const Inbox: React.FC = () => {
   useEffect(() => {
     const fetchConversations = async () => {
       try {
-        console.log('📥 [FIXED] Fetching all project messages for inbox...')
-        const messagesRes = await api.get('/debug/all-messages')
-        const debugData = messagesRes.data
+        // Use business-scoped endpoint instead of debug endpoint
+        const businessId = 1; // TODO: Get from user session/params
+        console.log(`📥 [BUSINESS_SCOPED] Fetching messages for business ${businessId}...`)
+        const messagesRes = await api.get(`/business/${businessId}/messages`)
+        const businessData = messagesRes.data
         
         // Transform project messages into conversations
         const conversationList: Conversation[] = []
         
-        if (debugData.projectMessages) {
-          debugData.projectMessages.forEach((project: any) => {
+        if (businessData.projectMessages) {
+          businessData.projectMessages.forEach((project: any) => {
             // Extract customer name from project title (e.g., "Ben Dickinson - Conversation xyz" -> "Ben Dickinson")
             const customerName = project.projectTitle.split(' - ')[0] || 'Unknown Customer'
             
@@ -160,7 +162,7 @@ const Inbox: React.FC = () => {
         conversationList.sort((a, b) => new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime())
 
         setConversations(conversationList)
-        console.log(`📥 [FIXED] Loaded ${conversationList.length} conversations`)
+        console.log(`📥 [BUSINESS_SCOPED] Loaded ${conversationList.length} conversations for business ${businessId}`)
         
         // Auto-select first conversation if none selected and conversations exist
         if (!selectedConversation && !autoSelectedRef.current && conversationList.length > 0) {
@@ -171,7 +173,7 @@ const Inbox: React.FC = () => {
         }
         
       } catch (error) {
-        console.error('❌ [FIXED] Error fetching conversations:', error)
+        console.error('❌ [BUSINESS_SCOPED] Error fetching conversations:', error)
       } finally {
         setLoading(false)
       }
@@ -184,7 +186,7 @@ const Inbox: React.FC = () => {
   useEffect(() => {
     console.log(`🔌 [WEBSOCKET] Setting up WebSocket connection...`)
     
-    const backendUrl = 'http://localhost:3000'
+    const backendUrl = 'https://pleasantcovedesign-production.up.railway.app'
     
     console.log(`🔌 [WEBSOCKET] Connecting to: ${backendUrl}`)
     setConnectionStatus('connecting')
@@ -371,7 +373,7 @@ const Inbox: React.FC = () => {
           formData.append('files', file)
         })
         
-        response = await fetch(`http://localhost:3000/api/public/project/${selectedConversation.projectToken}/messages`, {
+        response = await fetch(`https://pleasantcovedesign-production.up.railway.app/api/public/project/${selectedConversation.projectToken}/messages`, {
           method: 'POST',
           body: formData
         })
@@ -451,11 +453,15 @@ const Inbox: React.FC = () => {
     const now = new Date()
     const diff = now.getTime() - date.getTime()
     const hours = diff / (1000 * 60 * 60)
+    const days = diff / (1000 * 60 * 60 * 24)
     
     if (hours < 1) {
-      return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+      const minutes = Math.floor(diff / (1000 * 60))
+      return minutes <= 1 ? 'Just now' : `${minutes}m ago`
     } else if (hours < 24) {
       return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+    } else if (days < 7) {
+      return days === 1 ? 'Yesterday' : `${Math.floor(days)}d ago`
     } else {
       return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
     }
@@ -482,17 +488,23 @@ const Inbox: React.FC = () => {
         {/* Header */}
         <div className="p-4 border-b border-border">
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-xl font-bold text-foreground">Messages</h1>
+            <h1 className="text-xl font-bold text-foreground">Business Inbox</h1>
             {/* Connection status */}
-            <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${
-                connectionStatus === 'connected' ? 'bg-green-500' : 
-                connectionStatus === 'connecting' ? 'bg-yellow-500' : 'bg-red-500'
-              }`}></div>
-              <span className="text-xs text-muted">
-                {connectionStatus === 'connected' ? 'Live' : 
-                 connectionStatus === 'connecting' ? 'Connecting...' : 'Offline'}
-              </span>
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-muted">{filteredConversations.length} conversation{filteredConversations.length !== 1 ? 's' : ''}</span>
+              <div className="flex items-center gap-2">
+                <div className={`w-2 h-2 rounded-full ${
+                  connectionStatus === 'connected' ? 'bg-green-500 animate-pulse' : 
+                  connectionStatus === 'connecting' ? 'bg-yellow-500 animate-pulse' : 'bg-red-500'
+                }`}></div>
+                <span className={`text-xs font-medium ${
+                  connectionStatus === 'connected' ? 'text-green-600' : 
+                  connectionStatus === 'connecting' ? 'text-yellow-600' : 'text-red-600'
+                }`}>
+                  {connectionStatus === 'connected' ? 'Live' : 
+                   connectionStatus === 'connecting' ? 'Connecting...' : 'Offline'}
+                </span>
+              </div>
             </div>
           </div>
           
@@ -537,8 +549,8 @@ const Inbox: React.FC = () => {
                   </p>
                   {conversation.lastMessage && (
                     <p className="text-sm text-muted truncate mt-1">
-                      {conversation.lastMessage.senderType === 'admin' ? 'You: ' : ''}
-                      {conversation.lastMessage.content}
+                      {conversation.lastMessage.senderType === 'admin' ? '🔵 You: ' : '💬 '}
+                      {conversation.lastMessage.content || (conversation.lastMessage.attachments?.length ? `📎 ${conversation.lastMessage.attachments.length} file${conversation.lastMessage.attachments.length > 1 ? 's' : ''}` : 'Message')}
                     </p>
                   )}
                   {conversation.unreadCount > 0 && (
@@ -618,6 +630,9 @@ const Inbox: React.FC = () => {
                         {message.attachments.map((attachment, attachmentIndex) => {
                           const fileName = attachment.split('/').pop() || 'attachment';
                           const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(fileName);
+                          const isVideo = /\.(mp4|webm|mov|avi)$/i.test(fileName);
+                          const isAudio = /\.(mp3|wav|ogg|m4a)$/i.test(fileName);
+                          const isPdf = /\.pdf$/i.test(fileName);
                           
                           if (isImage) {
                             return (
@@ -625,7 +640,7 @@ const Inbox: React.FC = () => {
                                 <img 
                                   src={attachment} 
                                   alt={fileName}
-                                  className="max-w-48 max-h-32 rounded cursor-pointer border border-gray-200"
+                                  className="max-w-48 max-h-32 rounded cursor-pointer border border-gray-200 hover:opacity-90 transition-opacity"
                                   onClick={() => window.open(attachment, '_blank')}
                                   onError={(e) => {
                                     // Fallback to file link if image fails to load
@@ -648,7 +663,63 @@ const Inbox: React.FC = () => {
                                 </a>
                               </div>
                             );
+                          } else if (isVideo) {
+                            return (
+                              <div key={attachmentIndex} className="mt-2">
+                                <video 
+                                  controls
+                                  className="max-w-64 max-h-40 rounded border border-gray-200"
+                                  preload="metadata"
+                                >
+                                  <source src={attachment} />
+                                  Your browser does not support video playback.
+                                </video>
+                                <a
+                                  href={attachment}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className={`flex items-center gap-2 text-xs underline hover:no-underline mt-1 ${
+                                    message.senderType === 'admin' ? 'text-blue-200 hover:text-blue-100' : 'text-blue-600 hover:text-blue-800'
+                                  }`}
+                                >
+                                  🎬 {fileName}
+                                </a>
+                              </div>
+                            );
+                          } else if (isAudio) {
+                            return (
+                              <div key={attachmentIndex} className="mt-2">
+                                <audio 
+                                  controls
+                                  className="w-full max-w-64"
+                                  preload="metadata"
+                                >
+                                  <source src={attachment} />
+                                  Your browser does not support audio playback.
+                                </audio>
+                                <a
+                                  href={attachment}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className={`flex items-center gap-2 text-xs underline hover:no-underline mt-1 ${
+                                    message.senderType === 'admin' ? 'text-blue-200 hover:text-blue-100' : 'text-blue-600 hover:text-blue-800'
+                                  }`}
+                                >
+                                  🎵 {fileName}
+                                </a>
+                              </div>
+                            );
                           } else {
+                            // Get appropriate icon based on file type
+                            const getFileIcon = (filename: string) => {
+                              if (isPdf) return '📄';
+                              if (/\.(doc|docx)$/i.test(filename)) return '📝';
+                              if (/\.(xls|xlsx|csv)$/i.test(filename)) return '📊';
+                              if (/\.(zip|rar|7z)$/i.test(filename)) return '🗜️';
+                              if (/\.(txt|log)$/i.test(filename)) return '📃';
+                              return '📎';
+                            };
+                            
                             return (
                               <a
                                 key={attachmentIndex}
@@ -656,13 +727,13 @@ const Inbox: React.FC = () => {
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 download
-                                className={`flex items-center gap-2 text-xs underline hover:no-underline px-2 py-1 rounded ${
+                                className={`flex items-center gap-2 text-xs underline hover:no-underline px-2 py-1 rounded transition-colors ${
                                   message.senderType === 'admin' 
                                     ? 'text-blue-200 hover:text-blue-100 hover:bg-blue-700' 
                                     : 'text-blue-600 hover:text-blue-800 hover:bg-blue-50'
                                 }`}
                               >
-                                📎 {fileName}
+                                {getFileIcon(fileName)} {fileName}
                               </a>
                             );
                           }

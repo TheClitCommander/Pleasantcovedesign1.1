@@ -558,6 +558,21 @@
         </div>
     </div>
 
+    <!-- 🧪 DEVELOPMENT ONLY - Manual Token Injection -->
+    <!-- REMOVE THIS BLOCK FOR PRODUCTION -->
+    <script>
+        // 🧪 DEVELOPMENT OVERRIDE - Inject your known working token here for local testing
+        // COMMENT OUT or REMOVE this block when deploying to production
+        
+        // Replace with your actual working token from the backend
+        window.PROJECT_TOKEN = "mbzull5i_XT43KQsr_3jyoxS5ELr0fw"; // Known working token
+        window.PROJECT_USER_NAME = "Ben Dickinson"; // Your name
+        window.PROJECT_USER_EMAIL = "ben@pleasantcovedesign.com"; // Your email
+        
+        console.log('🧪 [DEV_INJECT] Manual token injected for testing:', window.PROJECT_TOKEN);
+        console.log('🧪 [DEV_INJECT] REMEMBER: Remove this script block for production!');
+    </script>
+    
     <script>
         class PCDMessagingWidget {
             constructor() {
@@ -578,6 +593,12 @@
             }
 
             detectBackendUrl() {
+                // Check for forced local testing
+                if (window.PCD_FORCE_LOCAL || window.parent?.PCD_FORCE_LOCAL) {
+                    console.log('🧪 FORCE_LOCAL detected - using localhost:3000 for testing');
+                    return 'http://localhost:3000';
+                }
+                
                 // Auto-detect environment based on hostname
                 const hostname = window.location.hostname;
                 
@@ -671,6 +692,39 @@
             }
 
             checkExistingSession() {
+                // 🧪 DEVELOPMENT OVERRIDE - Manual Token Injection
+                console.log('🧪 [DEV_OVERRIDE] Checking for manual token injection...');
+                
+                // Method 1: Direct window object injection (check both window and parent for iframe support)
+                const projectToken = window.PROJECT_TOKEN || window.parent?.PROJECT_TOKEN;
+                const projectUserName = window.PROJECT_USER_NAME || window.parent?.PROJECT_USER_NAME;
+                const projectUserEmail = window.PROJECT_USER_EMAIL || window.parent?.PROJECT_USER_EMAIL;
+                
+                if (projectToken) {
+                    console.log('🧪 [DEV_OVERRIDE] Found PROJECT_TOKEN:', projectToken);
+                    this.projectToken = projectToken;
+                    this.userName = projectUserName || 'Dev User';
+                    this.userEmail = projectUserEmail || 'dev@test.com';
+                    console.log('🧪 [DEV_OVERRIDE] Using manual injection - bypassing all auth checks');
+                    this.startMessaging();
+                    return;
+                }
+                
+                // Method 2: URL parameter fallback
+                const devUrlParams = new URLSearchParams(window.location.search);
+                const devUrlToken = devUrlParams.get('token') || devUrlParams.get('projectToken');
+                if (devUrlToken) {
+                    console.log('🧪 [DEV_OVERRIDE] Found token in URL:', devUrlToken);
+                    this.projectToken = devUrlToken;
+                    this.userName = devUrlParams.get('name') || devUrlParams.get('userName') || 'URL User';
+                    this.userEmail = devUrlParams.get('email') || devUrlParams.get('userEmail') || 'url@test.com';
+                    console.log('🧪 [DEV_OVERRIDE] Using URL token - bypassing all auth checks');
+                    this.startMessaging();
+                    return;
+                }
+                
+                console.log('🧪 [DEV_OVERRIDE] No manual token found, proceeding with normal auth flow...');
+                
                 // 🔒 ENHANCED MEMBER ISOLATION SYSTEM - ZERO SHARED CONVERSATIONS
                 console.log('🔍 [MEMBER_ISOLATION] Starting enhanced member isolation check...');
                 console.log('🌐 [MEMBER_ISOLATION] Current domain:', window.location.hostname);

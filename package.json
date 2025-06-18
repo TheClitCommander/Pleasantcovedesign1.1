@@ -10,7 +10,9 @@
     "localbiz-pro": "vite --port 5173",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "clean": "pkill -f 'node.*5173' || true && pkill -f 'node.*5174' || true && pkill -f 'vite' || true && pkill -f 'tsx' || true"
+    "clean": "pkill -f 'node.*5173' || true && pkill -f 'node.*5174' || true && pkill -f 'vite' || true && pkill -f 'tsx' || true",
+    "launch": "npm run clean && sleep 1 && concurrently \"npm run server\" \"npm run localbiz-pro\" \"npm run open-inbox\"",
+    "open-inbox": "sleep 4 && node -e \"const { exec } = require('child_process'); const cmd = process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'start' : 'xdg-open'; exec(cmd + ' http://localhost:5173/business/1/inbox');\""
   },
   "keywords": [],
   "author": "Pleasant Cove Design",

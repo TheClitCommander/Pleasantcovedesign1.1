@@ -149,7 +149,7 @@ const EntitySummaryCard: React.FC<EntitySummaryCardProps> = ({
         )}
 
         {/* Tags */}
-        {Array.isArray(company.tags) && company.tags.length > 0 && (
+        {company.tags && company.tags.length > 0 && (
           <div className="flex flex-wrap gap-1 mb-3">
             {company.tags.slice(0, mode === 'compact' ? 3 : 5).map((tag) => (
               <span

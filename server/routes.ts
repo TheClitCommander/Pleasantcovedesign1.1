@@ -741,6 +741,11 @@ export async function registerRoutes(app: Express, io?: any): Promise<any> {
   
   // Get project messages by token (PUBLIC - for client portal)
   app.get("/api/public/project/:token/messages", async (req: Request, res: Response) => {
+    // Add CORS headers for widget access
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+    
     try {
       const { token } = req.params;
       
@@ -817,6 +822,11 @@ export async function registerRoutes(app: Express, io?: any): Promise<any> {
 
   // Create message in project (PUBLIC - for client replies) - supports both multer and presigned URL uploads
   app.post("/api/public/project/:token/messages", upload.array('files'), async (req: Request, res: Response) => {
+    // Add CORS headers for widget access
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+    
     try {
       const { token } = req.params;
       const { content, senderName, senderType = 'client', attachments: attachmentKeys } = req.body;
@@ -1438,7 +1448,63 @@ export async function registerRoutes(app: Express, io?: any): Promise<any> {
   // PROJECT MESSAGING OPERATIONS (Admin)
   // ===================
 
-  // Debug endpoint to see all messages in database
+  // Get all messages for a specific business (replaces debug endpoint)
+  app.get("/api/business/:businessId/messages", async (req: Request, res: Response) => {
+    try {
+      const businessId = parseInt(req.params.businessId);
+      console.log(`📬 Fetching messages for business ${businessId}...`);
+      
+      // Verify business exists
+      const business = await storage.getCompanyById(businessId);
+      if (!business) {
+        return res.status(404).json({ error: "Business not found" });
+      }
+      
+      // Get all projects for this business
+      const projects = await storage.getProjectsByCompany(businessId);
+      console.log(`📬 Found ${projects.length} projects for business ${businessId}`);
+      
+      // Get all messages for each project
+      const projectMessages = [];
+      for (const project of projects) {
+        const messages = await storage.getProjectMessages(project.id!);
+        console.log(`📬 Project ${project.id} (${project.title}) has ${messages.length} messages`);
+        
+        // Only include projects with messages for cleaner inbox
+        if (messages.length > 0) {
+          projectMessages.push({
+            projectId: project.id,
+            projectTitle: project.title,
+            accessToken: project.accessToken,
+            messageCount: messages.length,
+            messages: messages,
+            status: project.status,
+            stage: project.stage,
+            createdAt: project.createdAt
+          });
+        }
+      }
+      
+      // Sort by most recent message activity
+      projectMessages.sort((a, b) => {
+        const aLastMsg = a.messages[a.messages.length - 1]?.createdAt || a.createdAt;
+        const bLastMsg = b.messages[b.messages.length - 1]?.createdAt || b.createdAt;
+        return new Date(bLastMsg).getTime() - new Date(aLastMsg).getTime();
+      });
+      
+      res.json({
+        businessId,
+        businessName: business.name,
+        totalProjects: projectMessages.length,
+        projectMessages: projectMessages
+      });
+    } catch (error) {
+      console.error("Failed to fetch business messages:", error);
+      res.status(500).json({ error: "Failed to fetch business messages" });
+    }
+  });
+
+  // Debug endpoint to see all messages in database (legacy - use business endpoint instead)
   app.get("/api/debug/all-messages", async (req: Request, res: Response) => {
     try {
       console.log('🔍 Debug: Fetching all project messages...');
