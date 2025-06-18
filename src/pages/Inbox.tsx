@@ -94,16 +94,17 @@ const Inbox: React.FC = () => {
 
   // Handle conversation selection - join only that room
   const handleConversationSelect = (conversation: Conversation) => {
-    console.log(`👆 [ROOM_DEBUG] User manually selected conversation: ${conversation.customerName} (${conversation.projectToken})`)
-    
-    // Update selected conversation FIRST
+    console.log(`🎯 [CONVERSATION_SELECT] User selected conversation:`, conversation.customerName, conversation.projectToken)
     setSelectedConversation(conversation)
-    selectedConversationRef.current = conversation // Update ref immediately
     
-    // Then join only this conversation's room
-    if (socketRef.current && socketRef.current.connected) {
-      joinConversationRoom(conversation.projectToken)
-    }
+    // Mark conversation as read
+    setConversations(prev => prev.map(conv => 
+      conv.id === conversation.id 
+        ? { ...conv, unreadCount: 0 }
+        : conv
+    ))
+    
+    scrollToBottom()
   }
 
   useEffect(() => {
@@ -213,25 +214,25 @@ const Inbox: React.FC = () => {
 
     // 🔧 FIXED MESSAGE HANDLER - uses refs to avoid closure issues
     socket.on('newMessage', (message: any) => {
-      console.log('📨 [DEBUG] Received message:', message)
-      console.log('📨 [DEBUG] Message projectToken:', message.projectToken)
+      console.log('📨 [MESSAGE_DEBUG] Received message:', message)
+      console.log('📨 [MESSAGE_DEBUG] Message projectToken:', message.projectToken)
       
       // Use ref to get current selected conversation (avoids stale closure)
       const currentConversation = selectedConversationRef.current
-      console.log('📨 [DEBUG] Current conversation:', currentConversation?.customerName, currentConversation?.projectToken)
-      console.log('📨 [DEBUG] Current room:', currentRoomRef.current)
+      console.log('📨 [MESSAGE_DEBUG] Current conversation:', currentConversation?.customerName, currentConversation?.projectToken)
+      console.log('📨 [MESSAGE_DEBUG] Current room:', currentRoomRef.current)
       
       if (!currentConversation) {
-        console.log('🚫 [DEBUG] No conversation selected, ignoring message')
+        console.log('🚫 [MESSAGE_DEBUG] No conversation selected, ignoring message')
         return
       }
       
       if (message.projectToken !== currentConversation.projectToken) {
-        console.log(`🚫 [DEBUG] Message for different conversation (expected: ${currentConversation.projectToken}, got: ${message.projectToken})`)
+        console.log(`🚫 [MESSAGE_DEBUG] Message for different conversation (expected: ${currentConversation.projectToken}, got: ${message.projectToken})`)
         return
       }
       
-      console.log('✅ [DEBUG] Message matches current conversation - processing')
+      console.log('✅ [MESSAGE_DEBUG] Message matches current conversation - processing...')
       
       // ✅ FIX: Map server fields to client fields correctly
       const newMessage: Message = {
@@ -243,11 +244,12 @@ const Inbox: React.FC = () => {
         attachments: message.attachments || []
       }
       
-      console.log('📨 [DEBUG] Processed message:', newMessage)
+      console.log('📨 [MESSAGE_DEBUG] Processed message:', newMessage)
       
       // Update the current conversation with the new message
       setSelectedConversation(prev => {
-        if (!prev) return prev
+        if (!prev || prev.projectToken !== currentConversation.projectToken) return prev
+        console.log('📨 [MESSAGE_DEBUG] Updating selected conversation with new message')
         return {
           ...prev,
           messages: [...prev.messages, newMessage],
@@ -263,7 +265,10 @@ const Inbox: React.FC = () => {
           : conv
       ))
       
-      console.log('✅ [DEBUG] Message added to conversation')
+      console.log('✅ [MESSAGE_DEBUG] Message added to conversation')
+      
+      // Scroll to bottom when new message arrives
+      setTimeout(scrollToBottom, 100)
     })
 
     return () => {
@@ -274,27 +279,27 @@ const Inbox: React.FC = () => {
 
   // 🔒 HANDLE CONVERSATION SELECTION CHANGES
   useEffect(() => {
-    console.log(`🎯 [DEBUG] Conversation selection effect triggered`)
-    console.log(`🎯 [DEBUG] selectedConversation:`, selectedConversation?.customerName, selectedConversation?.projectToken)
-    console.log(`🎯 [DEBUG] Socket connected:`, socketRef.current?.connected)
-    console.log(`🎯 [DEBUG] Current room:`, currentRoomRef.current)
+    console.log(`🎯 [SELECTION_DEBUG] Conversation selection effect triggered`)
+    console.log(`🎯 [SELECTION_DEBUG] selectedConversation:`, selectedConversation?.customerName, selectedConversation?.projectToken)
+    console.log(`🎯 [SELECTION_DEBUG] Socket connected:`, socketRef.current?.connected)
+    console.log(`🎯 [SELECTION_DEBUG] Current room:`, currentRoomRef.current)
     
     if (selectedConversation && socketRef.current && socketRef.current.connected) {
-      console.log(`🎯 [DEBUG] ✅ CONDITIONS MET - Processing conversation selection`)
+      console.log(`🎯 [SELECTION_DEBUG] ✅ CONDITIONS MET - Processing conversation selection`)
       
       // Update ref immediately to avoid closure issues
       selectedConversationRef.current = selectedConversation
-      console.log(`🎯 [DEBUG] Updated selectedConversationRef to:`, selectedConversation.customerName)
+      console.log(`🎯 [SELECTION_DEBUG] Updated selectedConversationRef to:`, selectedConversation.customerName)
       
       // 🔧 CRITICAL FIX: Join room for selected conversation ONLY
-      console.log(`🎯 [DEBUG] About to join room for: ${selectedConversation.projectToken}`)
+      console.log(`🎯 [SELECTION_DEBUG] About to join room for: ${selectedConversation.projectToken}`)
       joinConversationRoom(selectedConversation.projectToken)
       
     } else {
-      console.log(`🎯 [DEBUG] ❌ CONDITIONS NOT MET:`)
-      console.log(`🎯 [DEBUG] - selectedConversation:`, !!selectedConversation)
-      console.log(`🎯 [DEBUG] - socket exists:`, !!socketRef.current)
-      console.log(`🎯 [DEBUG] - socket connected:`, socketRef.current?.connected)
+      console.log(`🎯 [SELECTION_DEBUG] ❌ CONDITIONS NOT MET:`)
+      console.log(`🎯 [SELECTION_DEBUG] - selectedConversation:`, !!selectedConversation)
+      console.log(`🎯 [SELECTION_DEBUG] - socket exists:`, !!socketRef.current)
+      console.log(`🎯 [SELECTION_DEBUG] - socket connected:`, socketRef.current?.connected)
     }
   }, [selectedConversation])
 
@@ -741,4 +746,4 @@ const Inbox: React.FC = () => {
   )
 }
 
-export default Inbox 
+export default Inbox; 
