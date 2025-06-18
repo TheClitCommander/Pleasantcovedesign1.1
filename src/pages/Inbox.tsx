@@ -123,40 +123,49 @@ const Inbox: React.FC = () => {
         
         if (debugData.projectMessages) {
           debugData.projectMessages.forEach((project: any) => {
+            // Extract customer name from project title (e.g., "Ben Dickinson - Conversation xyz" -> "Ben Dickinson")
+            const customerName = project.projectTitle.split(' - ')[0] || 'Unknown Customer'
+            
             const messages: Message[] = project.messages ? project.messages.map((msg: any) => ({
               id: msg.id,
               content: msg.content || msg.body || '',
-              senderName: msg.senderName || 'Unknown',
+              senderName: msg.senderName || msg.sender || 'Unknown',
               senderType: msg.senderType || 'client',
-              createdAt: msg.createdAt || new Date().toISOString(),
+              createdAt: msg.createdAt || msg.timestamp || new Date().toISOString(),
               attachments: msg.attachments || []
             })) : []
-
-            conversationList.push({
-              id: project.id,
-              projectId: project.id,
-              projectToken: project.token,
-              projectTitle: project.title,
-              customerName: project.customerName || 'Unknown Customer',
-              customerEmail: project.customerEmail || 'unknown@email.com',
-              lastMessage: messages[messages.length - 1],
-              lastMessageTime: messages.length > 0 ? messages[messages.length - 1].createdAt : new Date().toISOString(),
+            
+            // Sort messages by creation time (oldest first)
+            messages.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+            
+            const conversation: Conversation = {
+              id: project.projectId,
+              projectId: project.projectId,
+              projectToken: project.accessToken, // ✅ FIX: API sends "accessToken", client expects "projectToken"
+              projectTitle: project.projectTitle,
+              customerName: customerName, // ✅ FIX: Extract actual customer name
+              customerEmail: `${customerName.toLowerCase().replace(/\s+/g, '.')}@example.com`, // Generate placeholder email
+              lastMessage: messages[messages.length - 1] || undefined,
+              lastMessageTime: messages[messages.length - 1]?.createdAt || new Date().toISOString(),
               unreadCount: 0,
               messages: messages
-            })
+            }
+            
+            conversationList.push(conversation)
           })
         }
+        
+        // Sort conversations by last message time (newest first)
+        conversationList.sort((a, b) => new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime())
 
         setConversations(conversationList)
         console.log(`📥 [FIXED] Loaded ${conversationList.length} conversations`)
         
-        // 🔧 CRITICAL FIX: Do NOT auto-join rooms here!
-        // Only join a room when a conversation is explicitly selected
-        
         // Auto-select first conversation if none selected and conversations exist
         if (!selectedConversation && !autoSelectedRef.current && conversationList.length > 0) {
-          console.log(`🎯 [FIXED] Auto-selecting first conversation: ${conversationList[0].customerName}`)
-          setSelectedConversation(conversationList[0])
+          const firstConversation = conversationList[0]
+          console.log(`🎯 [AUTO_SELECT] Auto-selecting first conversation: ${firstConversation.customerName} (${firstConversation.projectToken})`)
+          setSelectedConversation(firstConversation)
           autoSelectedRef.current = true
         }
         
@@ -196,9 +205,11 @@ const Inbox: React.FC = () => {
       console.log(`✅ [WEBSOCKET] Connected to backend`)
       setConnectionStatus('connected')
       
-      // 🔧 CRITICAL FIX: DO NOT auto-join any rooms here!
-      // Room joining happens only when a conversation is selected
-      console.log(`🔧 [WEBSOCKET] Connection established - no auto-joining rooms`)
+      // If there's already a selected conversation, join its room
+      if (selectedConversationRef.current) {
+        console.log(`🎯 [WEBSOCKET] Socket connected - joining room for selected conversation: ${selectedConversationRef.current.projectToken}`)
+        joinConversationRoom(selectedConversationRef.current.projectToken)
+      }
     })
 
     socket.on('disconnect', (reason) => {
@@ -248,24 +259,36 @@ const Inbox: React.FC = () => {
       
       // Update the current conversation with the new message
       setSelectedConversation(prev => {
-        if (!prev || prev.projectToken !== currentConversation.projectToken) return prev
+        if (!prev || prev.projectToken !== currentConversation.projectToken) {
+          console.log('📨 [MESSAGE_DEBUG] Selected conversation mismatch, skipping update')
+          return prev
+        }
         console.log('📨 [MESSAGE_DEBUG] Updating selected conversation with new message')
-        return {
+        const updatedConversation = {
           ...prev,
           messages: [...prev.messages, newMessage],
           lastMessage: newMessage,
           lastMessageTime: newMessage.createdAt
         }
+        console.log('📨 [MESSAGE_DEBUG] Updated conversation has', updatedConversation.messages.length, 'messages')
+        return updatedConversation
       })
       
       // Update conversations list
-      setConversations(prev => prev.map(conv => 
-        conv.projectToken === currentConversation.projectToken
-          ? { ...conv, messages: [...conv.messages, newMessage], lastMessage: newMessage, lastMessageTime: newMessage.createdAt }
-          : conv
-      ))
-      
-      console.log('✅ [MESSAGE_DEBUG] Message added to conversation')
+      setConversations(prev => {
+        const updated = prev.map(conv => 
+          conv.projectToken === currentConversation.projectToken
+            ? { 
+                ...conv, 
+                messages: [...conv.messages, newMessage], 
+                lastMessage: newMessage, 
+                lastMessageTime: newMessage.createdAt 
+              }
+            : conv
+        )
+        console.log('📨 [MESSAGE_DEBUG] Updated conversations list')
+        return updated
+      })
       
       // Scroll to bottom when new message arrives
       setTimeout(scrollToBottom, 100)
@@ -284,22 +307,21 @@ const Inbox: React.FC = () => {
     console.log(`🎯 [SELECTION_DEBUG] Socket connected:`, socketRef.current?.connected)
     console.log(`🎯 [SELECTION_DEBUG] Current room:`, currentRoomRef.current)
     
-    if (selectedConversation && socketRef.current && socketRef.current.connected) {
-      console.log(`🎯 [SELECTION_DEBUG] ✅ CONDITIONS MET - Processing conversation selection`)
-      
-      // Update ref immediately to avoid closure issues
+    if (selectedConversation) {
+      // Update ref immediately to avoid closure issues  
       selectedConversationRef.current = selectedConversation
       console.log(`🎯 [SELECTION_DEBUG] Updated selectedConversationRef to:`, selectedConversation.customerName)
       
-      // 🔧 CRITICAL FIX: Join room for selected conversation ONLY
-      console.log(`🎯 [SELECTION_DEBUG] About to join room for: ${selectedConversation.projectToken}`)
-      joinConversationRoom(selectedConversation.projectToken)
-      
+      // Join room if socket is connected
+      if (socketRef.current && socketRef.current.connected) {
+        console.log(`🎯 [SELECTION_DEBUG] ✅ Socket connected - joining room: ${selectedConversation.projectToken}`)
+        joinConversationRoom(selectedConversation.projectToken)
+      } else {
+        console.log(`🎯 [SELECTION_DEBUG] ❌ Socket not connected, will join room when connected`)
+      }
     } else {
-      console.log(`🎯 [SELECTION_DEBUG] ❌ CONDITIONS NOT MET:`)
-      console.log(`🎯 [SELECTION_DEBUG] - selectedConversation:`, !!selectedConversation)
-      console.log(`🎯 [SELECTION_DEBUG] - socket exists:`, !!socketRef.current)
-      console.log(`🎯 [SELECTION_DEBUG] - socket connected:`, socketRef.current?.connected)
+      console.log(`🎯 [SELECTION_DEBUG] No conversation selected`)
+      selectedConversationRef.current = null
     }
   }, [selectedConversation])
 
