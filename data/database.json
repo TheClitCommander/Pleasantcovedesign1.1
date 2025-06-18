@@ -571,6 +571,51 @@
       "attachments": [],
       "id": 106,
       "createdAt": "2025-06-17T04:41:45.633Z"
+    },
+    {
+      "projectId": 52,
+      "senderType": "client",
+      "senderName": "Ben Dickinson",
+      "content": "Test message to verify field mapping fix",
+      "attachments": [],
+      "id": 108,
+      "createdAt": "2025-06-18T00:58:41.279Z"
+    },
+    {
+      "projectId": 52,
+      "senderType": "client",
+      "senderName": "Ben Dickinson",
+      "content": "🔥 TESTING FIXED MESSAGE BROADCAST 🔥",
+      "attachments": [],
+      "id": 110,
+      "createdAt": "2025-06-18T01:05:45.352Z"
+    },
+    {
+      "projectId": 52,
+      "senderType": "client",
+      "senderName": "Ben Dickinson",
+      "content": "🔥 TESTING FIXED FIELD MAPPING 🔥",
+      "attachments": [],
+      "id": 112,
+      "createdAt": "2025-06-18T01:16:39.396Z"
+    },
+    {
+      "projectId": 52,
+      "senderType": "client",
+      "senderName": "Ben Dickinson",
+      "content": "🎯 TESTING FIXED SERVER BROADCAST FORMAT 🎯",
+      "attachments": [],
+      "id": 114,
+      "createdAt": "2025-06-18T01:30:28.820Z"
+    },
+    {
+      "projectId": 52,
+      "senderType": "client",
+      "senderName": "Ben Dickinson",
+      "content": "✅ FINAL TEST - ALL FIXES APPLIED ✅",
+      "attachments": [],
+      "id": 116,
+      "createdAt": "2025-06-18T01:31:39.775Z"
     }
   ],
   "projectFiles": [],
@@ -1072,6 +1117,46 @@
       "projectId": 52,
       "id": 107,
       "createdAt": "2025-06-17T04:41:45.636Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Ben Dickinson: Test message to verify field mapping fix",
+      "companyId": 1,
+      "projectId": 52,
+      "id": 109,
+      "createdAt": "2025-06-18T00:58:41.283Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Ben Dickinson: 🔥 TESTING FIXED MESSAGE BROADCAST 🔥",
+      "companyId": 1,
+      "projectId": 52,
+      "id": 111,
+      "createdAt": "2025-06-18T01:05:45.354Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Ben Dickinson: 🔥 TESTING FIXED FIELD MAPPING 🔥",
+      "companyId": 1,
+      "projectId": 52,
+      "id": 113,
+      "createdAt": "2025-06-18T01:16:39.397Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Ben Dickinson: 🎯 TESTING FIXED SERVER BROADCAST FORMAT 🎯",
+      "companyId": 1,
+      "projectId": 52,
+      "id": 115,
+      "createdAt": "2025-06-18T01:30:28.821Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Ben Dickinson: ✅ FINAL TEST - ALL FIXES APPLIED ✅",
+      "companyId": 1,
+      "projectId": 52,
+      "id": 117,
+      "createdAt": "2025-06-18T01:31:39.776Z"
     }
   ],
   "campaigns": [],
@@ -1090,5 +1175,5 @@
     "appointments": 0,
     "progressEntries": 0
   },
-  "nextId": 108
+  "nextId": 118
 }

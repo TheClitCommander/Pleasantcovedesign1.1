@@ -11,7 +11,7 @@ interface NavItem {
 
 const navigation: NavItem[] = [
   { path: '/dashboard', label: 'Dashboard', icon: Home },
-  { path: '/inbox', label: 'Biz Pro Inbox', icon: Inbox },
+  { path: '/inbox', label: 'LocalBiz Pro Inbox', icon: Inbox },
   { path: '/leads', label: 'Leads', icon: Users },
   { path: '/interactions', label: 'Interactions', icon: MessageCircle },
   { path: '/progress', label: 'Progress', icon: TrendingUp },
@@ -30,7 +30,7 @@ const Layout: React.FC = () => {
             <div className="flex items-center">
               <h1 className="text-xl font-bold text-primary-600">Pleasant Cove Design</h1>
             </div>
-            <div className="text-sm text-muted">Biz Pro Dashboard</div>
+            <div className="text-sm text-muted">LocalBiz Pro Dashboard</div>
           </div>
           
           {/* Tab Navigation */}

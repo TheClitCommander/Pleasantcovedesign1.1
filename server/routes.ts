@@ -898,9 +898,10 @@ export async function registerRoutes(app: Express, io?: any): Promise<any> {
         const broadcastMessage = {
           id: message.id,
           projectToken: token,
-          sender: message.senderName,
-          body: message.content,
-          timestamp: message.createdAt,
+          senderName: message.senderName,  // ← Fixed: was "sender"
+          content: message.content,        // ← Fixed: was "body"
+          createdAt: message.createdAt,    // ← Fixed: was "timestamp"
+          senderType: 'client',            // ← Added: required by React UI
           attachments: message.attachments || []
         };
         
@@ -1556,9 +1557,10 @@ export async function registerRoutes(app: Express, io?: any): Promise<any> {
         const broadcastMessage = {
           id: message.id,
           projectToken: project.accessToken,
-          sender: message.senderName,
-          body: message.content,
-          timestamp: message.createdAt,
+          senderName: message.senderName,  // ← Fixed: was "sender"
+          content: message.content,        // ← Fixed: was "body"
+          createdAt: message.createdAt,    // ← Fixed: was "timestamp"
+          senderType: 'admin',             // ← Added: required by React UI
           attachments: message.attachments || []
         };
         
@@ -3502,9 +3504,10 @@ Booked via: ${source}
 
   interface UnifiedMessage {
     projectToken: string;
-    sender: string;
-    body: string;
-    timestamp: string;
+    senderName: string;    // ← Fixed: was "sender"
+    content: string;       // ← Fixed: was "body"
+    createdAt: string;     // ← Fixed: was "timestamp"
+    senderType: 'client' | 'admin';  // ← Added: required by React UI
     id?: number;
     attachments?: string[];
   }
@@ -3533,9 +3536,10 @@ Booked via: ${source}
       const unifiedMessages: UnifiedMessage[] = messages.map(msg => ({
         id: msg.id,
         projectToken: projectToken,
-        sender: msg.senderName,
-        body: msg.content,
-        timestamp: msg.createdAt || new Date().toISOString(),
+        senderName: msg.senderName,      // ← Fixed: was "sender"
+        content: msg.content,            // ← Fixed: was "body"
+        createdAt: msg.createdAt || new Date().toISOString(),  // ← Fixed: was "timestamp"
+        senderType: msg.senderType,      // ← Added: required by React UI
         attachments: msg.attachments || []
       }));
       
@@ -3625,9 +3629,10 @@ Booked via: ${source}
       const unifiedMessage: UnifiedMessage = {
         id: savedMessage.id,
         projectToken,
-        sender,
-        body,
-        timestamp: new Date().toISOString(),
+        senderName: sender,                    // ← Fixed: was "sender"
+        content: body,                         // ← Fixed: was "body"
+        createdAt: new Date().toISOString(),   // ← Fixed: was "timestamp"
+        senderType,                            // ← Added: required by React UI
         attachments: attachmentUrls
       };
       

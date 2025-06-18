@@ -2131,15 +2131,21 @@
                     clearInterval(this.logoutWatcher);
                 }
                 
-                // Check for member logout every 30 seconds
+                // Check for member logout every 2 minutes (less aggressive)
                 this.logoutWatcher = setInterval(() => {
-                    const currentMember = this.getUserEmail();
+                    // NON-DESTRUCTIVE authentication check - don't clear sessions!
+                    const currentMember = this.checkAuthenticationStatus();
                     const savedEmail = localStorage.getItem('pcd_user_email');
                     const wasMemberAuth = localStorage.getItem('pcd_member_authenticated') === 'true';
                     
-                    // If we had a member session but now don't detect one, they logged out
-                    if (wasMemberAuth && savedEmail && !currentMember) {
-                        console.log('🚨 [LOGOUT_DETECTED] Member logged out - force clearing session');
+                    // CONSERVATIVE CHECK: Only clear if we're ABSOLUTELY sure they logged out
+                    // Check both SiteUserInfo cookie AND domain consistency
+                    const hasSiteUserCookie = document.cookie.indexOf('SiteUserInfo') !== -1;
+                    const sessionDomain = localStorage.getItem('pcd_session_domain');
+                    const currentDomain = window.location.hostname;
+                    
+                    if (wasMemberAuth && savedEmail && !currentMember && !hasSiteUserCookie && sessionDomain === currentDomain) {
+                        console.log('🚨 [LOGOUT_DETECTED] Member definitely logged out - clearing session');
                         this.clearSession();
                         
                         // Force reload widget to show logged-out state
@@ -2153,10 +2159,36 @@
                         this.logoutWatcher = null;
                         
                         console.log('🔄 [LOGOUT_DETECTED] Widget reset to logged-out state');
+                    } else {
+                        console.log('👀 [LOGOUT_WATCHER] Session check passed - member still authenticated');
                     }
-                }, 30000); // Check every 30 seconds
+                }, 120000); // Check every 2 minutes (less frequent)
                 
                 console.log('👀 [LOGOUT_WATCHER] Logout detection active');
+            }
+            
+            // NEW: Non-destructive authentication status check (doesn't clear sessions)
+            checkAuthenticationStatus() {
+                // Only check cookie for SiteUserInfo - don't clear anything!
+                const cookies = document.cookie.split(';');
+                
+                for (const cookie of cookies) {
+                    const [name, value] = cookie.trim().split('=');
+                    
+                    if (name === 'SiteUserInfo' && value) {
+                        try {
+                            const userInfo = JSON.parse(decodeURIComponent(value));
+                            if (userInfo.authenticated) {
+                                // Return member email if authenticated
+                                return userInfo.email || `${userInfo.siteUserId}@squarespace.member`;
+                            }
+                        } catch (e) {
+                            // Ignore parsing errors
+                        }
+                    }
+                }
+                
+                return null; // No authentication detected
             }
         }
 

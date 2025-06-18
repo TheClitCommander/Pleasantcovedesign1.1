@@ -64,22 +64,26 @@ const Inbox: React.FC = () => {
     console.log(`🔍 [ROOM_DEBUG] Current room: ${currentRoomRef.current}`)
     console.log(`🔍 [ROOM_DEBUG] Socket connected: ${socketRef.current?.connected}`)
 
-    if (!socketRef.current || !socketRef.current.connected) {
-      console.log(`❌ [ROOM_DEBUG] Socket not available or not connected`)
-      return
-    }
-
     // CRITICAL: If we're already in this room, don't rejoin
     if (currentRoomRef.current === projectToken) {
       console.log(`✅ [ROOM_DEBUG] Already in room ${projectToken} - no action needed`)
       return
     }
 
-    // CRITICAL: Leave ALL previous rooms first
-    if (currentRoomRef.current) {
-      console.log(`🚪 [ROOM_DEBUG] Leaving previous room: ${currentRoomRef.current}`)
-      socketRef.current.emit('leave', currentRoomRef.current)
-      currentRoomRef.current = null // Clear immediately
+    // Update the desired room immediately
+    currentRoomRef.current = projectToken
+    console.log(`🔒 [ROOM_DEBUG] Room state updated to: ${currentRoomRef.current}`)
+
+    if (!socketRef.current || !socketRef.current.connected) {
+      console.log(`⏳ [ROOM_DEBUG] Socket not connected yet - will join room when connected`)
+      return
+    }
+
+    // CRITICAL: Leave ALL previous rooms first (only if socket is connected)
+    const previousRoom = currentRoomRef.current
+    if (previousRoom && previousRoom !== projectToken) {
+      console.log(`🚪 [ROOM_DEBUG] Leaving previous room: ${previousRoom}`)
+      socketRef.current.emit('leave', previousRoom)
     }
 
     // Join the new room ONLY
@@ -87,9 +91,6 @@ const Inbox: React.FC = () => {
     socketRef.current.emit('join', projectToken, (response: any) => {
       console.log(`✅ [ROOM_DEBUG] Successfully joined room: ${projectToken}`, response)
     })
-    
-    currentRoomRef.current = projectToken
-    console.log(`🔒 [ROOM_DEBUG] Room state updated to: ${currentRoomRef.current}`)
   }
 
   // Handle conversation selection - join only that room
@@ -183,9 +184,7 @@ const Inbox: React.FC = () => {
   useEffect(() => {
     console.log(`🔌 [WEBSOCKET] Setting up WebSocket connection...`)
     
-    const backendUrl = window.location.hostname === 'localhost' 
-      ? 'http://localhost:3000' 
-      : 'https://pleasantcovedesign-production.up.railway.app'
+    const backendUrl = 'http://localhost:3000'
     
     console.log(`🔌 [WEBSOCKET] Connecting to: ${backendUrl}`)
     setConnectionStatus('connecting')
@@ -205,10 +204,12 @@ const Inbox: React.FC = () => {
       console.log(`✅ [WEBSOCKET] Connected to backend`)
       setConnectionStatus('connected')
       
-      // If there's already a selected conversation, join its room
-      if (selectedConversationRef.current) {
-        console.log(`🎯 [WEBSOCKET] Socket connected - joining room for selected conversation: ${selectedConversationRef.current.projectToken}`)
-        joinConversationRoom(selectedConversationRef.current.projectToken)
+      // If there's a desired room stored, join it immediately
+      if (currentRoomRef.current) {
+        console.log(`🎯 [WEBSOCKET] Socket connected - joining stored room: ${currentRoomRef.current}`)
+        socket.emit('join', currentRoomRef.current, (response: any) => {
+          console.log(`✅ [WEBSOCKET] Rejoined room after connect:`, response)
+        })
       }
     })
 
@@ -312,13 +313,9 @@ const Inbox: React.FC = () => {
       selectedConversationRef.current = selectedConversation
       console.log(`🎯 [SELECTION_DEBUG] Updated selectedConversationRef to:`, selectedConversation.customerName)
       
-      // Join room if socket is connected
-      if (socketRef.current && socketRef.current.connected) {
-        console.log(`🎯 [SELECTION_DEBUG] ✅ Socket connected - joining room: ${selectedConversation.projectToken}`)
-        joinConversationRoom(selectedConversation.projectToken)
-      } else {
-        console.log(`🎯 [SELECTION_DEBUG] ❌ Socket not connected, will join room when connected`)
-      }
+      // ALWAYS join room - even if socket isn't connected yet
+      console.log(`🎯 [SELECTION_DEBUG] 🚀 FORCE JOINING ROOM: ${selectedConversation.projectToken}`)
+      joinConversationRoom(selectedConversation.projectToken)
     } else {
       console.log(`🎯 [SELECTION_DEBUG] No conversation selected`)
       selectedConversationRef.current = null
@@ -768,4 +765,4 @@ const Inbox: React.FC = () => {
   )
 }
 
-export default Inbox; 
+export default Inbox;
