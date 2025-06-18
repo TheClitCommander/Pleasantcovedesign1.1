@@ -537,23 +537,14 @@
     </script>
     
     <script>
-        // Utility to parse Squarespace member ID from cookie
-        function getMemberId() {
-            const match = document.cookie.match(/SiteUserInfo=(\{.*?\})/);
-            if (!match) return null;
-            try {
-                const info = JSON.parse(decodeURIComponent(match[1]));
-                return info.siteUserId;
-            } catch {
-                return null;
-            }
-        }
+
 
         class PCDMessagingWidget {
-            constructor() {
-                this.projectToken = null;
-                this.userName = null;
-                this.userEmail = null;
+            constructor(projectToken, userEmail, userName) {
+                // Accept token and user info from gated initialization
+                this.projectToken = projectToken;
+                this.userName = userName;
+                this.userEmail = userEmail;
                 this.socket = null;
                 this.messages = [];
                 this.selectedFiles = [];
@@ -563,6 +554,7 @@
                     backendUrl: this.detectBackendUrl(),
                 };
                 
+                console.log('✅ [WIDGET] Initialized with secure token and member info');
                 this.init();
             }
 
@@ -586,109 +578,11 @@
                 this.bindEvents();
                 this.addDebugBanner();
                 
-                // 🔒 MEMBER-ONLY CHAT: Check authentication first
-                await this.initWidget();
+                // 🔒 MEMBER-ONLY CHAT: Token already validated, start messaging immediately
+                this.startMessaging();
             }
 
-            async initWidget() {
-                // Only initialize chat if user is a logged-in member
-                const memberId = getMemberId();
-                const memberEmail = this.getUserEmail();
-                
-                if (!memberId || !memberEmail) {
-                    const container = document.getElementById('pcd-chat-container');
-                    container.innerHTML = `
-                        <div style="padding: 20px; text-align: center; background: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;">
-                            <h3 style="color: #495057; margin-bottom: 15px;">🔒 Member Chat</h3>
-                            <p style="color: #6c757d; margin-bottom: 20px;">
-                                Please <a href="/account/login" style="color: #007bff; text-decoration: none;">sign in to your member account</a> 
-                                to chat with us securely.
-                            </p>
-                            <p style="color: #6c757d; font-size: 14px;">
-                                Don't have an account? 
-                                <a href="/account/signup" style="color: #28a745; text-decoration: none;">Sign up here</a>
-                            </p>
-                        </div>
-                    `;
-                    console.log('🔒 [MEMBER_ONLY] Member authentication required - showing sign-in prompt');
-                    return;
-                }
-                
-                // Member is authenticated—fetch or create their token, then init chat
-                console.log('✅ [MEMBER_ONLY] Member authenticated:', memberEmail);
-                await this.fetchTokenForMember(memberId, memberEmail);
-            }
 
-            // Fetch or create member-specific token
-            async fetchTokenForMember(memberId, memberEmail) {
-                try {
-                    console.log(`🔐 [MEMBER_AUTH] Getting secure token for member: ${memberEmail}`);
-                    
-                    // Step 1: Check for existing conversation
-                    const existingResponse = await fetch(`${this.config.backendUrl}/api/get-member-conversation`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ 
-                            email: memberEmail,
-                            name: this.detectedUserName || memberEmail.split('@')[0]
-                        })
-                    });
-                    
-                    if (existingResponse.ok) {
-                        const existingData = await existingResponse.json();
-                        if (existingData.success && existingData.projectToken) {
-                            console.log(`✅ [MEMBER_AUTH] Found existing conversation: ${existingData.projectTitle}`);
-                            this.projectToken = existingData.projectToken;
-                            this.userName = existingData.clientName;
-                            this.userEmail = memberEmail;
-                            this.startMessaging();
-                            return;
-                        }
-                    }
-                    
-                    // Step 2: Create new conversation for member
-                    console.log(`🆕 [MEMBER_AUTH] Creating new conversation for member...`);
-                    const newResponse = await fetch(`${this.config.backendUrl}/api/new-lead`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ 
-                            name: this.detectedUserName || memberEmail.split('@')[0],
-                            email: memberEmail,
-                            source: 'Squarespace Member Authentication'
-                        })
-                    });
-                    
-                    if (!newResponse.ok) {
-                        throw new Error(`Failed to create conversation: ${newResponse.status}`);
-                    }
-                    
-                    const newData = await newResponse.json();
-                    if (newData.success && newData.projectToken) {
-                        console.log(`✅ [MEMBER_AUTH] Created new conversation for member`);
-                        this.projectToken = newData.projectToken;
-                        this.userName = this.detectedUserName || memberEmail.split('@')[0];
-                        this.userEmail = memberEmail;
-                        this.startMessaging();
-                    } else {
-                        throw new Error('No project token received');
-                    }
-                    
-                } catch (error) {
-                    console.error('[MEMBER_AUTH] Error getting member token:', error);
-                    const container = document.getElementById('pcd-chat-container');
-                    container.innerHTML = `
-                        <div style="padding: 20px; text-align: center; background: #f8d7da; border-radius: 8px; border: 1px solid #f5c6cb;">
-                            <h3 style="color: #721c24; margin-bottom: 15px;">⚠️ Connection Error</h3>
-                            <p style="color: #721c24; margin-bottom: 15px;">
-                                Unable to connect to chat service. Please try refreshing the page.
-                            </p>
-                            <button onclick="location.reload()" style="background: #dc3545; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer;">
-                                Refresh Page
-                            </button>
-                        </div>
-                    `;
-                }
-            }
 
             bindEvents() {
                 // Message form
@@ -2003,7 +1897,21 @@
 
             showError(message) {
                 const container = document.getElementById('messagesContainer');
-                container.innerHTML = `<div class="pcd-error-message">${message}</div>`;
+                if (container) {
+                    container.innerHTML = `<div class="pcd-error-message">${message}</div>`;
+                } else {
+                    console.error('PCD widget error:', message);
+                    // Fallback: Show error in widget container if messages container doesn't exist
+                    const widgetContainer = document.querySelector('.pcd-messaging-widget');
+                    if (widgetContainer) {
+                        widgetContainer.innerHTML = `
+                            <div style="padding: 20px; text-align: center; background: #f8d7da; border-radius: 8px; border: 1px solid #f5c6cb;">
+                                <h3 style="color: #721c24; margin-bottom: 15px;">⚠️ Error</h3>
+                                <p style="color: #721c24;">${message}</p>
+                            </div>
+                        `;
+                    }
+                }
             }
 
             // ENHANCED: Clear all session data including member authentication
@@ -2177,14 +2085,192 @@
             }
         }
 
-        // Initialize the widget
-        const messagingWidget = new PCDMessagingWidget();
+        // 🔒 GATED WIDGET INITIALIZATION - Member Authentication Required
+        (async function initPCDWidget() {
+            console.log('🔒 [WIDGET_INIT] Starting member-gated widget initialization...');
+            
+            // 1. Parse Squarespace SiteUserInfo cookie for member authentication
+            const match = document.cookie.match(/SiteUserInfo=(\{.*?\})/);
+            if (!match) {
+                console.log('🚨 [WIDGET_INIT] No SiteUserInfo cookie found - showing sign-in prompt');
+                showSignInPrompt();
+                return;
+            }
+            
+            let memberInfo;
+            try {
+                memberInfo = JSON.parse(decodeURIComponent(match[1]));
+                console.log('✅ [WIDGET_INIT] Parsed member info:', memberInfo);
+            } catch (error) {
+                console.error('❌ [WIDGET_INIT] Failed to parse SiteUserInfo cookie:', error);
+                showSignInPrompt();
+                return;
+            }
+            
+            if (!memberInfo.authenticated || !memberInfo.siteUserId) {
+                console.log('🚨 [WIDGET_INIT] Member not authenticated or missing siteUserId');
+                showSignInPrompt();
+                return;
+            }
+            
+            const memberId = memberInfo.siteUserId;
+            const memberEmail = memberInfo.email || `${memberId}@squarespace.member`;
+            console.log(`✅ [WIDGET_INIT] Authenticated member: ${memberEmail} (ID: ${memberId})`);
+            
+            try {
+                // 2. Show loading state while fetching token
+                showLoadingState();
+                
+                // 3. Fetch or reuse existing token for this member
+                let projectToken = localStorage.getItem('pcd_project_token');
+                const savedEmail = localStorage.getItem('pcd_user_email');
+                
+                // Clear token if it's for a different member
+                if (projectToken && savedEmail && savedEmail !== memberEmail) {
+                    console.log('🧹 [WIDGET_INIT] Token is for different member, clearing...');
+                    localStorage.removeItem('pcd_project_token');
+                    localStorage.removeItem('pcd_user_email');
+                    localStorage.removeItem('pcd_user_name');
+                    projectToken = null;
+                }
+                
+                if (!projectToken) {
+                    console.log('🔄 [WIDGET_INIT] No valid token found, fetching new one...');
+                    
+                    // Check for existing conversation first
+                    const existingResp = await fetch(`https://pleasantcovedesign-production.up.railway.app/api/get-member-conversation`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            email: memberEmail,
+                            name: memberInfo.firstName || memberEmail.split('@')[0]
+                        })
+                    });
+                    
+                    if (existingResp.ok) {
+                        const existingData = await existingResp.json();
+                        if (existingData.success && existingData.projectToken) {
+                            projectToken = existingData.projectToken;
+                            console.log('✅ [WIDGET_INIT] Found existing conversation');
+                        }
+                    }
+                    
+                    // Create new conversation if none exists
+                    if (!projectToken) {
+                        console.log('🆕 [WIDGET_INIT] Creating new conversation...');
+                        const newResp = await fetch(`https://pleasantcovedesign-production.up.railway.app/api/new-lead`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                name: memberInfo.firstName || memberEmail.split('@')[0],
+                                email: memberEmail,
+                                source: 'Squarespace Member Authentication'
+                            })
+                        });
+                        
+                        if (!newResp.ok) {
+                            throw new Error(`Failed to create conversation: ${newResp.status}`);
+                        }
+                        
+                        const newData = await newResp.json();
+                        if (!newData.success || !newData.projectToken) {
+                            throw new Error('No project token received from server');
+                        }
+                        
+                        projectToken = newData.projectToken;
+                        console.log('✅ [WIDGET_INIT] Created new conversation');
+                    }
+                    
+                    // Save token and member info
+                    localStorage.setItem('pcd_project_token', projectToken);
+                    localStorage.setItem('pcd_user_email', memberEmail);
+                    localStorage.setItem('pcd_user_name', memberInfo.firstName || memberEmail.split('@')[0]);
+                    localStorage.setItem('pcd_session_timestamp', Date.now().toString());
+                }
+                
+                console.log(`✅ [WIDGET_INIT] Token acquired: ${projectToken.substring(0, 8)}...`);
+                
+                // 4. Now we can safely initialize the widget with the token
+                console.log('🚀 [WIDGET_INIT] Initializing messaging widget...');
+                const messagingWidget = new PCDMessagingWidget(projectToken, memberEmail, memberInfo.firstName || memberEmail.split('@')[0]);
+                
+                // Make it globally accessible for development
+                window.messagingWidget = messagingWidget;
+                
+            } catch (error) {
+                console.error('❌ [WIDGET_INIT] Error during initialization:', error);
+                showErrorState(error.message);
+            }
+        })();
         
-        // Development helper - expose clear function globally
-        window.clearPCDSession = () => messagingWidget.clearSession();
+        function showSignInPrompt() {
+            const widgetContainer = document.querySelector('.pcd-messaging-widget');
+            if (widgetContainer) {
+                widgetContainer.innerHTML = `
+                    <div style="padding: 30px 20px; text-align: center; background: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef; height: 400px; display: flex; flex-direction: column; justify-content: center;">
+                        <h3 style="color: #495057; margin-bottom: 15px; font-size: 18px;">🔒 Member Chat</h3>
+                        <p style="color: #6c757d; margin-bottom: 20px; line-height: 1.5;">
+                            Please <a href="/account/login" style="color: #007bff; text-decoration: none; font-weight: 500;">sign in to your member account</a> 
+                            to chat with us securely.
+                        </p>
+                        <p style="color: #6c757d; font-size: 14px;">
+                            Don't have an account? 
+                            <a href="/account/signup" style="color: #28a745; text-decoration: none; font-weight: 500;">Sign up here</a>
+                        </p>
+                    </div>
+                `;
+            }
+        }
         
-        // Debug helper - expose widget globally for debugging
-        window.debugWidget = messagingWidget;
+        function showLoadingState() {
+            const widgetContainer = document.querySelector('.pcd-messaging-widget');
+            if (widgetContainer) {
+                widgetContainer.innerHTML = `
+                    <div style="padding: 30px 20px; text-align: center; background: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef; height: 400px; display: flex; flex-direction: column; justify-content: center;">
+                        <div style="margin-bottom: 15px;">
+                            <div style="width: 40px; height: 40px; border: 3px solid #e9ecef; border-top: 3px solid #007bff; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto;"></div>
+                        </div>
+                        <h3 style="color: #495057; margin-bottom: 10px; font-size: 16px;">Loading Chat...</h3>
+                        <p style="color: #6c757d; font-size: 14px;">Setting up your secure conversation</p>
+                    </div>
+                    <style>
+                        @keyframes spin {
+                            0% { transform: rotate(0deg); }
+                            100% { transform: rotate(360deg); }
+                        }
+                    </style>
+                `;
+            }
+        }
+        
+        function showErrorState(errorMessage) {
+            const widgetContainer = document.querySelector('.pcd-messaging-widget');
+            if (widgetContainer) {
+                widgetContainer.innerHTML = `
+                    <div style="padding: 30px 20px; text-align: center; background: #f8d7da; border-radius: 8px; border: 1px solid #f5c6cb; height: 400px; display: flex; flex-direction: column; justify-content: center;">
+                        <h3 style="color: #721c24; margin-bottom: 15px; font-size: 18px;">⚠️ Connection Error</h3>
+                        <p style="color: #721c24; margin-bottom: 15px; line-height: 1.5;">
+                            Unable to connect to chat service: ${errorMessage}
+                        </p>
+                        <button onclick="location.reload()" style="background: #dc3545; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 14px;">
+                            Refresh Page
+                        </button>
+                    </div>
+                `;
+            }
+        }
+        
+        // Development helper - expose clear function globally  
+        window.clearPCDSession = () => {
+            if (window.messagingWidget) {
+                window.messagingWidget.clearSession();
+            } else {
+                localStorage.clear();
+                location.reload();
+            }
+        };
+        
+        // Debug helper - widget will be available as window.messagingWidget after initialization
         
         // Add development helper buttons for testing
         if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
@@ -2212,17 +2298,19 @@
                 memberButton.onclick = () => {
                     console.log(`🧪 [DEV] Testing with ${member.name} (${member.email})`);
                     
-                    // Clear existing session
-                    messagingWidget.clearSession();
+                    // Simulate member cookie for testing
+                    const memberInfo = {
+                        authenticated: true,
+                        siteUserId: `test-${Date.now()}`,
+                        email: member.email,
+                        firstName: member.name
+                    };
                     
-                    // Simulate member authentication
-                    messagingWidget.projectToken = null;
-                    messagingWidget.userName = member.name;
-                    messagingWidget.userEmail = member.email;
-                    messagingWidget.detectedUserName = member.name;
+                    // Set mock cookie
+                    document.cookie = `SiteUserInfo=${encodeURIComponent(JSON.stringify(memberInfo))}; path=/`;
                     
-                    // Call the member authentication flow directly
-                    messagingWidget.fetchTokenForMember('test-member-id', member.email);
+                    // Reload to trigger gated initialization
+                    window.location.reload();
                 };
                 testPanel.appendChild(memberButton);
             });
@@ -2233,7 +2321,15 @@
             clearButton.style.cssText = 'display: block; width: 100%; margin: 8px 0 3px 0; padding: 5px; background: #ff4444; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px;';
             clearButton.onclick = () => {
                 console.log('🧪 [DEV] Manual session clear triggered');
-                messagingWidget.clearSession();
+                
+                // Clear all localStorage
+                localStorage.clear();
+                
+                // Clear all cookies (for testing)
+                document.cookie.split(";").forEach(function(c) { 
+                    document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
+                });
+                
                 window.location.reload();
             };
             testPanel.appendChild(clearButton);
@@ -2244,16 +2340,26 @@
             debugButton.style.cssText = 'display: block; width: 100%; margin: 3px 0; padding: 5px; background: #4444ff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px;';
             debugButton.onclick = () => {
                 console.log('🧪 [DEV] Manual authentication debug triggered');
-                const email = messagingWidget.getUserEmail();
-                console.log('🧪 [DEV] Detected email:', email);
+                
+                // Check current authentication state
+                const match = document.cookie.match(/SiteUserInfo=(\{.*?\})/);
+                let memberInfo = null;
+                if (match) {
+                    try {
+                        memberInfo = JSON.parse(decodeURIComponent(match[1]));
+                    } catch (e) {
+                        memberInfo = 'Parse Error';
+                    }
+                }
                 
                 const debugInfo = {
-                    detectedEmail: email || 'None',
+                    memberCookie: memberInfo || 'None',
+                    widgetLoaded: !!window.messagingWidget,
                     currentDomain: window.location.hostname,
-                    authMethod: localStorage.getItem('pcd_auth_method') || 'None',
                     projectToken: localStorage.getItem('pcd_project_token') || 'None',
                     userName: localStorage.getItem('pcd_user_name') || 'None',
-                    userEmail: localStorage.getItem('pcd_user_email') || 'None'
+                    userEmail: localStorage.getItem('pcd_user_email') || 'None',
+                    sessionTimestamp: localStorage.getItem('pcd_session_timestamp') || 'None'
                 };
                 
                 console.log('🧪 [DEV] Current state:', debugInfo);
