@@ -521,16 +521,39 @@
         </div>
     </div>
 
+    <!-- Pre-chat overlay (hidden by default) -->
+    <div id="prechatOverlay" class="pcd-prechat-overlay" style="display: none;">
+        <div class="pcd-prechat-form">
+            <h3>Welcome! Let's get started</h3>
+            <p>Please enter your name and email to begin</p>
+            <div class="pcd-form-group">
+                <label class="pcd-form-label" for="userName">Name</label>
+                <input class="pcd-form-input" id="userName" type="text" placeholder="Your name">
+                <div class="pcd-form-error" id="nameError">Required</div>
+            </div>
+            <div class="pcd-form-group">
+                <label class="pcd-form-label" for="userEmail">Email</label>
+                <input class="pcd-form-input" id="userEmail" type="email" placeholder="you@example.com">
+                <div class="pcd-form-error" id="emailError">Valid email required</div>
+            </div>
+            <button class="pcd-form-submit" id="formSubmitBtn">Start Chat</button>
+            <div class="pcd-form-loading" id="formLoading">
+                <div class="pcd-form-spinner"></div> Connecting…
+            </div>
+        </div>
+    </div>
+
     <!-- 🧪 DEVELOPMENT ONLY - Manual Token Injection -->
     <!-- REMOVE THIS BLOCK FOR PRODUCTION -->
     <script>
         // 🧪 DEVELOPMENT OVERRIDE - Inject your known working token here for local testing
         // COMMENT OUT or REMOVE this block when deploying to production
         
-        // Replace with your actual working token from the backend
-        window.PROJECT_TOKEN = "mbzull5i_XT43KQsr_3jyoxS5ELr0fw"; // Known working token
-        window.PROJECT_USER_NAME = "Ben Dickinson"; // Your name
-        window.PROJECT_USER_EMAIL = "ben@pleasantcovedesign.com"; // Your email
+        // ⚠️ TEMPORARILY DISABLE dev injection to let form handle token creation
+        // window.PROJECT_TOKEN = "mbzull5i_XT43KQsr_3jyoxS5ELr0fw"; // Known working token
+        // ⚠️ COMMENT OUT the user data below to use LIVE Squarespace member data:
+        // window.PROJECT_USER_NAME = "Ben Dickinson"; // Your name  
+        // window.PROJECT_USER_EMAIL = "ben@pleasantcovedesign.com"; // Your email
         
         console.log('🧪 [DEV_INJECT] Manual token injected for testing:', window.PROJECT_TOKEN);
         console.log('🧪 [DEV_INJECT] REMEMBER: Remove this script block for production!');
@@ -559,6 +582,12 @@
             }
 
             detectBackendUrl() {
+                // 🧪 DEV OVERRIDE: Force localhost for testing when manual token is injected
+                if (window.PROJECT_TOKEN) {
+                    console.log('🧪 [DEV] Manual token detected - forcing localhost backend for testing');
+                    return 'http://localhost:3000';
+                }
+                
                 // Auto-detect environment based on hostname
                 const hostname = window.location.hostname;
                 
@@ -575,10 +604,21 @@
             }
 
             async init() {
+                console.log('🚀 [WIDGET] Initializing with token:', this.projectToken?.substring(0, 8) + '...');
+                console.log('🚀 [WIDGET] User:', this.userName, this.userEmail);
+                
                 this.bindEvents();
                 this.addDebugBanner();
                 
-                // 🔒 MEMBER-ONLY CHAT: Token already validated, start messaging immediately
+                // Ensure we have valid data before starting
+                if (!this.projectToken || !this.userName || !this.userEmail) {
+                    console.error('❌ [WIDGET] Missing required data for initialization');
+                    this.showError('Initialization error: Missing user data');
+                    return;
+                }
+                
+                console.log('✅ [WIDGET] All required data present - starting messaging');
+                // Skip member auth check since we already have valid token + user data
                 this.startMessaging();
             }
 
@@ -586,37 +626,64 @@
 
             bindEvents() {
                 // Message form
-                document.getElementById('messageForm').addEventListener('submit', (e) => {
-                    e.preventDefault();
-                    this.sendMessage();
-                });
+                const msgForm = document.getElementById('messageForm');
+                if (msgForm) {
+                    msgForm.addEventListener('submit', (e) => {
+                        e.preventDefault();
+                        this.sendMessage();
+                    });
+                } else {
+                    console.warn('[WIDGET] #messageForm not found; skipping form bind');
+                }
 
                 // File upload
-                document.getElementById('fileButton').addEventListener('click', () => {
-                    document.getElementById('fileInput').click();
-                });
+                const fileBtn = document.getElementById('fileButton');
+                if (fileBtn) {
+                    fileBtn.addEventListener('click', () => {
+                        const fileInput = document.getElementById('fileInput');
+                        if (fileInput) fileInput.click();
+                    });
+                } else {
+                    console.warn('[WIDGET] #fileButton not found; skipping file button bind');
+                }
 
-                document.getElementById('fileInput').addEventListener('change', (e) => {
-                    this.handleFileSelect(e);
-                });
+                const fileInput = document.getElementById('fileInput');
+                if (fileInput) {
+                    fileInput.addEventListener('change', (e) => {
+                        this.handleFileSelect(e);
+                    });
+                } else {
+                    console.warn('[WIDGET] #fileInput not found; skipping file input bind');
+                }
 
                 // Auto-resize textarea
                 const messageInput = document.getElementById('messageInput');
-                messageInput.addEventListener('input', () => {
-                    this.autoResizeTextarea(messageInput);
-                });
+                if (messageInput) {
+                    messageInput.addEventListener('input', () => {
+                        this.autoResizeTextarea(messageInput);
+                    });
 
-                // Send on Enter (but not Shift+Enter)
-                messageInput.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        this.sendMessage();
-                    }
-                });
+                    // Send on Enter (but not Shift+Enter)
+                    messageInput.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            this.sendMessage();
+                        }
+                    });
+                } else {
+                    console.warn('[WIDGET] #messageInput not found; skipping input bind');
+                }
             }
 
             addDebugBanner() {
+                // CRITICAL: Skip debug banner entirely if form authenticated to prevent session clearing
+                if (this.isFormAuthenticated) {
+                    console.log('✅ [DEBUG] Skipping debug banner - form authenticated session (prevents session clearing)');
+                    return;
+                }
+                
                 const detectedUser = this.getUserEmail();
+                
                 const backendUrl = this.config.backendUrl;
                 const debugBanner = document.createElement('div');
                 debugBanner.id = 'pcd-debug-banner';
@@ -637,6 +704,7 @@
                 debugBanner.innerHTML = `
                     🔍 MEMBER: ${detectedUser || 'NO SQUARESPACE MEMBER DETECTED'} 
                     | Backend: ${backendUrl.includes('localhost') ? 'LOCAL' : 'RAILWAY'} 
+                    | Auth: ${this.isFormAuthenticated ? 'FORM' : 'SQUARESPACE'}
                     | Domain: ${window.location.hostname} 
                     | <span onclick="this.parentElement.style.display='none'" style="cursor:pointer;background:#333;padding:2px 5px;border-radius:3px;">✕ Hide</span>
                 `;
@@ -871,8 +939,8 @@
                     console.log('🧹 FORCE CLEARING all session data for security');
                     this.clearSession();
                     // Do not use localStorage data - force fresh authentication
-                } else {
-                    // STRICT SECURITY: NEVER use localStorage for member detection
+                } else if (!detectedEmail) {
+                    // ONLY clear session if we truly have no Squarespace authentication
                     console.log('🚨 [MEMBER_ISOLATION] No current Squarespace member authentication detected');
                     console.log('🚨 [MEMBER_ISOLATION] Will not fall back to localStorage - this could be a different user');
                     
@@ -881,6 +949,17 @@
                     if (existingEmail) {
                         console.log(`🧹 [MEMBER_ISOLATION] Clearing stale session data for: ${existingEmail}`);
                         this.clearSession();
+                    }
+                } else {
+                    // We have valid Squarespace authentication - check if it matches stored session
+                    const existingEmail = localStorage.getItem('pcd_user_email');
+                    if (existingEmail && existingEmail !== detectedEmail) {
+                        console.log(`🔄 [MEMBER_ISOLATION] Different member detected`);
+                        console.log(`🔄 [MEMBER_ISOLATION] Old: ${existingEmail} → New: ${detectedEmail}`);
+                        console.log(`🧹 [MEMBER_ISOLATION] Clearing session for previous member`);
+                        this.clearSession();
+                    } else if (existingEmail === detectedEmail) {
+                        console.log(`✅ [MEMBER_ISOLATION] Same authenticated member - keeping session`);
                     }
                 }
                 
@@ -915,11 +994,11 @@
                 try {
                     console.log(`🔍 Validating session token: ${token.substring(0, 8)}...`);
                     
-                    const response = await fetch(`${this.config.backendUrl}/api/validate-token`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ token })
-                    });
+                                    const response = await fetch(`${this.config.backendUrl}/api/token`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ type: 'validate', token })
+                });
                     
                     if (response.ok) {
                         console.log('✅ Session token valid, resuming conversation');
@@ -988,14 +1067,15 @@
                     
                     let existingResponse;
                     try {
-                        existingResponse = await this.makeRequest(`${this.config.backendUrl}/api/get-member-conversation`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ 
-                                email: email,
-                                name: memberName
-                            })
-                        });
+                                            existingResponse = await this.makeRequest(`${this.config.backendUrl}/api/token`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            type: 'member',
+                            email: email,
+                            name: memberName
+                        })
+                    });
                     } catch (error) {
                         console.log('⚠️ [MEMBER_AUTH] Error checking existing conversation:', error.message);
                         console.log('🔄 [MEMBER_AUTH] Will proceed to create new conversation...');
@@ -1003,12 +1083,12 @@
                     
                     if (existingResponse && existingResponse.ok) {
                         const existingData = await existingResponse.json();
-                        if (existingData.success && existingData.projectToken) {
+                        if (existingData.valid && existingData.token) {
                             console.log(`✅ [MEMBER_AUTH] Found existing conversation: ${existingData.projectTitle}`);
-                            console.log(`🔑 [MEMBER_AUTH] Using token: ${existingData.projectToken.substring(0, 8)}...`);
+                            console.log(`🔑 [MEMBER_AUTH] Using token: ${existingData.token.substring(0, 8)}...`);
                             
                             // Set session data for existing conversation
-                            this.projectToken = existingData.projectToken;
+                            this.projectToken = existingData.token;
                             this.userName = existingData.clientName || memberName;
                             this.userEmail = email;
                             
@@ -1024,13 +1104,13 @@
                     // Step 2: No existing conversation found, create new one
                     console.log(`🆕 [MEMBER_AUTH] Step 2: Creating new conversation for member...`);
                     
-                    const newConversationResponse = await this.makeRequest(`${this.config.backendUrl}/api/new-lead`, {
+                    const newConversationResponse = await this.makeRequest(`${this.config.backendUrl}/api/token`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ 
+                            type: 'member',
                             name: memberName,
-                            email: email,
-                            source: 'SquareSpace Member Authentication'
+                            email: email
                         })
                     });
                     
@@ -1039,12 +1119,12 @@
                     }
                     
                     const newConversationData = await newConversationResponse.json();
-                    if (newConversationData.success && newConversationData.projectToken) {
+                    if (newConversationData.valid && newConversationData.token) {
                         console.log(`✅ [MEMBER_AUTH] Created new conversation for member`);
-                        console.log(`🔑 [MEMBER_AUTH] New token: ${newConversationData.projectToken.substring(0, 8)}...`);
+                        console.log(`🔑 [MEMBER_AUTH] New token: ${newConversationData.token.substring(0, 8)}...`);
                         
                         // Set session data for new conversation
-                        this.projectToken = newConversationData.projectToken;
+                        this.projectToken = newConversationData.token;
                         this.userName = memberName;
                         this.userEmail = email;
                         
@@ -1188,10 +1268,11 @@
                     // Use the same member authentication flow as getTokenForUser
                     // Step 1: Try to find existing conversation for this user
                     console.log(`🔍 [FORM] Step 1: Checking for existing conversation...`);
-                    const existingResponse = await fetch(`${this.config.backendUrl}/api/get-member-conversation`, {
+                    const existingResponse = await fetch(`${this.config.backendUrl}/api/token`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ 
+                            type: 'member',
                             email: email,
                             name: name
                         })
@@ -1199,12 +1280,12 @@
                     
                     if (existingResponse.ok) {
                         const existingData = await existingResponse.json();
-                        if (existingData.success && existingData.projectToken) {
+                        if (existingData.valid && existingData.token) {
                             console.log(`✅ [FORM] Found existing conversation: ${existingData.projectTitle}`);
-                            console.log(`🔑 [FORM] Using token: ${existingData.projectToken.substring(0, 8)}...`);
+                            console.log(`🔑 [FORM] Using token: ${existingData.token.substring(0, 8)}...`);
                             
                             // Set session data for existing conversation
-                            this.projectToken = existingData.projectToken;
+                            this.projectToken = existingData.token;
                             this.userName = existingData.clientName || name;
                             this.userEmail = email;
                             
@@ -1219,15 +1300,15 @@
                     
                     // Step 2: No existing conversation found, create new one
                     console.log(`🆕 [FORM] Step 2: Creating new conversation...`);
-                    const response = await fetch(`${this.config.backendUrl}/api/new-lead`, {
+                    const response = await fetch(`${this.config.backendUrl}/api/token`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
                         },
                         body: JSON.stringify({
+                            type: 'member',
                             name: name,
-                            email: email,
-                            source: 'Squarespace Widget Form'
+                            email: email
                         })
                     });
 
@@ -1238,8 +1319,8 @@
                     const result = await response.json();
                     console.log('✅ [FORM] Customer project result:', result);
 
-                    if (result.projectToken) {
-                        this.projectToken = result.projectToken;
+                    if (result.valid && result.token) {
+                        this.projectToken = result.token;
                         this.userName = name;
                         this.userEmail = email;
 
@@ -1260,21 +1341,44 @@
                 }
             }
 
+            showError(message) {
+                console.error('🚨 [WIDGET] Error:', message);
+                const container = document.getElementById('pcd-chat-container');
+                if (container) {
+                    container.innerHTML = `
+                        <div class="pcd-error-message">
+                            <h3>⚠️ Error</h3>
+                            <p>${message}</p>
+                            <button onclick="location.reload()" style="background: #dc3545; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; margin-top: 10px;">
+                                Refresh Page
+                            </button>
+                        </div>
+                    `;
+                }
+            }
+
             startMessaging() {
+                console.log('🚀 [WIDGET] Starting messaging interface...');
+                
                 // Switch container to show messages interface
                 const container = document.getElementById('pcd-chat-container');
+                if (!container) {
+                    console.error('❌ [WIDGET] Chat container not found');
+                    return;
+                }
+                
                 container.innerHTML = `
                     <div class="pcd-loading-messages" id="loadingMessages">
                         <div class="pcd-spinner"></div>
                         Loading messages...
                     </div>
                 `;
-                container.id = 'messagesContainer'; // Change ID for message rendering
+                // ✅ KEEP ORIGINAL ID - don't break other references to pcd-chat-container
                 
-                // Initialize WebSocket connection
+                console.log('🔌 [WIDGET] Initializing WebSocket connection...');
                 this.connectWebSocket();
                 
-                // Load existing messages
+                console.log('📥 [WIDGET] Loading existing messages...');
                 this.loadMessages();
             }
 
@@ -1699,7 +1803,7 @@
             renderMessages() {
                 console.log('🎨 renderMessages() called - Messages to render:', this.messages.length);
                 
-                const container = document.getElementById('messagesContainer');
+                const container = document.getElementById('pcd-chat-container');
                 const loadingElement = document.getElementById('loadingMessages');
                 
                 if (this.messages.length === 0) {
@@ -1857,8 +1961,10 @@
             }
 
             scrollToBottom() {
-                const container = document.getElementById('messagesContainer');
-                container.scrollTop = container.scrollHeight;
+                const container = document.getElementById('pcd-chat-container');
+                if (container) {
+                    container.scrollTop = container.scrollHeight;
+                }
             }
 
             formatTime(timestamp) {
@@ -1896,7 +2002,7 @@
             }
 
             showError(message) {
-                const container = document.getElementById('messagesContainer');
+                const container = document.getElementById('pcd-chat-container');
                 if (container) {
                     container.innerHTML = `<div class="pcd-error-message">${message}</div>`;
                 } else {
@@ -1964,7 +2070,7 @@
                 }
                 
                 // Show sign-in prompt again
-                const container = document.getElementById('pcd-chat-container') || document.getElementById('messagesContainer');
+                const container = document.getElementById('pcd-chat-container');
                 if (container) {
                     container.innerHTML = `
                         <div style="padding: 20px; text-align: center; background: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;">
@@ -1979,7 +2085,6 @@
                             </p>
                         </div>
                     `;
-                    container.id = 'pcd-chat-container'; // Reset to chat container
                 }
             }
 
@@ -2085,121 +2190,305 @@
             }
         }
 
-        // 🔒 GATED WIDGET INITIALIZATION - Member Authentication Required
-        (async function initPCDWidget() {
-            console.log('🔒 [WIDGET_INIT] Starting member-gated widget initialization...');
-            
-            // 1. Parse Squarespace SiteUserInfo cookie for member authentication
-            const match = document.cookie.match(/SiteUserInfo=(\{.*?\})/);
-            if (!match) {
-                console.log('🚨 [WIDGET_INIT] No SiteUserInfo cookie found - showing sign-in prompt');
-                showSignInPrompt();
-                return;
+        // Helper function to detect backend URL
+        function detectBackendUrl() {
+            // 🧪 DEV OVERRIDE: Force localhost for testing when manual token is injected
+            if (window.PROJECT_TOKEN) {
+                console.log('🧪 [DEV] Manual token detected - forcing localhost backend for testing');
+                return 'http://localhost:3000';
             }
             
-            let memberInfo;
-            try {
-                memberInfo = JSON.parse(decodeURIComponent(match[1]));
-                console.log('✅ [WIDGET_INIT] Parsed member info:', memberInfo);
-            } catch (error) {
-                console.error('❌ [WIDGET_INIT] Failed to parse SiteUserInfo cookie:', error);
-                showSignInPrompt();
-                return;
+            const hostname = window.location.hostname;
+            
+            if (hostname === 'localhost' || hostname === '127.0.0.1') {
+                console.log('🏠 Local environment detected - using localhost:3000');
+                return 'http://localhost:3000';
+            } else if (hostname.includes('pleasantcovedesign.com')) {
+                console.log('🌐 Production environment detected - using Railway production backend');
+                return 'https://pleasantcovedesign-production.up.railway.app';
+            } else {
+                console.log('🌐 Unknown environment - defaulting to localhost for testing');
+                return 'http://localhost:3000';
             }
-            
-            if (!memberInfo.authenticated || !memberInfo.siteUserId) {
-                console.log('🚨 [WIDGET_INIT] Member not authenticated or missing siteUserId');
-                showSignInPrompt();
-                return;
-            }
-            
-            const memberId = memberInfo.siteUserId;
-            const memberEmail = memberInfo.email || `${memberId}@squarespace.member`;
-            console.log(`✅ [WIDGET_INIT] Authenticated member: ${memberEmail} (ID: ${memberId})`);
-            
-            try {
-                // 2. Show loading state while fetching token
-                showLoadingState();
+        }
+
+        // Show pre-chat form overlay
+        function showPrechatForm() {
+            console.log('📝 [FORM] Showing pre-chat form');
+            const overlay = document.getElementById('prechatOverlay');
+            if (overlay) {
+                overlay.style.display = 'flex';
+                console.log('✅ [FORM] Pre-chat overlay is now visible');
                 
-                // 3. Fetch or reuse existing token for this member
-                let projectToken = localStorage.getItem('pcd_project_token');
-                const savedEmail = localStorage.getItem('pcd_user_email');
+                // Wire up form handlers if not already done
+                const submitBtn = document.getElementById('formSubmitBtn');
+                if (submitBtn && !submitBtn.onclick) {
+                    console.log('🔗 [FORM] Binding form submit handler');
+                    submitBtn.onclick = handlePrechatSubmit;
+                }
+            } else {
+                console.error('❌ [FORM] Pre-chat overlay element not found!');
+            }
+        }
+
+        // Handle pre-chat form submission
+        async function handlePrechatSubmit() {
+            console.log('📝 [FORM] Form submission started');
+            
+            const nameInput = document.getElementById('userName');
+            const emailInput = document.getElementById('userEmail');
+            const nameError = document.getElementById('nameError');
+            const emailError = document.getElementById('emailError');
+            const submitBtn = document.getElementById('formSubmitBtn');
+            const loadingDiv = document.getElementById('formLoading');
+            
+            if (!nameInput || !emailInput) {
+                console.error('❌ [FORM] Form elements not found');
+                alert('Form error: Please refresh the page');
+                return;
+            }
+            
+            // Clear previous errors
+            if (nameError) nameError.style.display = 'none';
+            if (emailError) emailError.style.display = 'none';
+            nameInput.classList.remove('error');
+            emailInput.classList.remove('error');
+            
+            // Validate inputs
+            let isValid = true;
+            const name = nameInput.value.trim();
+            const email = emailInput.value.trim();
+            
+            if (!name) {
+                console.log('❌ [FORM] Name validation failed');
+                if (nameError) nameError.style.display = 'block';
+                nameInput.classList.add('error');
+                isValid = false;
+            }
+            
+            if (!email || !email.includes('@')) {
+                console.log('❌ [FORM] Email validation failed');
+                if (emailError) emailError.style.display = 'block';
+                emailInput.classList.add('error');
+                isValid = false;
+            }
+            
+            if (!isValid) {
+                console.log('❌ [FORM] Validation failed, stopping submission');
+                return;
+            }
+            
+            console.log('✅ [FORM] Validation passed, submitting:', { name, email });
+            
+            try {
+                // Show loading state
+                if (submitBtn) submitBtn.disabled = true;
+                if (loadingDiv) loadingDiv.style.display = 'flex';
                 
-                // Clear token if it's for a different member
-                if (projectToken && savedEmail && savedEmail !== memberEmail) {
-                    console.log('🧹 [WIDGET_INIT] Token is for different member, clearing...');
-                    localStorage.removeItem('pcd_project_token');
-                    localStorage.removeItem('pcd_user_email');
-                    localStorage.removeItem('pcd_user_name');
-                    projectToken = null;
+                const backendUrl = detectBackendUrl();
+                console.log('🌐 [FORM] Sending request to:', backendUrl);
+                
+                const response = await fetch(`${backendUrl}/api/token`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        type: 'member',
+                        email: email,
+                        name: name
+                    })
+                });
+                
+                console.log('📡 [FORM] Response status:', response.status);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('❌ [FORM] Server error:', errorText);
+                    throw new Error(`Server error: ${response.status}`);
                 }
                 
-                if (!projectToken) {
-                    console.log('🔄 [WIDGET_INIT] No valid token found, fetching new one...');
-                    
-                    // Check for existing conversation first
-                    const existingResp = await fetch(`https://pleasantcovedesign-production.up.railway.app/api/get-member-conversation`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ 
-                            email: memberEmail,
-                            name: memberInfo.firstName || memberEmail.split('@')[0]
-                        })
-                    });
-                    
-                    if (existingResp.ok) {
-                        const existingData = await existingResp.json();
-                        if (existingData.success && existingData.projectToken) {
-                            projectToken = existingData.projectToken;
-                            console.log('✅ [WIDGET_INIT] Found existing conversation');
-                        }
-                    }
-                    
-                    // Create new conversation if none exists
-                    if (!projectToken) {
-                        console.log('🆕 [WIDGET_INIT] Creating new conversation...');
-                        const newResp = await fetch(`https://pleasantcovedesign-production.up.railway.app/api/new-lead`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                name: memberInfo.firstName || memberEmail.split('@')[0],
-                                email: memberEmail,
-                                source: 'Squarespace Member Authentication'
-                            })
-                        });
-                        
-                        if (!newResp.ok) {
-                            throw new Error(`Failed to create conversation: ${newResp.status}`);
-                        }
-                        
-                        const newData = await newResp.json();
-                        if (!newData.success || !newData.projectToken) {
-                            throw new Error('No project token received from server');
-                        }
-                        
-                        projectToken = newData.projectToken;
-                        console.log('✅ [WIDGET_INIT] Created new conversation');
-                    }
-                    
-                    // Save token and member info
-                    localStorage.setItem('pcd_project_token', projectToken);
-                    localStorage.setItem('pcd_user_email', memberEmail);
-                    localStorage.setItem('pcd_user_name', memberInfo.firstName || memberEmail.split('@')[0]);
-                    localStorage.setItem('pcd_session_timestamp', Date.now().toString());
+                const data = await response.json();
+                console.log('📦 [FORM] Response data:', data);
+                
+                if (!data.valid || !data.token) {
+                    throw new Error('No valid token received from server');
                 }
                 
-                console.log(`✅ [WIDGET_INIT] Token acquired: ${projectToken.substring(0, 8)}...`);
+                console.log('✅ [FORM] Token received:', data.token.substring(0, 8) + '...');
                 
-                // 4. Now we can safely initialize the widget with the token
-                console.log('🚀 [WIDGET_INIT] Initializing messaging widget...');
-                const messagingWidget = new PCDMessagingWidget(projectToken, memberEmail, memberInfo.firstName || memberEmail.split('@')[0]);
+                // Save session data
+                localStorage.setItem('pcd_project_token', data.token);
+                localStorage.setItem('pcd_user_email', email);
+                localStorage.setItem('pcd_user_name', name);
+                localStorage.setItem('pcd_session_timestamp', Date.now().toString());
+                localStorage.setItem('pcd_session_domain', window.location.hostname);
                 
-                // Make it globally accessible for development
+                console.log('💾 [FORM] Session data saved');
+                
+                // Hide overlay
+                const overlay = document.getElementById('prechatOverlay');
+                if (overlay) overlay.style.display = 'none';
+                
+                console.log('🚀 [FORM] Initializing messaging widget...');
+                
+                // Initialize messaging widget with form authentication flag
+                const messagingWidget = new PCDMessagingWidget(data.token, email, name);
+                messagingWidget.isFormAuthenticated = true; // Skip auth checks since we just authenticated
+                await messagingWidget.init(); // Directly initialize
                 window.messagingWidget = messagingWidget;
                 
+                console.log('✅ [FORM] Widget initialized successfully!');
+                
             } catch (error) {
-                console.error('❌ [WIDGET_INIT] Error during initialization:', error);
-                showErrorState(error.message);
+                console.error('❌ [FORM] Submission error:', error);
+                alert('Failed to start chat: ' + error.message);
+            } finally {
+                // Reset form state
+                if (submitBtn) submitBtn.disabled = false;
+                if (loadingDiv) loadingDiv.style.display = 'none';
+            }
+        }
+
+        // 🚀 SIMPLIFIED WIDGET INITIALIZATION
+        (async function initPCDWidget() {
+            // 🔒 PREVENT DUPLICATE INITIALIZATION: If widget already exists, skip
+            if (window.messagingWidget) {
+                console.log('🔒 [WIDGET_INIT] Widget already exists, skipping duplicate initialization');
+                return;
+            }
+            
+            // 🧪 DEV OVERRIDE: if you've injected a token + user info, skip cookies entirely
+            if (window.PROJECT_TOKEN && window.PROJECT_USER_EMAIL && window.PROJECT_USER_NAME) {
+                console.log('🧪 [DEV] Manual injection detected – initializing widget directly');
+                const messagingWidget = new PCDMessagingWidget(
+                    window.PROJECT_TOKEN,
+                    window.PROJECT_USER_EMAIL,
+                    window.PROJECT_USER_NAME
+                );
+                messagingWidget.isFormAuthenticated = true; // Skip auth checks for dev injection
+                await messagingWidget.init(); // Initialize directly
+                window.messagingWidget = messagingWidget;
+                return;  // <-- don't run any of the cookie logic below
+            }
+            
+            // 🧪 DEV OVERRIDE: if only token is injected but we have Squarespace member data, use that
+            if (window.PROJECT_TOKEN && !window.PROJECT_USER_EMAIL && !window.PROJECT_USER_NAME) {
+                console.log('🧪 [DEV] Token injection detected - checking for Squarespace member data...');
+                
+                // Try to get member data from Squarespace cookie
+                const match = document.cookie.match(/SiteUserInfo=(\{.*?\})/);
+                if (match) {
+                    try {
+                        const memberInfo = JSON.parse(decodeURIComponent(match[1]));
+                        if (memberInfo.authenticated && memberInfo.siteUserId) {
+                            const memberEmail = `${memberInfo.siteUserId}@squarespace.member`;
+                            const memberName = memberInfo.firstName || 'Squarespace Member';
+                            
+                            console.log('🧪 [DEV] Using Squarespace member data with injected token');
+                            console.log('🧪 [DEV] Member:', memberName, memberEmail);
+                            const messagingWidget = new PCDMessagingWidget(
+                                window.PROJECT_TOKEN,
+                                memberEmail,
+                                memberName
+                            );
+                            messagingWidget.isFormAuthenticated = true;
+                            await messagingWidget.init();
+                            window.messagingWidget = messagingWidget;
+                            return;
+                        }
+                    } catch (error) {
+                        console.warn('🧪 [DEV] Could not parse Squarespace member data:', error);
+                    }
+                }
+                
+                console.log('🧪 [DEV] No Squarespace member data found - showing pre-chat form');
+                showPrechatForm();
+                return;
+            }
+            
+            console.log('🚀 [WIDGET_INIT] Starting widget initialization...');
+            
+            try {
+                // Check for existing valid session first
+                const savedToken = localStorage.getItem('pcd_project_token');
+                const savedEmail = localStorage.getItem('pcd_user_email');
+                const savedName = localStorage.getItem('pcd_user_name');
+                
+                if (savedToken && savedEmail && savedName) {
+                    console.log('🔍 [WIDGET_INIT] Found existing session, validating...');
+                    
+                    const backendUrl = detectBackendUrl();
+                    const validateResp = await fetch(`${backendUrl}/api/token`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ type: 'validate', token: savedToken })
+                    });
+                    
+                    if (validateResp.ok) {
+                        console.log('✅ [WIDGET_INIT] Session valid, resuming...');
+                        const messagingWidget = new PCDMessagingWidget(savedToken, savedEmail, savedName);
+                        window.messagingWidget = messagingWidget;
+                        return;
+                    } else {
+                        console.log('❌ [WIDGET_INIT] Session invalid, clearing...');
+                        localStorage.removeItem('pcd_project_token');
+                        localStorage.removeItem('pcd_user_email');
+                        localStorage.removeItem('pcd_user_name');
+                    }
+                }
+                
+                // Try Squarespace member authentication
+                const match = document.cookie.match(/SiteUserInfo=(\{.*?\})/);
+                if (match) {
+                    try {
+                        const memberInfo = JSON.parse(decodeURIComponent(match[1]));
+                        if (memberInfo.authenticated && memberInfo.siteUserId) {
+                            const memberEmail = memberInfo.email || `${memberInfo.siteUserId}@squarespace.member`;
+                            console.log('✅ [WIDGET_INIT] Squarespace member detected:', memberEmail);
+                            
+                            showLoadingState();
+                            
+                            const backendUrl = detectBackendUrl();
+                            const tokenResp = await fetch(`${backendUrl}/api/token`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ 
+                                    type: 'member',
+                                    email: memberEmail,
+                                    name: memberInfo.firstName || memberEmail.split('@')[0]
+                                })
+                            });
+                            
+                            if (tokenResp.ok) {
+                                const tokenData = await tokenResp.json();
+                                if (tokenData.valid && tokenData.token) {
+                                    console.log('✅ [WIDGET_INIT] Member token acquired');
+                                    
+                                    localStorage.setItem('pcd_project_token', tokenData.token);
+                                    localStorage.setItem('pcd_user_email', memberEmail);
+                                    localStorage.setItem('pcd_user_name', memberInfo.firstName || memberEmail.split('@')[0]);
+                                    
+                                    const messagingWidget = new PCDMessagingWidget(
+                                        tokenData.token, 
+                                        memberEmail, 
+                                        memberInfo.firstName || memberEmail.split('@')[0]
+                                    );
+                                    window.messagingWidget = messagingWidget;
+                                    return;
+                                }
+                            }
+                        }
+                    } catch (e) {
+                        console.log('⚠️ [WIDGET_INIT] Squarespace auth failed:', e.message);
+                    }
+                }
+                
+                // Fall back to pre-chat form
+                console.log('📝 [WIDGET_INIT] Showing pre-chat form');
+                showPrechatForm();
+                
+            } catch (error) {
+                console.error('❌ [WIDGET_INIT] Initialization error:', error);
+                showPrechatForm();
             }
         })();
         

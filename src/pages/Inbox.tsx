@@ -11,7 +11,7 @@ import {
   User,
   X
 } from 'lucide-react'
-import api from '../api'
+import api, { getWebSocketUrl } from '../api'
 import { io, Socket } from 'socket.io-client'
 
 interface Message {
@@ -186,7 +186,7 @@ const Inbox: React.FC = () => {
   useEffect(() => {
     console.log(`🔌 [WEBSOCKET] Setting up WebSocket connection...`)
     
-    const backendUrl = 'https://pleasantcovedesign-production.up.railway.app'
+    const backendUrl = getWebSocketUrl()
     
     console.log(`🔌 [WEBSOCKET] Connecting to: ${backendUrl}`)
     setConnectionStatus('connecting')
@@ -373,7 +373,7 @@ const Inbox: React.FC = () => {
           formData.append('files', file)
         })
         
-        response = await fetch(`https://pleasantcovedesign-production.up.railway.app/api/public/project/${selectedConversation.projectToken}/messages`, {
+        response = await fetch(`${getWebSocketUrl()}/api/public/project/${selectedConversation.projectToken}/messages`, {
           method: 'POST',
           body: formData
         })

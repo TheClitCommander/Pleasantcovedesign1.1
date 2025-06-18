@@ -158,6 +158,19 @@ function generateProjectToken(): string {
   return result;
 }
 
+// Email configuration (consolidated from appointment-server.js)  
+const createEmailTransporter = () => {
+  return nodemailer.createTransporter({
+    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    port: parseInt(process.env.SMTP_PORT || '587'),
+    secure: false,
+    auth: {
+      user: process.env.EMAIL_USER || 'pleasantcovedesign@gmail.com',
+      pass: process.env.EMAIL_PASS || 'your-app-password'
+    }
+  });
+};
+
 // Real-time notification system
 interface Notification {
   id: string;
@@ -219,6 +232,8 @@ const PUBLIC_API_ROUTES = [
   "/api/new-lead",
   "/api/acuity-appointment",
   "/api/public/project",
+  "/api/book-appointment",
+  "/api/availability",
   "/health"
 ];
 
@@ -250,6 +265,295 @@ export async function registerRoutes(app: Express, io?: any): Promise<any> {
   app.use('/uploads', express.static(uploadsDir));
   console.log('📁 Serving uploads from:', uploadsDir);
   
+  // ===================
+  // APPOINTMENT BOOKING ROUTES (from appointment-server.js)
+  // ===================
+  
+  // Book appointment (PUBLIC - for Squarespace widget)
+  app.post('/api/book-appointment', async (req: Request, res: Response) => {
+    try {
+      const {
+        firstName,
+        lastName,
+        email,
+        phone,
+        businessName,
+        services,
+        projectDescription,
+        budget,
+        timeline,
+        appointmentDate,
+        appointmentTime,
+        additionalNotes
+      } = req.body;
+
+      // Validate required fields
+      if (!firstName || !lastName || !email || !phone || !services || !projectDescription || !budget || !timeline || !appointmentDate || !appointmentTime) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Missing required fields' 
+        });
+      }
+
+      console.log('🔍 Checking appointment availability...');
+      
+      // Check for existing appointments at the same date/time using unified storage
+      const existingAppointments = await storage.getAppointmentsByDateTime(appointmentDate, appointmentTime);
+      
+      if (existingAppointments.length > 0) {
+        console.log('❌ Time slot conflict detected');
+        console.log('Conflicting appointments:', existingAppointments.map(apt => ({
+          id: apt.id,
+          date: apt.appointmentDate,
+          time: apt.appointmentTime,
+          client: apt.clientName
+        })));
+        
+        return res.status(409).json({
+          success: false,
+          message: `Sorry, the ${appointmentTime} time slot on ${new Date(appointmentDate).toLocaleDateString()} is already booked. Please choose a different time.`,
+          error: 'TIME_SLOT_UNAVAILABLE',
+          availableAlternatives: ['8:30 AM', '9:00 AM'].filter(time => time !== appointmentTime)
+        });
+      }
+      
+      console.log('✅ Time slot is available, proceeding with booking...');
+      
+      // Create or find client
+      let client = await storage.findClientByEmail(email);
+      let clientData: any = null;
+      
+      if (client) {
+        // Handle different storage implementations
+        if ('name' in client && 'id' in client) {
+          clientData = client;
+        } else if (typeof client === 'object' && 'company' in client && (client as any).company) {
+          clientData = (client as any).company;
+        }
+      }
+      
+      if (!clientData) {
+        // Create new client
+        clientData = await storage.createCompany({
+          name: `${firstName} ${lastName}`,
+          email: email,
+          phone: phone,
+          address: '',
+          city: '',
+          state: '',
+          website: '',
+          industry: 'Appointment Client',
+          tags: [],
+          priority: 'medium'
+        });
+      }
+      
+      // Create project for this appointment
+      const secureToken = generateSecureProjectToken('appointment_booking', email);
+      const project = await storage.createProject({
+        companyId: clientData.id!,
+        title: `${firstName} ${lastName} - ${services}`,
+        type: 'consultation',
+        stage: 'scheduled',
+        status: 'active',
+        totalAmount: 0,
+        paidAmount: 0,
+        accessToken: secureToken.token
+      });
+      
+      // Create appointment record
+      const appointmentData = {
+        companyId: clientData.id,
+        projectId: project.id,
+        firstName,
+        lastName,
+        email,
+        phone,
+        businessName: businessName || '',
+        services,
+        projectDescription,
+        budget,
+        timeline,
+        appointmentDate,
+        appointmentTime,
+        additionalNotes: additionalNotes || '',
+        status: 'pending'
+      };
+      
+      const appointment = await storage.createAppointment(appointmentData);
+      
+      // Send confirmation emails
+      const transporter = createEmailTransporter();
+      
+      try {
+        // Email to client
+        await transporter.sendMail({
+          from: '"Pleasant Cove Design" <pleasantcovedesign@gmail.com>',
+          to: email,
+          subject: 'Appointment Confirmation - Pleasant Cove Design',
+          html: `
+            <h2>Appointment Confirmed!</h2>
+            <p>Dear ${firstName} ${lastName},</p>
+            <p>Your consultation appointment has been confirmed for:</p>
+            <ul>
+              <li><strong>Date:</strong> ${appointmentDate}</li>
+              <li><strong>Time:</strong> ${appointmentTime}</li>
+              <li><strong>Services:</strong> ${services}</li>
+            </ul>
+            <p>We'll contact you shortly to discuss your project.</p>
+            <p>Best regards,<br>Pleasant Cove Design Team</p>
+          `
+        });
+
+        // Email to admin
+        await transporter.sendMail({
+          from: '"Appointment System" <pleasantcovedesign@gmail.com>',
+          to: 'pleasantcovedesign@gmail.com',
+          subject: `New Appointment - ${firstName} ${lastName}`,
+          html: `
+            <h2>New Appointment Booking</h2>
+            <h3>Contact Information:</h3>
+            <ul>
+              <li><strong>Name:</strong> ${firstName} ${lastName}</li>
+              <li><strong>Email:</strong> ${email}</li>
+              <li><strong>Phone:</strong> ${phone}</li>
+              <li><strong>Business:</strong> ${businessName || 'N/A'}</li>
+            </ul>
+            <h3>Project Details:</h3>
+            <ul>
+              <li><strong>Services:</strong> ${services}</li>
+              <li><strong>Description:</strong> ${projectDescription}</li>
+              <li><strong>Budget:</strong> ${budget}</li>
+              <li><strong>Timeline:</strong> ${timeline}</li>
+            </ul>
+            <h3>Appointment:</h3>
+            <ul>
+              <li><strong>Date:</strong> ${appointmentDate}</li>
+              <li><strong>Time:</strong> ${appointmentTime}</li>
+            </ul>
+            <p><strong>Additional Notes:</strong> ${additionalNotes || 'None'}</p>
+          `
+        });
+      } catch (emailError) {
+        console.error('Email error:', emailError);
+        // Don't fail the appointment if email fails
+      }
+      
+      // Add notification
+      addNotification({
+        type: 'appointment_booked',
+        title: 'New Appointment',
+        message: `${firstName} ${lastName} booked ${services} for ${appointmentDate} at ${appointmentTime}`,
+        businessId: clientData.id
+      });
+      
+      res.json({
+        success: true,
+        message: 'Appointment booked successfully',
+        appointmentId: appointment.id,
+        projectToken: secureToken.token
+      });
+      
+    } catch (error) {
+      console.error('Appointment booking error:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Server error occurred' 
+      });
+    }
+  });
+  
+  // Get availability for a specific date (PUBLIC)
+  app.get('/api/availability/:date', async (req: Request, res: Response) => {
+    try {
+      const { date } = req.params;
+      
+      // Define business hours - only two slots
+      const allSlots = ['8:30 AM', '9:00 AM'];
+      
+      // Query booked slots for this date
+      const bookedAppointments = await storage.getAppointmentsByDate(date);
+      const bookedSlots = bookedAppointments
+        .filter(apt => apt.status !== 'cancelled')
+        .map(apt => apt.appointmentTime);
+      
+      const availableSlots = allSlots.filter(slot => !bookedSlots.includes(slot));
+      
+      res.json({
+        success: true,
+        date: date,
+        availableSlots: availableSlots,
+        bookedSlots: bookedSlots
+      });
+      
+    } catch (error) {
+      console.error('Availability check error:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Failed to check availability' 
+      });
+    }
+  });
+  
+  // Get all appointments (ADMIN)
+  app.get('/api/appointments', requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const appointments = await storage.getAllAppointments();
+      
+      res.json({
+        success: true,
+        appointments: appointments
+      });
+      
+    } catch (error) {
+      console.error('Get appointments error:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Failed to fetch appointments' 
+      });
+    }
+  });
+  
+  // Update appointment status (ADMIN)
+  app.patch('/api/appointments/:id/status', requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { status } = req.body;
+      
+      if (!['pending', 'confirmed', 'completed', 'cancelled'].includes(status)) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Invalid status' 
+        });
+      }
+      
+      const updated = await storage.updateAppointmentStatus(parseInt(id), status);
+      
+      if (!updated) {
+        return res.status(404).json({ 
+          success: false, 
+          message: 'Appointment not found' 
+        });
+      }
+      
+      res.json({
+        success: true,
+        message: 'Appointment updated successfully'
+      });
+      
+    } catch (error) {
+      console.error('Update appointment error:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Failed to update appointment' 
+      });
+    }
+  });
+  
+  // ===================
+  // EXISTING ROUTES (continued)
+  // ===================
+
   // Root webhook endpoint for Squarespace widget customer project creation (PUBLIC - no auth required)
   app.post("/", async (req: Request, res: Response) => {
     try {
@@ -479,11 +783,9 @@ export async function registerRoutes(app: Express, io?: any): Promise<any> {
         priority: leadScore >= 80 ? "high" : leadScore >= 60 ? "medium" : "low",
       };
 
-      const business = await storage.createBusiness(businessData);
+      // For Squarespace members, always use admin business (ID 1) for unified inbox
+      console.log(`✅ Using admin business (ID: 1) for Squarespace member: ${email}`);
       
-      // ===================
-      // PROJECT TOKEN LOGIC - UPDATED FOR STABLE TOKENS
-      // ===================
       let projectToken = null;
       
       if (email) {
@@ -509,103 +811,99 @@ export async function registerRoutes(app: Express, io?: any): Promise<any> {
           if (existingClient) {
             console.log(`✅ Found existing client: ${existingClient.name} (ID: ${existingClient.id})`);
             
-            // Check for existing recent conversations (within 30 days)
-            const existingProjects = await storage.getProjectsByCompany(existingClient.id);
-            const recentProject = existingProjects
-              .filter(p => p.status === 'active')
-              .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())[0];
-            
-            // ALWAYS create new conversations for privacy - NEVER reuse tokens
-            const secureToken = generateSecureProjectToken(req.body.source || 'squarespace_form', email);
+            // ALWAYS create new conversation for privacy - use admin business ID 1
+            const secureToken = generateSecureProjectToken('squarespace_member', email);
             const newProject = await storage.createProject({
-              companyId: existingClient.id,
-              title: `${existingClient.name} - Conversation ${secureToken.submissionId}`,
-              type: 'website',
+              companyId: 1, // Always use admin business for unified inbox
+              title: `${name || email.split('@')[0]} - Conversation ${Date.now()}`,
+              type: 'consultation',
               stage: 'discovery',
               status: 'active',
-              totalAmount: 5000,
+              totalAmount: 0,
               paidAmount: 0,
               accessToken: secureToken.token
             });
             
             projectToken = newProject.accessToken;
-            console.log(`🆕 [PRIVACY_SECURE] Created new conversation for client: ${projectToken}`);
+            console.log(`✅ Created new project under admin business: ID ${newProject.id}, Token: ${projectToken}, Business: 1`);
           } else {
-            // Create new client and project
+            // Create new client under admin business
             const newCompany = await storage.createCompany({
               name: businessData.name,
-              email: email,
-              phone: businessData.phone || '',
-              address: '',
-              city: '',
-              state: '',
-              website: '',
-              industry: 'Web Design Client',
+              email: businessData.email,
+              phone: businessData.phone,
+              address: businessData.address,
+              city: businessData.city,
+              state: businessData.state,
+              website: businessData.website,
+              industry: businessData.businessType,
               tags: [],
-              priority: 'medium'
+              priority: businessData.priority
             });
             
-            const conversationNumber = Math.floor(Date.now() / 1000); // Use timestamp for uniqueness
+            const secureToken = generateSecureProjectToken('squarespace_new_member', email);
             const newProject = await storage.createProject({
-              companyId: newCompany.id!,
-              title: `${businessData.name} - Conversation ${conversationNumber}`,
-              type: 'website',
+              companyId: 1, // Always use admin business for unified inbox
+              title: `${name || email.split('@')[0]} - Conversation ${Date.now()}`,
+              type: 'consultation',
               stage: 'discovery',
               status: 'active',
-              totalAmount: 5000,
+              totalAmount: 0,
               paidAmount: 0,
-              accessToken: generateProjectToken() // Always generate unique token
+              accessToken: secureToken.token
             });
             
             projectToken = newProject.accessToken;
-            console.log(`✅ Created new project: ID ${newProject.id}, Token: ${projectToken}`);
+            console.log(`✅ Created new project under admin business: ID ${newProject.id}, Token: ${projectToken}, Business: 1`);
           }
           
           console.log(`🎯 Project token assigned: ${projectToken} for email: ${email}`);
           
         } catch (projectError) {
           console.error("Error handling project token logic:", projectError);
-          // Continue without project token if there's an error
+          return res.status(500).json({ error: "Failed to create project" });
         }
       }
       
-      await storage.createActivity({
-        type: "lead_received",
-        description: `New Squarespace lead: ${businessData.name} (Score: ${leadScore})`,
-        businessId: business.id!,
-      });
-
-      if (leadScore >= 80) {
-        addNotification({
-          type: 'high_score_lead',
-          title: 'High-Priority Lead Received!',
-          message: `${businessData.name} - Score: ${leadScore} (${businessType})`,
-          businessId: business.id!
-        });
-      } else {
-        addNotification({
-          type: 'new_lead',
-          title: 'New Lead Received',
-          message: `${businessData.name} - Score: ${leadScore}`,
-          businessId: business.id!
-        });
+      // Add the initial message to the project
+      if (projectToken && message) {
+        try {
+          const project = await storage.getProjectByToken(projectToken);
+          if (project) {
+            await storage.addMessage({
+              projectId: project.id!,
+              senderType: 'client',
+              senderName: businessData.name,
+              content: message,
+              attachments: []
+            });
+            console.log(`💬 Added initial message to project ${project.id}`);
+          }
+        } catch (messageError) {
+          console.error("Error adding initial message:", messageError);
+          // Don't fail the whole request if message fails
+        }
       }
+      
+      // Add notification
+      addNotification({
+        type: leadScore >= 80 ? 'high_score_lead' : 'new_lead',
+        title: leadScore >= 80 ? 'High Score Lead!' : 'New Lead',
+        message: `${businessData.name} (Score: ${leadScore}) - ${businessType}`,
+        businessId: 1 // Always admin business for notifications
+      });
       
       res.status(200).json({ 
         success: true, 
-        businessId: business.id,
-        leadScore,
-        priority: businessData.priority,
-        projectToken: projectToken, // Include project token for Squarespace embedding
-        message: "Lead received and queued for enrichment",
-        ...(projectToken && { 
-          messagingUrl: `/squarespace-widgets/messaging-widget.html?token=${projectToken}`,
-          clientPortalUrl: `/api/public/project/${projectToken}` 
-        })
+        projectToken: projectToken,
+        leadScore: leadScore,
+        businessType: businessType,
+        message: "Lead processed successfully"
       });
+      
     } catch (error) {
       console.error("Failed to process lead:", error);
-      res.status(500).json({ error: "Failed to process lead" });
+      res.status(500).json({ error: "Failed to process request" });
     }
   });
 
@@ -3898,6 +4196,228 @@ Booked via: ${source}
   });
 
   // ===================
+  // UNIFIED TOKEN ENDPOINT - Single source of truth for all tokens
+  // ===================
+  
+  app.post('/api/token', async (req: Request, res: Response) => {
+    try {
+      const { email, name, projectId, type = 'member' } = req.body;
+      
+      console.log(`🔑 [TOKEN_REQUEST] Type: ${type}, Email: ${email}, ProjectId: ${projectId}`);
+      
+      // ADMIN TOKEN REQUEST (for admin UI)
+      if (type === 'admin') {
+        const adminToken = req.headers.authorization?.replace('Bearer ', '');
+        if (adminToken === 'pleasantcove2024admin') {
+          console.log(`✅ [TOKEN_REQUEST] Admin token validated`);
+          return res.json({ 
+            token: adminToken,
+            type: 'admin',
+            valid: true,
+            expiresIn: null // Admin tokens don't expire
+          });
+        } else {
+          console.log(`❌ [TOKEN_REQUEST] Invalid admin token`);
+          return res.status(401).json({ error: 'Invalid admin token', code: 'INVALID_ADMIN_TOKEN' });
+        }
+      }
+      
+      // PROJECT TOKEN REQUEST (by project ID)
+      if (type === 'project' && projectId) {
+        const project = await storage.getProjectById(projectId);
+        if (project && project.accessToken) {
+          console.log(`✅ [TOKEN_REQUEST] Project token found: ${project.accessToken.substring(0, 8)}...`);
+          return res.json({
+            token: project.accessToken,
+            type: 'project',
+            valid: true,
+            projectId: project.id,
+            projectTitle: project.title
+          });
+        } else {
+          console.log(`❌ [TOKEN_REQUEST] Project not found: ${projectId}`);
+          return res.status(404).json({ error: 'Project not found', code: 'PROJECT_NOT_FOUND' });
+        }
+      }
+      
+      // MEMBER TOKEN REQUEST (for Squarespace widgets)
+      if (type === 'member' && email) {
+        console.log(`🔍 [TOKEN_REQUEST] Looking for member conversation: ${email}`);
+        
+        // Check for existing conversation
+        const existingClientData = await storage.findClientByEmail(email);
+        let existingClient: any = null;
+        
+        if (existingClientData) {
+          if ('name' in existingClientData && 'id' in existingClientData) {
+            existingClient = existingClientData;
+          } else if (typeof existingClientData === 'object' && 'company' in existingClientData) {
+            existingClient = (existingClientData as any).company;
+          }
+        }
+        
+        if (existingClient) {
+          // Get the most recent active conversation  
+          try {
+            const existingProjects = await storage.getProjectsByCompany(existingClient.id);
+            console.log(`🔍 [TOKEN_REQUEST] Found ${existingProjects.length} projects for client ${existingClient.id}`);
+            
+            const activeProjects = existingProjects
+              .filter(p => p.status === 'active' && p.accessToken)
+              .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+            
+            console.log(`🔍 [TOKEN_REQUEST] Found ${activeProjects.length} active projects with tokens`);
+            
+            if (activeProjects.length > 0) {
+              const latestProject = activeProjects[0];
+              console.log(`✅ [TOKEN_REQUEST] Existing conversation found: ${latestProject.accessToken?.substring(0, 8)}...`);
+              return res.json({
+                token: latestProject.accessToken,
+                type: 'member',
+                valid: true,
+                existing: true,
+                projectId: latestProject.id,
+                projectTitle: latestProject.title,
+                clientName: existingClient.name
+              });
+            }
+          } catch (projectError) {
+            console.error(`❌ [TOKEN_REQUEST] Error fetching projects for client ${existingClient.id}:`, projectError);
+            // Continue to create new conversation
+          }
+        }
+        
+        // Create new conversation (member doesn't exist or no active conversations)
+        let clientData = existingClient;
+        
+        if (!clientData) {
+          // Create new client
+          clientData = await storage.createCompany({
+            name: name || email.split('@')[0],
+            email: email,
+            phone: '',
+            address: '',
+            city: '',
+            state: '',
+            website: '',
+            industry: 'Web Design Client',
+            tags: [],
+            priority: 'medium'
+          });
+          console.log(`📝 [TOKEN_REQUEST] Created new client: ${clientData.name} (${clientData.email})`);
+        }
+        
+        // Create new project with unified token linked to the actual client company
+        const secureToken = generateSecureProjectToken('member_conversation', email);
+        const newProject = await storage.createProject({
+          companyId: clientData.id, // Link to the actual client company for proper retrieval
+          title: `${clientData.name} - Conversation ${Date.now()}`,
+          type: 'consultation',
+          stage: 'discovery',
+          status: 'active',
+          totalAmount: 0,
+          paidAmount: 0,
+          accessToken: secureToken.token
+        });
+        
+        console.log(`✨ [TOKEN_REQUEST] Created new conversation: ${secureToken.token.substring(0, 8)}...`);
+        return res.json({
+          token: secureToken.token,
+          type: 'member',
+          valid: true,
+          existing: false,
+          projectId: newProject.id,
+          projectTitle: newProject.title,
+          clientName: clientData.name
+        });
+      }
+      
+      // VALIDATION REQUEST (check if token is valid)
+      if (type === 'validate') {
+        const { token } = req.body;
+        if (!token) {
+          return res.status(400).json({ error: 'Token required for validation', code: 'MISSING_TOKEN' });
+        }
+        
+        try {
+          const project = await storage.getProjectByAccessToken(token);
+          if (project) {
+            console.log(`✅ [TOKEN_REQUEST] Token validation successful: ${token.substring(0, 8)}...`);
+            return res.json({
+              token,
+              type: 'project',
+              valid: true,
+              projectId: project.id,
+              projectTitle: project.title
+            });
+          } else {
+            console.log(`❌ [TOKEN_REQUEST] Token validation failed: ${token.substring(0, 8)}...`);
+            return res.status(404).json({ 
+              valid: false, 
+              error: 'Token not found',
+              code: 'TOKEN_NOT_FOUND'
+            });
+          }
+        } catch (error) {
+          console.log(`❌ [TOKEN_REQUEST] Token validation error: ${error.message}`);
+          return res.status(400).json({ 
+            valid: false, 
+            error: 'Invalid token format',
+            code: 'INVALID_TOKEN_FORMAT'
+          });
+        }
+      }
+      
+      return res.status(400).json({ 
+        error: 'Invalid request. Specify type: admin, member, project, or validate',
+        code: 'INVALID_REQUEST_TYPE'
+      });
+      
+    } catch (error) {
+      console.error('❌ [TOKEN_REQUEST] Error:', error);
+      res.status(500).json({ 
+        error: 'Token request failed',
+        code: 'TOKEN_REQUEST_ERROR'
+      });
+    }
+  });
+  
+  // ===================
+  // TAGS ENDPOINT - For React UI tag management
+  // ===================
+  
+  app.get('/api/tags', async (req: Request, res: Response) => {
+    try {
+      console.log('📋 [TAGS] Fetching all available tags...');
+      
+      // For now, return a static list of common tags
+      // TODO: Make this dynamic based on actual project tags in database
+      const tags = [
+        { id: 1, name: 'High Priority', color: '#ef4444', count: 3 },
+        { id: 2, name: 'New Client', color: '#22c55e', count: 8 },
+        { id: 3, name: 'Consultation', color: '#3b82f6', count: 12 },
+        { id: 4, name: 'Website Project', color: '#8b5cf6', count: 5 },
+        { id: 5, name: 'Branding', color: '#f59e0b', count: 2 },
+        { id: 6, name: 'E-commerce', color: '#ec4899', count: 4 },
+        { id: 7, name: 'Mobile App', color: '#06b6d4', count: 1 },
+        { id: 8, name: 'Maintenance', color: '#84cc16', count: 6 },
+        { id: 9, name: 'Squarespace Member', color: '#f97316', count: 7 },
+        { id: 10, name: 'Follow-up Required', color: '#ef4444', count: 2 }
+      ];
+      
+      console.log(`📋 [TAGS] Returning ${tags.length} tags`);
+      res.json(tags);
+      
+    } catch (error) {
+      console.error('❌ [TAGS] Error fetching tags:', error);
+      res.status(500).json({ 
+        error: 'Failed to fetch tags',
+        code: 'TAGS_FETCH_ERROR'
+      });
+    }
+  });
+  
+  // ===================
   // DEBUG ENDPOINTS
   // ===================
   
@@ -3979,22 +4499,6 @@ interface EmailConfirmationData {
   businessName: string;
   appointmentId?: number; // Optional appointment ID for action links
   }
-
-// Create Gmail SMTP transporter
-const createEmailTransporter = () => {
-  if (!process.env.GMAIL_EMAIL || !process.env.GMAIL_APP_PASSWORD) {
-    console.log('📧 Gmail credentials not configured, falling back to console logging');
-    return null;
-  }
-  
-  return nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: process.env.GMAIL_EMAIL,
-      pass: process.env.GMAIL_APP_PASSWORD
-    }
-  });
-};
 
 async function sendAppointmentConfirmationEmail(data: EmailConfirmationData): Promise<void> {
   // Build URLs for client actions - Auto-detect environment

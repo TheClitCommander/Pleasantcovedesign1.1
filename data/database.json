@@ -99,6 +99,117 @@
       "priority": "medium",
       "id": 73,
       "createdAt": "2025-06-17T02:34:16.575Z"
+    },
+    {
+      "name": "Test Company",
+      "email": "john@test.com",
+      "phone": "555-0123",
+      "address": "",
+      "city": "",
+      "state": "",
+      "industry": "General",
+      "status": "active",
+      "source": "appointment_booking_widget",
+      "id": 123,
+      "createdAt": "2025-06-18T17:23:49.636Z"
+    },
+    {
+      "name": "Unified Test User",
+      "email": "unified-test@example.com",
+      "phone": "",
+      "address": "",
+      "city": "",
+      "state": "",
+      "website": "",
+      "industry": "Web Design Client",
+      "tags": [],
+      "priority": "medium",
+      "id": 127,
+      "createdAt": "2025-06-18T17:39:23.587Z"
+    },
+    {
+      "name": "Returning Member",
+      "email": "test-returning-member@example.com",
+      "phone": "",
+      "address": "",
+      "city": "",
+      "state": "",
+      "website": "",
+      "industry": "Web Design Client",
+      "tags": [],
+      "priority": "medium",
+      "id": 131,
+      "createdAt": "2025-06-18T17:40:52.313Z"
+    },
+    {
+      "name": "Test Widget User",
+      "email": "test-widget@example.com",
+      "phone": "",
+      "address": "",
+      "city": "",
+      "state": "",
+      "website": "",
+      "industry": "Web Design Client",
+      "tags": [],
+      "priority": "medium",
+      "id": 134,
+      "createdAt": "2025-06-18T17:55:00.958Z"
+    },
+    {
+      "name": "Test User",
+      "email": "test-user@example.com",
+      "phone": "",
+      "address": "",
+      "city": "",
+      "state": "",
+      "website": "",
+      "industry": "Web Design Client",
+      "tags": [],
+      "priority": "medium",
+      "id": 136,
+      "createdAt": "2025-06-18T17:59:11.174Z"
+    },
+    {
+      "name": "Test Form User",
+      "email": "test-form-user@example.com",
+      "phone": "",
+      "address": "",
+      "city": "",
+      "state": "",
+      "website": "",
+      "industry": "Web Design Client",
+      "tags": [],
+      "priority": "medium",
+      "id": 138,
+      "createdAt": "2025-06-18T18:10:17.782Z"
+    },
+    {
+      "name": "Dev Test User",
+      "email": "dev-test@example.com",
+      "phone": "",
+      "address": "",
+      "city": "",
+      "state": "",
+      "website": "",
+      "industry": "Web Design Client",
+      "tags": [],
+      "priority": "medium",
+      "id": 140,
+      "createdAt": "2025-06-18T18:12:12.607Z"
+    },
+    {
+      "name": "Ben",
+      "email": "68484054695550705cd5c082@squarespace.member",
+      "phone": "",
+      "address": "",
+      "city": "",
+      "state": "",
+      "website": "",
+      "industry": "Web Design Client",
+      "tags": [],
+      "priority": "medium",
+      "id": 142,
+      "createdAt": "2025-06-18T18:16:22.653Z"
     }
   ],
   "projects": [
@@ -202,6 +313,162 @@
       "accessToken": "fCK4z2Q5Jjw4CDXIIl5_BweM",
       "id": 74,
       "createdAt": "2025-06-17T02:34:16.575Z"
+    },
+    {
+      "companyId": 1,
+      "title": "Test Member - Conversation 1750264385",
+      "type": "website",
+      "stage": "discovery",
+      "status": "active",
+      "totalAmount": 5000,
+      "paidAmount": 0,
+      "accessToken": "FrmXL6bGzlD9vpgU4H8sg7J2",
+      "id": 119,
+      "createdAt": "2025-06-18T16:33:05.269Z"
+    },
+    {
+      "companyId": 1,
+      "title": "Test Unified Backend - Conversation 1750267387",
+      "type": "website",
+      "stage": "discovery",
+      "status": "active",
+      "totalAmount": 5000,
+      "paidAmount": 0,
+      "accessToken": "YXBLffl1fBRrh8KzafVkXNgW",
+      "id": 121,
+      "createdAt": "2025-06-18T17:23:07.270Z"
+    },
+    {
+      "companyId": 123,
+      "title": "John Test - Web Design Project",
+      "description": "Need a new website",
+      "type": "website",
+      "status": "discovery",
+      "stage": "planning",
+      "priority": "medium",
+      "accessToken": "yP31Po3jwtpqVl8MHY7pFvu5",
+      "id": 124,
+      "createdAt": "2025-06-18T17:23:49.636Z"
+    },
+    {
+      "companyId": 1,
+      "title": "Unified Test User - Conversation 1750268363590",
+      "type": "consultation",
+      "stage": "discovery",
+      "status": "active",
+      "totalAmount": 0,
+      "paidAmount": 0,
+      "accessToken": "mc28lcn9_6CgxTSsjA34SX52LUoDv8w",
+      "id": 128,
+      "createdAt": "2025-06-18T17:39:23.590Z"
+    },
+    {
+      "companyId": 1,
+      "title": "Unified Test User - Conversation 1750268397702",
+      "type": "consultation",
+      "stage": "discovery",
+      "status": "active",
+      "totalAmount": 0,
+      "paidAmount": 0,
+      "accessToken": "mc28m2yu_VFPbVtOWZVVTCbv0dpx5bw",
+      "id": 129,
+      "createdAt": "2025-06-18T17:39:57.702Z"
+    },
+    {
+      "companyId": 1,
+      "title": "Unified Test User - Conversation 1750268427471",
+      "type": "consultation",
+      "stage": "discovery",
+      "status": "active",
+      "totalAmount": 0,
+      "paidAmount": 0,
+      "accessToken": "mc28mpxr_9c_4pThu_2QN0PrCnOSLoA",
+      "id": 130,
+      "createdAt": "2025-06-18T17:40:27.471Z"
+    },
+    {
+      "companyId": 1,
+      "title": "Returning Member - Conversation 1750268452313",
+      "type": "consultation",
+      "stage": "discovery",
+      "status": "active",
+      "totalAmount": 0,
+      "paidAmount": 0,
+      "accessToken": "mc28n93t_s1A0IXII8uFIwbO3KK4pXg",
+      "id": 132,
+      "createdAt": "2025-06-18T17:40:52.313Z"
+    },
+    {
+      "companyId": 1,
+      "title": "Returning Member - Conversation 1750268525336",
+      "type": "consultation",
+      "stage": "discovery",
+      "status": "active",
+      "totalAmount": 0,
+      "paidAmount": 0,
+      "accessToken": "mc28otg8_pSkf3UTWkZGgMKFtFxr7Ow",
+      "id": 133,
+      "createdAt": "2025-06-18T17:42:05.336Z"
+    },
+    {
+      "companyId": 1,
+      "title": "Test Widget User - Conversation 1750269300959",
+      "type": "consultation",
+      "stage": "discovery",
+      "status": "active",
+      "totalAmount": 0,
+      "paidAmount": 0,
+      "accessToken": "mc295fxb_n4s2x7F0IjpEJnUMXKRGQg",
+      "id": 135,
+      "createdAt": "2025-06-18T17:55:00.959Z"
+    },
+    {
+      "companyId": 1,
+      "title": "Test User - Conversation 1750269551175",
+      "type": "consultation",
+      "stage": "discovery",
+      "status": "active",
+      "totalAmount": 0,
+      "paidAmount": 0,
+      "accessToken": "mc29aszr_avjveBLuC1pQ12IFv-ngOQ",
+      "id": 137,
+      "createdAt": "2025-06-18T17:59:11.175Z"
+    },
+    {
+      "companyId": 1,
+      "title": "Test Form User - Conversation 1750270217783",
+      "type": "consultation",
+      "stage": "discovery",
+      "status": "active",
+      "totalAmount": 0,
+      "paidAmount": 0,
+      "accessToken": "mc29p3cn_LhIHbr2QpWmM8vi46nCLxQ",
+      "id": 139,
+      "createdAt": "2025-06-18T18:10:17.783Z"
+    },
+    {
+      "companyId": 1,
+      "title": "Dev Test User - Conversation 1750270332608",
+      "type": "consultation",
+      "stage": "discovery",
+      "status": "active",
+      "totalAmount": 0,
+      "paidAmount": 0,
+      "accessToken": "mc29rjy7_OVK5ZwLBq9lofpt5IeULIg",
+      "id": 141,
+      "createdAt": "2025-06-18T18:12:12.608Z"
+    },
+    {
+      "companyId": 1,
+      "title": "Ben - Conversation 1750270582653",
+      "type": "consultation",
+      "stage": "discovery",
+      "status": "active",
+      "totalAmount": 0,
+      "paidAmount": 0,
+      "accessToken": "mc29wwvx_iYdbgghrOG8G4Albp9ABMQ",
+      "id": 143,
+      "createdAt": "2025-06-18T18:16:22.653Z"
     }
   ],
   "projectMessages": [
@@ -747,6 +1014,22 @@
       "priority": "medium",
       "id": 72,
       "createdAt": "2025-06-17T02:34:16.574Z"
+    },
+    {
+      "name": "Test Member",
+      "phone": "No phone provided",
+      "email": "test-member@example.com",
+      "address": "To be enriched",
+      "city": "To be enriched",
+      "state": "To be enriched",
+      "businessType": "unknown",
+      "stage": "scraped",
+      "notes": "Squarespace Lead (Score: 60)\nMessage: Testing member conversation fix\nAuto-classified: unknown",
+      "website": "",
+      "score": 60,
+      "priority": "medium",
+      "id": 118,
+      "createdAt": "2025-06-18T16:33:05.267Z"
     }
   ],
   "activities": [
@@ -1157,11 +1440,51 @@
       "projectId": 52,
       "id": 117,
       "createdAt": "2025-06-18T01:31:39.776Z"
+    },
+    {
+      "type": "lead_received",
+      "description": "New Squarespace lead: Test Member (Score: 60)",
+      "businessId": 118,
+      "id": 120,
+      "createdAt": "2025-06-18T16:33:05.270Z"
+    },
+    {
+      "type": "lead_received",
+      "description": "New Squarespace lead: Test Unified Backend (Score: 60)",
+      "businessId": 1,
+      "id": 122,
+      "createdAt": "2025-06-18T17:23:07.270Z"
+    },
+    {
+      "companyId": 123,
+      "projectId": 124,
+      "type": "appointment_scheduled",
+      "description": "Consultation appointment scheduled for 1/15/2025 at 9:00 AM - Services: Web Design, Budget: $5000-$10000",
+      "id": 126,
+      "createdAt": "2025-06-18T17:23:49.665Z"
     }
   ],
   "campaigns": [],
   "templates": [],
-  "appointments": [],
+  "appointments": [
+    {
+      "companyId": 123,
+      "projectId": 124,
+      "projectToken": "yP31Po3jwtpqVl8MHY7pFvu5",
+      "datetime": "2025-01-15T14:00:00.000Z",
+      "status": "scheduled",
+      "notes": "Initial Consultation Appointment\n\nServices Requested: Web Design\nBudget: $5000-$10000\nTimeline: 2-3 months\n\nProject Description:\nNeed a new website\n\n\n\nContact Information:\n- Name: John Test\n- Email: john@test.com\n- Phone: 555-0123\n- Business: Test Company\n\nBooked via: undefined",
+      "serviceType": "Web Design",
+      "duration": 30,
+      "isAutoScheduled": true,
+      "firstName": "John",
+      "lastName": "Test",
+      "email": "john@test.com",
+      "phone": "555-0123",
+      "id": 125,
+      "createdAt": "2025-06-18T17:23:49.636Z"
+    }
+  ],
   "progressEntries": [],
   "counters": {
     "companies": 0,
@@ -1175,5 +1498,5 @@
     "appointments": 0,
     "progressEntries": 0
   },
-  "nextId": 118
+  "nextId": 144
 }

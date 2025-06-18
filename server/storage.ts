@@ -196,6 +196,35 @@ export class Storage {
     return results[0];
   }
 
+  // New appointment methods for unified backend
+  async getAppointmentsByDateTime(appointmentDate: string, appointmentTime: string) {
+    const results: any[] = db.select().from(appointmentsTable).orderBy({});
+    return results.filter(apt => 
+      apt.appointmentDate === appointmentDate && 
+      apt.appointmentTime === appointmentTime &&
+      apt.status !== 'cancelled'
+    );
+  }
+
+  async getAppointmentsByDate(date: string) {
+    const results: any[] = db.select().from(appointmentsTable).orderBy({});
+    return results.filter(apt => apt.appointmentDate === date);
+  }
+
+  async getAllAppointments() {
+    const results: any[] = db.select().from(appointmentsTable).orderBy({});
+    return results.sort((a, b) => {
+      const dateA = new Date(`${a.appointmentDate} ${a.appointmentTime}`);
+      const dateB = new Date(`${b.appointmentDate} ${b.appointmentTime}`);
+      return dateB.getTime() - dateA.getTime();
+    });
+  }
+
+  async updateAppointmentStatus(id: number, status: string) {
+    const results: any[] = db.update(appointmentsTable).set({ status }).where({ id }).returning();
+    return results[0] || null;
+  }
+
   async getAppointmentsByBusinessId(businessId: number) {
     const results: any[] = db.select().from(appointmentsTable).where({ businessId });
     return results;
@@ -463,6 +492,22 @@ export class Storage {
 
   async deleteProjectMessage(id: number): Promise<void> {
     db.delete(projectMessagesTable).where({ id });
+  }
+
+  // Alias for createProjectMessage (for compatibility)
+  async addMessage(data: {
+    projectId: number;
+    senderType: 'client' | 'admin';
+    senderName: string;
+    content: string;
+    attachments?: string[];
+  }): Promise<ProjectMessage> {
+    const messageData = {
+      ...data,
+      attachments: data.attachments || [],
+      createdAt: new Date().toISOString()
+    };
+    return this.createProjectMessage(messageData);
   }
 
   // ===================
