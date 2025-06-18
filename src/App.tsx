@@ -13,6 +13,7 @@ import ClientProfile from './pages/ClientProfile'
 import Interactions from './pages/Interactions'
 // import ClientPortal from './pages/ClientPortal'
 import BookAppointment from './pages/BookAppointment'
+import BusinessInbox from './pages/BusinessInbox'
 
 // Error boundary component
 class ErrorBoundary extends React.Component<
@@ -70,6 +71,8 @@ const App: React.FC = () => {
             <Route index element={<Navigate to="/inbox" replace />} />
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="inbox" element={<Inbox />} />
+            <Route path="inbox/:projectToken" element={<Inbox />} />
+            <Route path="business/:businessId/inbox" element={<BusinessInbox />} />
             <Route path="leads" element={<Leads />} />
             <Route path="interactions" element={<Interactions />} />
             <Route path="progress" element={<Progress />} />
