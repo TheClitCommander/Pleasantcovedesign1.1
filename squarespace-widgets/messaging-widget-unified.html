@@ -480,44 +480,6 @@
 </head>
 <body>
     <div class="pcd-messaging-widget">
-        <!-- Pre-chat form overlay -->
-        <div class="pcd-prechat-overlay" id="prechatOverlay">
-            <div class="pcd-prechat-form">
-                <h3>Start a Conversation</h3>
-                <p>Let's connect! Please tell us a bit about yourself to get started.</p>
-                
-                <form id="prechatForm">
-                    <div class="pcd-form-group">
-                        <label class="pcd-form-label" for="userName">Your Name *</label>
-                        <input type="text" id="userName" class="pcd-form-input" required>
-                        <div class="pcd-form-error" id="nameError">Please enter your name</div>
-                    </div>
-                    
-                    <div class="pcd-form-group">
-                        <label class="pcd-form-label" for="userEmail">Email Address *</label>
-                        <input type="email" id="userEmail" class="pcd-form-input" required>
-                        <div class="pcd-form-error" id="emailError">Please enter a valid email address</div>
-                    </div>
-                    
-                    <button type="submit" class="pcd-form-submit" id="startChatBtn">
-                        Start Messaging
-                    </button>
-                    
-                    <!-- Testing Helper -->
-                    <div style="margin-top: 10px; text-align: center;">
-                        <button type="button" onclick="localStorage.clear(); location.reload();" style="background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 12px; cursor: pointer;">
-                            🧪 Clear Session (Testing)
-                        </button>
-                    </div>
-                </form>
-                
-                <div class="pcd-form-loading" id="formLoading">
-                    <div class="pcd-form-spinner"></div>
-                    <span>Setting up your conversation...</span>
-                </div>
-            </div>
-        </div>
-
         <!-- Main messaging interface -->
         <div class="pcd-messaging-header">
             <h2>Pleasant Cove Design</h2>
@@ -527,7 +489,8 @@
             </div>
         </div>
 
-        <div class="pcd-messages-container" id="messagesContainer">
+        <!-- 🔒 Chat container - will show member auth prompt or messages -->
+        <div class="pcd-messages-container" id="pcd-chat-container">
             <div class="pcd-loading-messages" id="loadingMessages">
                 <div class="pcd-spinner"></div>
                 Loading messages...
@@ -574,6 +537,18 @@
     </script>
     
     <script>
+        // Utility to parse Squarespace member ID from cookie
+        function getMemberId() {
+            const match = document.cookie.match(/SiteUserInfo=(\{.*?\})/);
+            if (!match) return null;
+            try {
+                const info = JSON.parse(decodeURIComponent(match[1]));
+                return info.siteUserId;
+            } catch {
+                return null;
+            }
+        }
+
         class PCDMessagingWidget {
             constructor() {
                 this.projectToken = null;
@@ -586,19 +561,12 @@
                 // Configuration - UPDATE THESE URLs FOR YOUR ENVIRONMENT
                 this.config = {
                     backendUrl: this.detectBackendUrl(),
-                    // Use ngrok URL in production: 'https://your-app.ngrok-free.app'
                 };
                 
                 this.init();
             }
 
             detectBackendUrl() {
-                // Check for forced local testing
-                if (window.PCD_FORCE_LOCAL || window.parent?.PCD_FORCE_LOCAL) {
-                    console.log('🧪 FORCE_LOCAL detected - using localhost:3000 for testing');
-                    return 'http://localhost:3000';
-                }
-                
                 // Auto-detect environment based on hostname
                 const hostname = window.location.hostname;
                 
@@ -614,21 +582,115 @@
                 }
             }
 
-            init() {
+            async init() {
                 this.bindEvents();
                 this.addDebugBanner();
                 
-                // Add enhanced member isolation check
-                this.checkExistingSession();
+                // 🔒 MEMBER-ONLY CHAT: Check authentication first
+                await this.initWidget();
+            }
+
+            async initWidget() {
+                // Only initialize chat if user is a logged-in member
+                const memberId = getMemberId();
+                const memberEmail = this.getUserEmail();
+                
+                if (!memberId || !memberEmail) {
+                    const container = document.getElementById('pcd-chat-container');
+                    container.innerHTML = `
+                        <div style="padding: 20px; text-align: center; background: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;">
+                            <h3 style="color: #495057; margin-bottom: 15px;">🔒 Member Chat</h3>
+                            <p style="color: #6c757d; margin-bottom: 20px;">
+                                Please <a href="/account/login" style="color: #007bff; text-decoration: none;">sign in to your member account</a> 
+                                to chat with us securely.
+                            </p>
+                            <p style="color: #6c757d; font-size: 14px;">
+                                Don't have an account? 
+                                <a href="/account/signup" style="color: #28a745; text-decoration: none;">Sign up here</a>
+                            </p>
+                        </div>
+                    `;
+                    console.log('🔒 [MEMBER_ONLY] Member authentication required - showing sign-in prompt');
+                    return;
+                }
+                
+                // Member is authenticated—fetch or create their token, then init chat
+                console.log('✅ [MEMBER_ONLY] Member authenticated:', memberEmail);
+                await this.fetchTokenForMember(memberId, memberEmail);
+            }
+
+            // Fetch or create member-specific token
+            async fetchTokenForMember(memberId, memberEmail) {
+                try {
+                    console.log(`🔐 [MEMBER_AUTH] Getting secure token for member: ${memberEmail}`);
+                    
+                    // Step 1: Check for existing conversation
+                    const existingResponse = await fetch(`${this.config.backendUrl}/api/get-member-conversation`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            email: memberEmail,
+                            name: this.detectedUserName || memberEmail.split('@')[0]
+                        })
+                    });
+                    
+                    if (existingResponse.ok) {
+                        const existingData = await existingResponse.json();
+                        if (existingData.success && existingData.projectToken) {
+                            console.log(`✅ [MEMBER_AUTH] Found existing conversation: ${existingData.projectTitle}`);
+                            this.projectToken = existingData.projectToken;
+                            this.userName = existingData.clientName;
+                            this.userEmail = memberEmail;
+                            this.startMessaging();
+                            return;
+                        }
+                    }
+                    
+                    // Step 2: Create new conversation for member
+                    console.log(`🆕 [MEMBER_AUTH] Creating new conversation for member...`);
+                    const newResponse = await fetch(`${this.config.backendUrl}/api/new-lead`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            name: this.detectedUserName || memberEmail.split('@')[0],
+                            email: memberEmail,
+                            source: 'Squarespace Member Authentication'
+                        })
+                    });
+                    
+                    if (!newResponse.ok) {
+                        throw new Error(`Failed to create conversation: ${newResponse.status}`);
+                    }
+                    
+                    const newData = await newResponse.json();
+                    if (newData.success && newData.projectToken) {
+                        console.log(`✅ [MEMBER_AUTH] Created new conversation for member`);
+                        this.projectToken = newData.projectToken;
+                        this.userName = this.detectedUserName || memberEmail.split('@')[0];
+                        this.userEmail = memberEmail;
+                        this.startMessaging();
+                    } else {
+                        throw new Error('No project token received');
+                    }
+                    
+                } catch (error) {
+                    console.error('[MEMBER_AUTH] Error getting member token:', error);
+                    const container = document.getElementById('pcd-chat-container');
+                    container.innerHTML = `
+                        <div style="padding: 20px; text-align: center; background: #f8d7da; border-radius: 8px; border: 1px solid #f5c6cb;">
+                            <h3 style="color: #721c24; margin-bottom: 15px;">⚠️ Connection Error</h3>
+                            <p style="color: #721c24; margin-bottom: 15px;">
+                                Unable to connect to chat service. Please try refreshing the page.
+                            </p>
+                            <button onclick="location.reload()" style="background: #dc3545; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer;">
+                                Refresh Page
+                            </button>
+                        </div>
+                    `;
+                }
             }
 
             bindEvents() {
-                // Pre-chat form
-                document.getElementById('prechatForm').addEventListener('submit', (e) => {
-                    e.preventDefault();
-                    this.handlePrechatSubmit();
-                });
-
                 // Message form
                 document.getElementById('messageForm').addEventListener('submit', (e) => {
                     e.preventDefault();
@@ -691,151 +753,6 @@
                 console.log("✅ DEBUG: Current domain:", window.location.hostname);
             }
 
-            checkExistingSession() {
-                // 🧪 DEVELOPMENT OVERRIDE - Manual Token Injection
-                console.log('🧪 [DEV_OVERRIDE] Checking for manual token injection...');
-                
-                // Method 1: Direct window object injection (check both window and parent for iframe support)
-                const projectToken = window.PROJECT_TOKEN || window.parent?.PROJECT_TOKEN;
-                const projectUserName = window.PROJECT_USER_NAME || window.parent?.PROJECT_USER_NAME;
-                const projectUserEmail = window.PROJECT_USER_EMAIL || window.parent?.PROJECT_USER_EMAIL;
-                
-                if (projectToken) {
-                    console.log('🧪 [DEV_OVERRIDE] Found PROJECT_TOKEN:', projectToken);
-                    this.projectToken = projectToken;
-                    this.userName = projectUserName || 'Dev User';
-                    this.userEmail = projectUserEmail || 'dev@test.com';
-                    console.log('🧪 [DEV_OVERRIDE] Using manual injection - bypassing all auth checks');
-                    this.startMessaging();
-                    return;
-                }
-                
-                // Method 2: URL parameter fallback
-                const devUrlParams = new URLSearchParams(window.location.search);
-                const devUrlToken = devUrlParams.get('token') || devUrlParams.get('projectToken');
-                if (devUrlToken) {
-                    console.log('🧪 [DEV_OVERRIDE] Found token in URL:', devUrlToken);
-                    this.projectToken = devUrlToken;
-                    this.userName = devUrlParams.get('name') || devUrlParams.get('userName') || 'URL User';
-                    this.userEmail = devUrlParams.get('email') || devUrlParams.get('userEmail') || 'url@test.com';
-                    console.log('🧪 [DEV_OVERRIDE] Using URL token - bypassing all auth checks');
-                    this.startMessaging();
-                    return;
-                }
-                
-                console.log('🧪 [DEV_OVERRIDE] No manual token found, proceeding with normal auth flow...');
-                
-                // 🔒 ENHANCED MEMBER ISOLATION SYSTEM - ZERO SHARED CONVERSATIONS
-                console.log('🔍 [MEMBER_ISOLATION] Starting enhanced member isolation check...');
-                console.log('🌐 [MEMBER_ISOLATION] Current domain:', window.location.hostname);
-                console.log('🌐 [MEMBER_ISOLATION] Backend URL:', this.config.backendUrl);
-                console.log('🌐 [MEMBER_ISOLATION] Current URL:', window.location.href);
-                
-                // CRITICAL: Handle localhost testing vs production differently
-                const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-                
-                // For localhost testing: Clear localStorage and show form (no member auth possible)
-                if (isLocalhost) {
-                    console.log('🧪 [MEMBER_ISOLATION] LOCALHOST DETECTED - Development Mode');
-                    console.log('🧪 [MEMBER_ISOLATION] Note: SquareSpace member auth only works on live site');
-                    console.log('🧪 [MEMBER_ISOLATION] Clearing sessions for clean testing');
-                    this.clearSession();
-                    this.showPrechatForm();
-                    return;
-                }
-                
-                // Step 1: FIRST detect current SquareSpace member (BEFORE checking localStorage)
-                const currentMemberEmail = this.getUserEmail();
-                console.log('📧 [MEMBER_ISOLATION] Current SquareSpace member detected:', currentMemberEmail);
-                
-                // Step 2: Get any existing session data
-                const savedToken = localStorage.getItem('pcd_project_token');
-                const savedName = localStorage.getItem('pcd_user_name');
-                const savedEmail = localStorage.getItem('pcd_user_email');
-                const sessionTimestamp = localStorage.getItem('pcd_session_timestamp');
-                const sessionDomain = localStorage.getItem('pcd_session_domain');
-                
-                console.log('💾 [MEMBER_ISOLATION] Existing session data:', {
-                    hasToken: !!savedToken,
-                    savedEmail: savedEmail,
-                    currentMemberEmail: currentMemberEmail,
-                    sessionDomain: sessionDomain,
-                    currentDomain: window.location.hostname
-                });
-                
-                // Step 3: CRITICAL - Domain-based session isolation
-                if (sessionDomain && sessionDomain !== window.location.hostname) {
-                    console.log('🚨 [MEMBER_ISOLATION] DOMAIN CHANGE DETECTED!');
-                    console.log(`🚨 [MEMBER_ISOLATION] Previous: ${sessionDomain} → Current: ${window.location.hostname}`);
-                    console.log('🧹 [MEMBER_ISOLATION] FORCE CLEARING all session data for security');
-                    this.clearSession();
-                    // Continue to authenticate new member below
-                }
-                
-                // Step 4: CRITICAL - If no current member detected, IMMEDIATELY clear all sessions
-                if (!currentMemberEmail) {
-                    console.log('🚨 [MEMBER_ISOLATION] NO SQUARESPACE MEMBER DETECTED');
-                    console.log('🚨 [MEMBER_ISOLATION] User is logged out or not authenticated');
-                    console.log('🧹 [MEMBER_ISOLATION] FORCE CLEARING all session data for security');
-                    this.clearSession();
-                    this.showPrechatForm();
-                    return;
-                }
-                
-                // Step 5: CRITICAL - If different member detected, IMMEDIATELY clear sessions
-                if (savedEmail && savedEmail !== currentMemberEmail) {
-                    console.log('🚨 [MEMBER_ISOLATION] DIFFERENT MEMBER DETECTED!');
-                    console.log(`🚨 [MEMBER_ISOLATION] Previous: ${savedEmail}`);
-                    console.log(`🚨 [MEMBER_ISOLATION] Current: ${currentMemberEmail}`);
-                    console.log('🧹 [MEMBER_ISOLATION] FORCE CLEARING all previous member data');
-                    this.clearSession();
-                    // Continue to authenticate new member below
-                }
-                
-                // Step 6: Check URL parameters for authenticated tokens (from SquareSpace redirects)
-                const urlParams = new URLSearchParams(window.location.search);
-                const urlToken = urlParams.get('token') || urlParams.get('projectToken');
-                const urlEmail = urlParams.get('email') || urlParams.get('userEmail') || urlParams.get('member_email');
-                const urlName = urlParams.get('name') || urlParams.get('userName') || urlParams.get('member_name');
-                
-                if (urlToken && urlEmail === currentMemberEmail) {
-                    console.log('🔗 [MEMBER_ISOLATION] Found valid token in URL for current member');
-                    this.projectToken = urlToken;
-                    this.userName = urlName || currentMemberEmail?.split('@')[0] || 'Member';
-                    this.userEmail = currentMemberEmail;
-                    
-                    // Save new session for this member
-                    this.saveSession(true); // true = member authenticated
-                    this.startMessaging();
-                    return;
-                } else if (urlToken && urlEmail !== currentMemberEmail) {
-                    console.log('🚨 [MEMBER_ISOLATION] URL token is for different member - ignoring for security');
-                }
-                
-                // Step 7: Check if we have a valid recent session for THIS SPECIFIC MEMBER
-                if (savedToken && savedEmail === currentMemberEmail && sessionTimestamp) {
-                    const sessionAge = Date.now() - parseInt(sessionTimestamp);
-                    const sessionValidDuration = 30 * 60 * 1000; // 30 minutes
-                    
-                    if (sessionAge < sessionValidDuration) {
-                        console.log('✅ [MEMBER_ISOLATION] Found valid recent session for current member');
-                        console.log(`✅ [MEMBER_ISOLATION] Session age: ${Math.round(sessionAge/1000/60)} minutes`);
-                        this.projectToken = savedToken;
-                        this.userName = savedName || currentMemberEmail.split('@')[0];
-                        this.userEmail = currentMemberEmail;
-                        this.validateAndUseSession(savedToken, this.userName, currentMemberEmail);
-                        return;
-                    } else {
-                        console.log('⏰ [MEMBER_ISOLATION] Session too old (> 30 minutes), will re-authenticate');
-                        this.clearSession();
-                    }
-                }
-                
-                // Step 8: Get new conversation for current authenticated member
-                console.log('🔄 [MEMBER_ISOLATION] Getting new conversation for current member:', currentMemberEmail);
-                this.getTokenForUser(currentMemberEmail);
-            }
-            
             // ENHANCED: Comprehensive Squarespace member authentication detection
             getUserEmail() {
                 console.log('🔍 SQUARESPACE AUTH DEBUG: Starting comprehensive detection...');
@@ -1450,8 +1367,15 @@
             }
 
             startMessaging() {
-                // Hide pre-chat overlay
-                document.getElementById('prechatOverlay').style.display = 'none';
+                // Switch container to show messages interface
+                const container = document.getElementById('pcd-chat-container');
+                container.innerHTML = `
+                    <div class="pcd-loading-messages" id="loadingMessages">
+                        <div class="pcd-spinner"></div>
+                        Loading messages...
+                    </div>
+                `;
+                container.id = 'messagesContainer'; // Change ID for message rendering
                 
                 // Initialize WebSocket connection
                 this.connectWebSocket();
@@ -2071,13 +1995,10 @@
             }
 
             showLoading(show) {
-                document.getElementById('formLoading').style.display = show ? 'flex' : 'none';
-                document.getElementById('startChatBtn').style.display = show ? 'none' : 'block';
-            }
-
-            showFormError(message) {
-                // You can implement error display here
-                alert(message);
+                const loadingElement = document.getElementById('loadingMessages');
+                if (loadingElement) {
+                    loadingElement.style.display = show ? 'flex' : 'none';
+                }
             }
 
             showError(message) {
@@ -2134,10 +2055,23 @@
                     debugBanner.style.background = '#990000'; // Red to indicate no member
                 }
                 
-                // Show pre-chat form again
-                const overlay = document.getElementById('prechatOverlay');
-                if (overlay) {
-                    overlay.style.display = 'flex';
+                // Show sign-in prompt again
+                const container = document.getElementById('pcd-chat-container') || document.getElementById('messagesContainer');
+                if (container) {
+                    container.innerHTML = `
+                        <div style="padding: 20px; text-align: center; background: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;">
+                            <h3 style="color: #495057; margin-bottom: 15px;">🔒 Member Chat</h3>
+                            <p style="color: #6c757d; margin-bottom: 20px;">
+                                Please <a href="/account/login" style="color: #007bff; text-decoration: none;">sign in to your member account</a> 
+                                to chat with us securely.
+                            </p>
+                            <p style="color: #6c757d; font-size: 14px;">
+                                Don't have an account? 
+                                <a href="/account/signup" style="color: #28a745; text-decoration: none;">Sign up here</a>
+                            </p>
+                        </div>
+                    `;
+                    container.id = 'pcd-chat-container'; // Reset to chat container
                 }
             }
 
@@ -2203,10 +2137,7 @@
                         this.clearSession();
                         
                         // Force reload widget to show logged-out state
-                        const overlay = document.getElementById('prechatOverlay');
-                        if (overlay) {
-                            overlay.style.display = 'flex';
-                        }
+                        location.reload(); // Simply reload the page to reset widget state
                         
                         // Stop watching since we're now logged out
                         clearInterval(this.logoutWatcher);
@@ -2291,7 +2222,7 @@
                     messagingWidget.detectedUserName = member.name;
                     
                     // Call the member authentication flow directly
-                    messagingWidget.getTokenForUser(member.email, member.name);
+                    messagingWidget.fetchTokenForMember('test-member-id', member.email);
                 };
                 testPanel.appendChild(memberButton);
             });
