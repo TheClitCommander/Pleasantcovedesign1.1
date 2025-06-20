@@ -621,6 +621,66 @@
       "accessToken": "mc4fvp40_QAuzz_HY8cHEpcJli0Vtcw",
       "id": 225,
       "createdAt": "2025-06-20T06:38:55.968Z"
+    },
+    {
+      "companyId": 219,
+      "title": "Ben - 2025-06-20 - Session 5Z5ZT3",
+      "type": "consultation",
+      "stage": "discovery",
+      "status": "active",
+      "totalAmount": 0,
+      "paidAmount": 0,
+      "accessToken": "mc4g2m2k_om1J99pi8dFXNzj6KBe0Xg",
+      "id": 227,
+      "createdAt": "2025-06-20T06:44:18.621Z"
+    },
+    {
+      "companyId": 219,
+      "title": "Ben - 2025-06-20 - Session CB5JRA",
+      "type": "consultation",
+      "stage": "discovery",
+      "status": "active",
+      "totalAmount": 0,
+      "paidAmount": 0,
+      "accessToken": "mc4ge7o2_MawLVetoncX0daKc7u1I4Q",
+      "id": 229,
+      "createdAt": "2025-06-20T06:53:19.826Z"
+    },
+    {
+      "companyId": 142,
+      "title": "Ben - 2025-06-20 - Session HC9AXW",
+      "type": "consultation",
+      "stage": "discovery",
+      "status": "active",
+      "totalAmount": 0,
+      "paidAmount": 0,
+      "accessToken": "mc4gfz4q_R_tiUWQwQb_wJd4gk799Tw",
+      "id": 231,
+      "createdAt": "2025-06-20T06:54:42.074Z"
+    },
+    {
+      "companyId": 219,
+      "title": "Ben - 2025-06-20 - Session V7GJ3T",
+      "type": "consultation",
+      "stage": "discovery",
+      "status": "active",
+      "totalAmount": 0,
+      "paidAmount": 0,
+      "accessToken": "mc4ggtl2_LIrj0-gyZJgc2uKsZeybiw",
+      "id": 233,
+      "createdAt": "2025-06-20T06:55:21.543Z"
+    },
+    {
+      "companyId": 219,
+      "title": "Ben - 2025-06-20 - Session QEMJNX",
+      "type": "consultation",
+      "stage": "discovery",
+      "status": "active",
+      "totalAmount": 0,
+      "paidAmount": 0,
+      "accessToken": "mc50o9qu_69gdwmMznqd-4weVuSkXxQ",
+      "id": 235,
+      "createdAt": "2025-06-20T16:21:01.398Z"
     }
   ],
   "projectMessages": [
@@ -1374,6 +1434,69 @@
       "attachments": [],
       "createdAt": "2025-06-20T06:39:01.836Z",
       "id": 226
+    },
+    {
+      "projectId": 227,
+      "senderType": "admin",
+      "senderName": "Ben",
+      "content": "hey",
+      "attachments": [],
+      "createdAt": "2025-06-20T06:44:24.917Z",
+      "id": 228
+    },
+    {
+      "projectId": 229,
+      "senderType": "admin",
+      "senderName": "Ben",
+      "content": "heyyuiop",
+      "attachments": [],
+      "createdAt": "2025-06-20T06:53:27.936Z",
+      "id": 230
+    },
+    {
+      "projectId": 231,
+      "senderType": "admin",
+      "senderName": "Ben",
+      "content": "uuyy",
+      "attachments": [],
+      "createdAt": "2025-06-20T06:54:50.691Z",
+      "id": 232
+    },
+    {
+      "projectId": 233,
+      "senderType": "admin",
+      "senderName": "Ben",
+      "content": "jggj",
+      "attachments": [],
+      "createdAt": "2025-06-20T06:55:55.608Z",
+      "id": 234
+    },
+    {
+      "projectId": 235,
+      "senderType": "admin",
+      "senderName": "Ben",
+      "content": "sup sup\nsup",
+      "attachments": [],
+      "createdAt": "2025-06-20T16:21:07.711Z",
+      "id": 236
+    },
+    {
+      "projectId": 235,
+      "senderType": "admin",
+      "senderName": "Ben",
+      "content": "hey",
+      "attachments": [],
+      "createdAt": "2025-06-20T16:29:37.449Z",
+      "id": 237
+    },
+    {
+      "projectId": 231,
+      "senderType": "admin",
+      "senderName": "Ben",
+      "content": "supsups psudhfoahsas hahaha",
+      "attachments": [],
+      "createdAt": "2025-06-20T16:30:05.231Z",
+      "id": 238
     }
   ],
   "projectFiles": [],
@@ -2261,5 +2384,5 @@
     "appointments": 0,
     "progressEntries": 0
   },
-  "nextId": 227
+  "nextId": 239
 }

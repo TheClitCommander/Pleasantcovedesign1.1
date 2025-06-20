@@ -4144,7 +4144,7 @@ Booked via: ${source}
       }
       
       // Get all projects for this client and find the most recent
-      const projects = await storage.getProjectsByCompanyId(existingClient.id);
+      const projects = await storage.getProjectsByCompany(existingClient.id);
       
       if (projects.length === 0) {
         return res.status(404).json({ error: 'No conversations found' });
@@ -4214,19 +4214,31 @@ Booked via: ${source}
         console.log(`[MEMBER_AUTH] Authenticating member: ${email}`);
         
         // Step 1: Find if this member (company) already exists.
-        const existingClient = await storage.findClientByEmail(email);
+        const existingClientData = await storage.findClientByEmail(email);
+        let existingClient = null;
+        
+        // Handle the complex return structure from findClientByEmail
+        if (existingClientData) {
+          if (existingClientData.company) {
+            existingClient = existingClientData.company;
+          } else if (existingClientData.business) {
+            existingClient = existingClientData.business;
+          }
+        }
         
         if (existingClient?.id) {
             console.log(`[MEMBER_AUTH] Found existing client: ${existingClient.name} (ID: ${existingClient.id})`);
             
             // Step 2: Find the most recent active project for this client.
-            const projects = await storage.getProjectsByCompanyId(existingClient.id);
+            const projects = await storage.getProjectsByCompany(existingClient.id);
+            console.log(`[MEMBER_AUTH] Found ${projects.length} projects for client ${existingClient.id}`);
+            
             const latestProject = projects
                 .filter(p => p.status === 'active')
-                .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+                .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())[0];
 
             if (latestProject) {
-                console.log(`[MEMBER_AUTH] Resuming existing conversation: ${latestProject.title}`);
+                console.log(`[MEMBER_AUTH] Resuming existing conversation: ${latestProject.title} (${latestProject.accessToken?.substring(0, 8)}...)`);
                 return res.json({
                     token: latestProject.accessToken,
                     projectToken: latestProject.accessToken,
@@ -4238,7 +4250,9 @@ Booked via: ${source}
                     clientName: existingClient.name
                 });
             }
-            console.log(`[MEMBER_AUTH] Client exists, but no active project found. Creating a new one.`);
+            console.log(`[MEMBER_AUTH] No active projects found, creating new conversation for existing client ${existingClient.id}`);
+        } else {
+            console.log(`[MEMBER_AUTH] No existing client found, creating new client: ${name || email.split('@')[0]} (${email})`);
         }
 
         // Step 3: No existing client or no active project found. Create a new one.
