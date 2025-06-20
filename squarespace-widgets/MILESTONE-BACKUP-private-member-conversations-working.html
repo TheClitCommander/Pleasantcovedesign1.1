@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bulletproof Messaging Widget</title>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <style>
+        .pcd-messaging-widget {
+            max-width: 800px;
+            margin: 0 auto;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            height: 600px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .pcd-debug-info {
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+            padding: 8px 12px;
+            font-size: 11px;
+            font-family: monospace;
+            color: #6c757d;
+        }
+
+        .pcd-debug-info.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .pcd-debug-info.success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .pcd-user-info {
+            background: #e7f3ff;
+            padding: 8px 16px;
+            border-bottom: 1px solid #b8daff;
+            font-size: 12px;
+            color: #0066cc;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .pcd-force-reload-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            cursor: pointer;
+        }
+
+        .pcd-messaging-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .pcd-messages-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            background: #f8fafc;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .pcd-waiting-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            flex: 1;
+            text-align: center;
+            color: #6b7280;
+            padding: 40px;
+        }
+
+        .pcd-detection-steps {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 16px;
+            margin: 16px 0;
+            font-size: 12px;
+        }
+
+        .pcd-detection-step {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+        }
+
+        .pcd-step-icon {
+            width: 16px;
+            height: 16px;
+            margin-right: 8px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+        }
+
+        .pcd-step-icon.pending {
+            background: #ffc107;
+            color: white;
+        }
+
+        .pcd-step-icon.success {
+            background: #28a745;
+            color: white;
+        }
+
+        .pcd-step-icon.error {
+            background: #dc3545;
+            color: white;
+        }
+
+        .pcd-message-input-container {
+            padding: 16px;
+            background: white;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .pcd-message-form {
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+        }
+
+        .pcd-message-input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 2px solid #e5e7eb;
+            border-radius: 22px;
+            resize: none;
+            font-family: inherit;
+            font-size: 14px;
+            outline: none;
+        }
+
+        .pcd-send-btn {
+            width: 44px;
+            height: 44px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .pcd-message {
+            margin: 8px 0;
+            padding: 12px;
+            border-radius: 12px;
+            max-width: 80%;
+        }
+
+        .pcd-message.user {
+            background: #667eea;
+            color: white;
+            margin-left: auto;
+            border-bottom-right-radius: 4px;
+        }
+
+        .pcd-message.admin {
+            background: #f1f3f4;
+            color: #333;
+            margin-right: auto;
+            border-bottom-left-radius: 4px;
+        }
+
+        .pcd-message-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 4px;
+            font-size: 12px;
+            opacity: 0.8;
+        }
+
+        .pcd-message-text {
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        .pcd-attachment {
+            margin-top: 8px;
+            padding: 6px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            font-size: 12px;
+        }
+
+        .pcd-attachment a {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        .pcd-status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #ffc107;
+            margin-right: 8px;
+        }
+
+        .pcd-connection-status {
+            display: flex;
+            align-items: center;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="pcd-messaging-widget">
+        <!-- Debug Info Bar -->
+        <div class="pcd-debug-info" id="debugInfo">
+            Initializing robust member detection...
+        </div>
+
+        <!-- User Info Bar -->
+        <div class="pcd-user-info" id="userInfoBar" style="display: none;">
+            <div>
+                <span>Authenticated as: <strong id="currentUserEmail">Loading...</strong></span>
+            </div>
+            <button class="pcd-force-reload-btn" onclick="window.messagingWidget?.forceReload()">
+                Force Reload
+            </button>
+        </div>
+
+        <!-- Header -->
+        <div class="pcd-messaging-header">
+            <h2>Pleasant Cove Design</h2>
+            <div class="pcd-connection-status">
+                <div class="pcd-status-dot" id="connectionDot"></div>
+                <span id="connectionStatus">Detecting member...</span>
+            </div>
+        </div>
+
+        <!-- Messages Container -->
+        <div class="pcd-messages-container" id="pcd-chat-container">
+            <div class="pcd-waiting-state" id="waitingState">
+                <h3>🔍 Detecting Squarespace Member</h3>
+                <div class="pcd-detection-steps">
+                    <div class="pcd-detection-step">
+                        <div class="pcd-step-icon pending" id="step1">1</div>
+                        <span>Checking SiteUserInfo cookie...</span>
+                    </div>
+                    <div class="pcd-detection-step">
+                        <div class="pcd-step-icon pending" id="step2">2</div>
+                        <span>Checking Static.SQUARESPACE_CONTEXT...</span>
+                    </div>
+                    <div class="pcd-detection-step">
+                        <div class="pcd-step-icon pending" id="step3">3</div>
+                        <span>Checking alternative methods...</span>
+                    </div>
+                    <div class="pcd-detection-step">
+                        <div class="pcd-step-icon pending" id="step4">4</div>
+                        <span>Validating session consistency...</span>
+                    </div>
+                </div>
+                <p><small>Please wait while we securely identify your account...</small></p>
+            </div>
+        </div>
+
+        <!-- Message Input -->
+        <div class="pcd-message-input-container">
+            <form class="pcd-message-form" id="messageForm">
+                <textarea 
+                    class="pcd-message-input" 
+                    id="messageInput"
+                    placeholder="Waiting for authentication..."
+                    rows="1"
+                    disabled
+                ></textarea>
+                <button type="submit" class="pcd-send-btn" id="sendButton" disabled>
+                    ➤
+                </button>
+            </form>
+        </div>
+    </div>
+    
+    <script>
+        class BulletproofMessagingWidget {
+            constructor() {
+                this.projectToken = null;
+                this.userName = null;
+                this.userEmail = null;
+                this.socket = null;
+                this.messages = [];
+                this.detectionAttempts = 0;
+                this.maxDetectionAttempts = 10;
+                this.selectedFiles = [];
+                
+                this.config = {
+                    backendUrl: this.detectBackendUrl(),
+                    debugMode: true // Enable for troubleshooting
+                };
+                
+                console.log('🛡️ [BULLETPROOF_WIDGET] Initialized with robust detection');
+                this.init();
+            }
+
+            detectBackendUrl() {
+                // Force local development for testing
+                return 'http://localhost:3000';
+                
+                // Uncomment for production:
+                // const hostname = window.location.hostname;
+                // if (hostname === 'localhost' || hostname === '127.0.0.1') {
+                //     return 'http://localhost:3000';
+                // }
+                // return 'https://pleasantcovedesign-production.up.railway.app';
+            }
+
+            updateDebugInfo(message, type = 'info') {
+                const debugInfo = document.getElementById('debugInfo');
+                debugInfo.textContent = message;
+                debugInfo.className = `pcd-debug-info ${type}`;
+                console.log(`🔍 [DEBUG] ${message}`);
+            }
+
+            updateDetectionStep(stepNumber, status, message = '') {
+                const stepIcon = document.getElementById(`step${stepNumber}`);
+                if (stepIcon) {
+                    stepIcon.className = `pcd-step-icon ${status}`;
+                    if (status === 'success') {
+                        stepIcon.textContent = '✓';
+                    } else if (status === 'error') {
+                        stepIcon.textContent = '✗';
+                    }
+                }
+                
+                if (message) {
+                    console.log(`📋 [STEP${stepNumber}] ${message}`);
+                }
+            }
+
+            async init() {
+                console.log('🚀 [BULLETPROOF_WIDGET] Starting bulletproof initialization...');
+                this.updateDebugInfo('Starting robust member detection...', 'info');
+                
+                try {
+                    // STEP 1: Attempt to detect current Squarespace member
+                    const currentMember = await this.robustMemberDetection();
+                    
+                    if (!currentMember) {
+                        this.updateDebugInfo('No authenticated member detected', 'error');
+                        this.handleNoMemberDetected();
+                        return;
+                    }
+                    
+                    this.updateDebugInfo(`Member detected: ${currentMember.email}`, 'success');
+                    console.log(`✅ [BULLETPROOF_WIDGET] Detected member: ${currentMember.name} (${currentMember.email})`);
+                    
+                    // STEP 2: Check session consistency
+                    const sessionValid = await this.validateSessionConsistency(currentMember);
+                    
+                    if (!sessionValid) {
+                        this.updateDebugInfo('Session mismatch detected, forcing clean start...', 'error');
+                        this.forceCleanStart(currentMember);
+                        return;
+                    }
+                    
+                    // STEP 3: Proceed with authentication
+                    await this.authenticateUser(currentMember);
+                    
+                } catch (error) {
+                    console.error('🚨 [BULLETPROOF_WIDGET] Critical error:', error);
+                    this.updateDebugInfo(`Critical error: ${error.message}`, 'error');
+                    this.handleCriticalError(error);
+                }
+            }
+
+            async robustMemberDetection() {
+                console.log('🔍 [DETECTION] Starting robust member detection...');
+                
+                // METHOD 1 (NEW PRIORITY): Static.SQUARESPACE_CONTEXT
+                this.updateDetectionStep(1, 'pending');
+                let member = this.detectMemberFromContext();
+                if (member) {
+                    this.updateDetectionStep(1, 'success', `Found via context: ${member.email}`);
+                    return member;
+                }
+                this.updateDetectionStep(1, 'error', 'Context method failed');
+                
+                // METHOD 2 (FALLBACK): SiteUserInfo Cookie
+                this.updateDetectionStep(2, 'pending');
+                member = this.detectMemberFromCookie();
+                if (member) {
+                    this.updateDetectionStep(2, 'success', `Found via cookie: ${member.email}`);
+                    return member;
+                }
+                this.updateDetectionStep(2, 'error', 'Cookie method failed');
+                
+                // METHOD 3: Alternative detection methods
+                this.updateDetectionStep(3, 'pending');
+                member = await this.detectMemberAlternative();
+                if (member) {
+                    this.updateDetectionStep(3, 'success', `Found via alternative: ${member.email}`);
+                    return member;
+                }
+                this.updateDetectionStep(3, 'error', 'Alternative methods failed');
+                
+                // METHOD 4: Retry with delay
+                if (this.detectionAttempts < this.maxDetectionAttempts) {
+                    this.detectionAttempts++;
+                    console.log(`🔄 [DETECTION] Retry attempt ${this.detectionAttempts}/${this.maxDetectionAttempts}`);
+                    await this.sleep(1000);
+                    return this.robustMemberDetection();
+                }
+                
+                console.log('❌ [DETECTION] All detection methods failed');
+                return null;
+            }
+
+            detectMemberFromCookie() {
+                console.log('🍪 [DETECTION] Trying SiteUserInfo cookie...');
+                try {
+                    const cookie = document.cookie.split('; ').find(row => row.startsWith('SiteUserInfo='));
+                    if (!cookie) {
+                        console.log('❌ [COOKIE] No SiteUserInfo cookie found');
+                        return null;
+                    }
+                    
+                    const info = JSON.parse(decodeURIComponent(cookie.split('=')[1]));
+                    console.log('📦 [COOKIE] Cookie contents:', JSON.stringify(info, null, 2));
+                    
+                    if (info.authenticated && info.siteUserId) {
+                        // Method 1: Use real email if available
+                        if (info.email && info.email.includes('@')) {
+                            const member = {
+                                email: info.email,
+                                name: info.firstName || info.displayName || 'Squarespace Member',
+                                userId: info.siteUserId,
+                                method: 'cookie'
+                            };
+                            console.log('✅ [COOKIE] Member detected with real email:', member);
+                            return member;
+                        }
+                        
+                        // Method 2: Generate email from siteUserId (for member-specific conversations)
+                        if (info.siteUserId) {
+                            const member = {
+                                email: `${info.siteUserId}@squarespace.member`,
+                                name: info.firstName || info.displayName || 'Squarespace Member',
+                                userId: info.siteUserId,
+                                method: 'cookie'
+                            };
+                            console.log('✅ [COOKIE] Member detected:', member);
+                            return member;
+                        }
+                    }
+                    
+                    console.log('❌ [COOKIE] User not authenticated or missing user ID');
+                    return null;
+                    
+                } catch (error) {
+                    console.error('❌ [COOKIE] Error parsing cookie:', error);
+                    return null;
+                }
+            }
+
+            detectMemberFromContext() {
+                console.log('🌐 [DETECTION] Trying Static.SQUARESPACE_CONTEXT...');
+                try {
+                    if (typeof window.Static !== 'undefined' && window.Static.SQUARESPACE_CONTEXT) {
+                        const context = window.Static.SQUARESPACE_CONTEXT;
+                        // DEEP DIVE LOGGING:
+                        console.log('📦 [CONTEXT PAYLOAD] Full SQUARESPACE_CONTEXT object:', JSON.stringify(context, null, 2));
+                        
+                        // NEW STRICT LOGIC:
+                        if (context.authenticatedAccount && context.authenticatedAccount.email) {
+                            const account = context.authenticatedAccount;
+                            const member = {
+                                email: account.email,
+                                name: account.displayName || account.firstName || 'Squarespace Member',
+                                method: 'context'
+                            };
+                            console.log('✅ [CONTEXT] Member detected:', member);
+                            return member;
+                        }
+                    }
+                    console.log('❌ [CONTEXT] No authenticated account with a unique email in context.');
+                    return null;
+                } catch (error) {
+                    console.error('❌ [CONTEXT] Error accessing context:', error);
+                    return null;
+                }
+            }
+
+            async detectMemberAlternative() {
+                console.log('🔧 [DETECTION] Trying alternative methods...');
+                
+                // METHOD: Check for member-specific page elements
+                try {
+                    const memberElements = document.querySelectorAll('[data-member-email], .member-email, #member-email');
+                    for (const element of memberElements) {
+                        const email = element.getAttribute('data-member-email') || element.textContent?.trim();
+                        if (email && email.includes('@')) {
+                            console.log('✅ [ALTERNATIVE] Found email in DOM:', email);
+                            return {
+                                email: email,
+                                name: 'Squarespace Member',
+                                method: 'dom'
+                            };
+                        }
+                    }
+                } catch (error) {
+                    console.error('❌ [ALTERNATIVE] DOM detection failed:', error);
+                }
+                
+                // Add more alternative methods here if needed
+                return null;
+            }
+
+            async validateSessionConsistency(currentMember) {
+                console.log('🔍 [SESSION] Validating session consistency...');
+                this.updateDetectionStep(4, 'pending');
+                
+                const storedEmail = localStorage.getItem('pcd_user_email');
+                const storedToken = localStorage.getItem('pcd_project_token');
+                
+                console.log(`📋 [SESSION] Current: ${currentMember.email}`);
+                console.log(`📋 [SESSION] Stored: ${storedEmail}`);
+                
+                if (!storedEmail || !storedToken) {
+                    console.log('✅ [SESSION] No existing session, starting fresh');
+                    this.updateDetectionStep(4, 'success', 'No existing session');
+                    return true;
+                }
+                
+                if (storedEmail !== currentMember.email) {
+                    console.warn('🚨 [SESSION] EMAIL MISMATCH DETECTED!');
+                    console.warn(`   Current: ${currentMember.email}`);
+                    console.warn(`   Stored:  ${storedEmail}`);
+                    this.updateDetectionStep(4, 'error', 'Session mismatch detected');
+                    return false;
+                }
+                
+                // Validate token with backend
+                const tokenValid = await this.validateTokenWithBackend(storedToken);
+                if (!tokenValid) {
+                    console.warn('🚨 [SESSION] Stored token is invalid');
+                    this.updateDetectionStep(4, 'error', 'Invalid token');
+                    return false;
+                }
+                
+                console.log('✅ [SESSION] Session is consistent and valid');
+                this.updateDetectionStep(4, 'success', 'Session validated');
+                return true;
+            }
+
+            async validateTokenWithBackend(token) {
+                try {
+                    const response = await fetch(`${this.config.backendUrl}/api/public/project/${token}/messages`);
+                    return response.ok;
+                } catch (error) {
+                    console.error('❌ [TOKEN_VALIDATION] Error:', error);
+                    return false;
+                }
+            }
+
+            forceCleanStart(currentMember) {
+                console.log('🧹 [CLEAN_START] Forcing complete clean start...');
+                
+                // Clear all storage
+                localStorage.clear();
+                sessionStorage.clear();
+                
+                // Clear instance variables
+                this.projectToken = null;
+                this.userName = null;
+                this.userEmail = null;
+                this.messages = [];
+                
+                // Disconnect socket
+                if (this.socket) {
+                    this.socket.disconnect();
+                    this.socket = null;
+                }
+                
+                this.updateDebugInfo('Clean start completed, authenticating...', 'info');
+                
+                // Start fresh authentication
+                setTimeout(() => this.authenticateUser(currentMember), 500);
+            }
+
+            forceReload() {
+                console.log('🔄 [FORCE_RELOAD] User requested force reload...');
+                localStorage.clear();
+                sessionStorage.clear();
+                window.location.reload();
+            }
+
+            async authenticateUser(member) {
+                console.log(`🔐 [AUTH] Authenticating ${member.name} (${member.email})`);
+                this.updateDebugInfo(`Authenticating ${member.email}...`, 'info');
+                
+                try {
+                    const response = await fetch(`${this.config.backendUrl}/api/token`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            type: 'member', 
+                            email: member.email, 
+                            name: member.name 
+                        })
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`Authentication failed: ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    if (!data.valid || !data.token) {
+                        throw new Error('Invalid token response from server');
+                    }
+                    
+                    // Store session data
+                    this.projectToken = data.token;
+                    this.userName = member.name;
+                    this.userEmail = member.email;
+                    
+                    localStorage.setItem('pcd_user_email', member.email);
+                    localStorage.setItem('pcd_user_name', member.name);
+                    localStorage.setItem('pcd_project_token', data.token);
+                    
+                    console.log(`✅ [AUTH] Authentication successful!`);
+                    console.log(`   Type: ${data.type}`);
+                    console.log(`   Token: ${data.token?.substring(0, 8)}...`);
+                    
+                    this.updateDebugInfo(`Authenticated successfully as ${member.email}`, 'success');
+                    this.showUserInterface();
+                    
+                } catch (error) {
+                    console.error('❌ [AUTH] Authentication failed:', error);
+                    this.updateDebugInfo(`Authentication failed: ${error.message}`, 'error');
+                    this.handleAuthenticationError(error);
+                }
+            }
+
+            showUserInterface() {
+                console.log('🎨 [UI] Showing authenticated interface...');
+                
+                // Hide waiting state
+                document.getElementById('waitingState').style.display = 'none';
+                
+                // Show user info
+                document.getElementById('userInfoBar').style.display = 'flex';
+                document.getElementById('currentUserEmail').textContent = this.userEmail;
+                
+                // Enable input
+                document.getElementById('messageInput').disabled = false;
+                document.getElementById('sendButton').disabled = false;
+                document.getElementById('messageInput').placeholder = 'Type your message...';
+                
+                // Start messaging
+                this.startMessaging();
+            }
+
+            startMessaging() {
+                console.log('🚀 [MESSAGING] Starting messaging interface...');
+                this.bindEvents();
+                this.connectWebSocket();
+                this.loadMessages();
+            }
+
+            handleNoMemberDetected() {
+                console.log('👤 [NO_MEMBER] No member detected, showing fallback...');
+                
+                document.getElementById('pcd-chat-container').innerHTML = `
+                    <div class="pcd-waiting-state">
+                        <h3>🔒 Members Only</h3>
+                        <p>This messaging feature is available to logged-in Squarespace members only.</p>
+                        <p>Please log in to your member account to access your private conversation.</p>
+                        <br>
+                        <button onclick="window.location.reload()" class="pcd-force-reload-btn">
+                            Retry Detection
+                        </button>
+                    </div>
+                `;
+            }
+
+            handleCriticalError(error) {
+                console.error('🚨 [CRITICAL] Critical error occurred:', error);
+                
+                document.getElementById('pcd-chat-container').innerHTML = `
+                    <div class="pcd-waiting-state">
+                        <h3>⚠️ Error</h3>
+                        <p>A critical error occurred while initializing the messaging widget.</p>
+                        <p><small>Error: ${error.message}</small></p>
+                        <br>
+                        <button onclick="window.location.reload()" class="pcd-force-reload-btn">
+                            Reload Widget
+                        </button>
+                    </div>
+                `;
+            }
+
+            handleAuthenticationError(error) {
+                document.getElementById('pcd-chat-container').innerHTML = `
+                    <div class="pcd-waiting-state">
+                        <h3>🔐 Authentication Failed</h3>
+                        <p>Unable to authenticate your account.</p>
+                        <p><small>Error: ${error.message}</small></p>
+                        <br>
+                        <button onclick="window.messagingWidget.init()" class="pcd-force-reload-btn">
+                            Retry Authentication
+                        </button>
+                    </div>
+                `;
+            }
+
+            sleep(ms) {
+                return new Promise(resolve => setTimeout(resolve, ms));
+            }
+
+            bindEvents() {
+                console.log('🔗 [EVENTS] Binding event listeners...');
+                
+                const messageForm = document.getElementById('messageForm');
+                if (messageForm) {
+                    messageForm.addEventListener('submit', (e) => {
+                        e.preventDefault();
+                        this.sendMessage();
+                    });
+                }
+                
+                // Auto-resize textarea
+                const messageInput = document.getElementById('messageInput');
+                if (messageInput) {
+                    messageInput.addEventListener('input', () => {
+                        messageInput.style.height = 'auto';
+                        messageInput.style.height = Math.min(messageInput.scrollHeight, 120) + 'px';
+                    });
+                }
+            }
+
+            connectWebSocket() {
+                console.log('🔌 [SOCKET] Connecting WebSocket...');
+                
+                if (this.socket) {
+                    this.socket.disconnect();
+                }
+                
+                this.socket = io(this.config.backendUrl, {
+                    transports: ['websocket', 'polling']
+                });
+                
+                this.socket.on('connect', () => {
+                    console.log('✅ [SOCKET] Connected to server');
+                    document.getElementById('connectionStatus').textContent = 'Connected';
+                    document.getElementById('connectionDot').style.background = '#28a745';
+                    
+                    // Join the project room
+                    this.socket.emit('join', this.projectToken);
+                });
+                
+                this.socket.on('disconnect', () => {
+                    console.log('❌ [SOCKET] Disconnected from server');
+                    document.getElementById('connectionStatus').textContent = 'Disconnected';
+                    document.getElementById('connectionDot').style.background = '#dc3545';
+                });
+                
+                this.socket.on('newMessage', (message) => {
+                    console.log('📨 [SOCKET] New message received:', message);
+                    this.addMessageToUI(message);
+                });
+                
+                this.socket.on('error', (error) => {
+                    console.error('❌ [SOCKET] Error:', error);
+                });
+            }
+
+            async loadMessages() {
+                console.log('📥 [MESSAGES] Loading conversation history...');
+                
+                try {
+                    const response = await fetch(`${this.config.backendUrl}/api/public/project/${this.projectToken}/messages`);
+                    
+                    if (!response.ok) {
+                        throw new Error(`Failed to load messages: ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    this.messages = data.messages || [];
+                    
+                    console.log(`📥 [MESSAGES] Loaded ${this.messages.length} messages`);
+                    
+                    // Clear and populate UI
+                    const container = document.getElementById('pcd-chat-container');
+                    container.innerHTML = '';
+                    
+                    this.messages.forEach(message => {
+                        this.addMessageToUI(message, false);
+                    });
+                    
+                    this.scrollToBottom();
+                    
+                } catch (error) {
+                    console.error('❌ [MESSAGES] Failed to load messages:', error);
+                    this.updateDebugInfo(`Failed to load messages: ${error.message}`, 'error');
+                }
+            }
+
+            addMessageToUI(message, shouldScroll = true) {
+                const container = document.getElementById('pcd-chat-container');
+                const messageDiv = document.createElement('div');
+                
+                const isFromUser = message.senderType === 'client';
+                const timestamp = new Date(message.createdAt).toLocaleTimeString();
+                
+                messageDiv.className = `pcd-message ${isFromUser ? 'user' : 'admin'}`;
+                messageDiv.innerHTML = `
+                    <div class="pcd-message-content">
+                        <div class="pcd-message-header">
+                            <strong>${message.senderName}</strong>
+                            <span class="pcd-message-time">${timestamp}</span>
+                        </div>
+                        <div class="pcd-message-text">${message.content}</div>
+                        ${message.attachments && message.attachments.length > 0 ? 
+                            message.attachments.map(att => `
+                                <div class="pcd-attachment">
+                                    <a href="${att.url}" target="_blank">📎 ${att.filename}</a>
+                                </div>
+                            `).join('') : ''
+                        }
+                    </div>
+                `;
+                
+                container.appendChild(messageDiv);
+                
+                if (shouldScroll) {
+                    this.scrollToBottom();
+                }
+            }
+
+            scrollToBottom() {
+                const container = document.getElementById('pcd-chat-container');
+                container.scrollTop = container.scrollHeight;
+            }
+
+            async sendMessage() {
+                console.log('📤 [SEND] Sending message...');
+                const messageInput = document.getElementById('messageInput');
+                const message = messageInput.value.trim();
+                
+                if (!message && this.selectedFiles.length === 0) {
+                    console.log('❌ [SEND] No message content to send');
+                    return;
+                }
+
+                console.log(`📤 [SEND] Message content: "${message}"`);
+                console.log(`📤 [SEND] Using token: ${this.projectToken?.substring(0, 8)}...`);
+                console.log(`📤 [SEND] Backend URL: ${this.config.backendUrl}`);
+
+                // Clear input immediately for better UX
+                messageInput.value = '';
+                this.selectedFiles = [];
+
+                try {
+                                    const requestBody = {
+                    projectToken: this.projectToken,
+                    sender: this.userName,
+                    body: message,
+                    attachmentKeys: [],
+                    hasFiles: false
+                };
+
+                    console.log('📤 [SEND] Request body:', requestBody);
+
+                    const response = await fetch(`${this.config.backendUrl}/api/messages`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(requestBody)
+                    });
+
+                    console.log(`📤 [SEND] Response status: ${response.status}`);
+
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        throw new Error(`Server error: ${response.status} - ${errorText}`);
+                    }
+
+                    const result = await response.json();
+                    console.log('✅ [SEND] Message sent successfully:', result);
+                    
+                } catch (error) {
+                    console.error('❌ [SEND] Failed to send message:', error);
+                    this.updateDebugInfo(`Failed to send message: ${error.message}`, 'error');
+                    
+                    // Restore message to input on error
+                    messageInput.value = message;
+                }
+            }
+
+        }
+
+        // Initialize the bulletproof widget
+        window.messagingWidget = new BulletproofMessagingWidget();
+    </script>
+</body>
+</html>

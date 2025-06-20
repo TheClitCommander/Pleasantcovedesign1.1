@@ -266,6 +266,17 @@
       "priority": "medium",
       "id": 219,
       "createdAt": "2025-06-20T06:36:01.749Z"
+    },
+    {
+      "name": "Garth",
+      "email": "6854f35d01f8fa5d1c4e8e1a@squarespace.member",
+      "phone": "",
+      "industry": "Web Design Client",
+      "tags": [
+        "squarespace-member"
+      ],
+      "id": 239,
+      "createdAt": "2025-06-20T16:35:27.133Z"
     }
   ],
   "projects": [
@@ -681,6 +692,15 @@
       "accessToken": "mc50o9qu_69gdwmMznqd-4weVuSkXxQ",
       "id": 235,
       "createdAt": "2025-06-20T16:21:01.398Z"
+    },
+    {
+      "companyId": 239,
+      "title": "Garth - Member Conversation",
+      "type": "consultation",
+      "status": "active",
+      "accessToken": "mc516tr5_CSU4OUADdSIHB3AXxZPpbw",
+      "id": 240,
+      "createdAt": "2025-06-20T16:35:27.137Z"
     }
   ],
   "projectMessages": [
@@ -1497,6 +1517,42 @@
       "attachments": [],
       "createdAt": "2025-06-20T16:30:05.231Z",
       "id": 238
+    },
+    {
+      "projectId": 240,
+      "senderType": "client",
+      "senderName": "Garth",
+      "content": "yo yo",
+      "attachments": [],
+      "createdAt": "2025-06-20T16:35:31.735Z",
+      "id": 241
+    },
+    {
+      "projectId": 240,
+      "senderType": "client",
+      "senderName": "Garth",
+      "content": "how are you",
+      "attachments": [],
+      "createdAt": "2025-06-20T16:35:46.181Z",
+      "id": 242
+    },
+    {
+      "projectId": 240,
+      "senderType": "admin",
+      "senderName": "Ben Dickinson",
+      "content": "hey",
+      "attachments": [],
+      "createdAt": "2025-06-20T16:40:17.581Z",
+      "id": 243
+    },
+    {
+      "projectId": 231,
+      "senderType": "admin",
+      "senderName": "Ben",
+      "content": "the is the newest",
+      "attachments": [],
+      "createdAt": "2025-06-20T16:40:58.294Z",
+      "id": 244
     }
   ],
   "projectFiles": [],
@@ -2384,5 +2440,5 @@
     "appointments": 0,
     "progressEntries": 0
   },
-  "nextId": 239
+  "nextId": 245
 }

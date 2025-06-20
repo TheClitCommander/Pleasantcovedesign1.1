@@ -417,11 +417,13 @@ const Inbox: React.FC = () => {
         
         response = { data: await response.json() }
       } else {
-        // Use JSON API for text-only messages
-        response = await api.post(`/projects/${selectedConversation.projectId}/messages`, {
-          content: newMessage,
-          senderName: 'Ben Dickinson',
-          senderType: 'admin'
+        // Use unified messaging API for text-only messages
+        response = await api.post(`/messages`, {
+          projectToken: selectedConversation.projectToken,
+          sender: 'Ben Dickinson',
+          body: newMessage,
+          attachmentKeys: [],
+          hasFiles: false
         })
       }
 
