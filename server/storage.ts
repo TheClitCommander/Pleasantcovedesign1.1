@@ -590,6 +590,48 @@ export class Storage {
     };
   }
 
+  // ===================
+  // NEW UNIFIED CONVERSATION LOADER
+  // ===================
+  async getAllConversations() {
+    console.log("🔄 [STORAGE] Getting all conversations for admin inbox...");
+    
+    const projects = await this.getProjects({});
+    const companies = await this.getCompanies();
+    const messages = await this.getAllMessages();
+
+    const companyMap = new Map(companies.map(c => [c.id, c]));
+
+    const conversations = projects
+      .map(project => {
+        const company = companyMap.get(project.companyId);
+        const projectMessages = messages.filter(m => m.projectId === project.id);
+
+        if (!company || projectMessages.length === 0) {
+          return null;
+        }
+        
+        projectMessages.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+        return {
+          projectId: project.id,
+          projectTitle: project.title,
+          customerName: company.name,
+          accessToken: project.accessToken,
+          lastMessage: projectMessages[projectMessages.length - 1],
+          lastMessageTime: projectMessages[projectMessages.length - 1].createdAt,
+          messages: projectMessages,
+        };
+      })
+      .filter(Boolean); // Remove null entries for projects with no messages or company
+
+    conversations.sort((a, b) => 
+      new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime()
+    );
+    
+    console.log(`✅ [STORAGE] Returning ${conversations.length} formatted conversations.`);
+    return conversations;
+  }
 }
 
 // Export singleton instance
@@ -606,4 +648,5 @@ function createStorage() {
   }
 }
 
-export const storage = createStorage(); 
+export const storage = createStorage();
+Object.freeze(storage); 

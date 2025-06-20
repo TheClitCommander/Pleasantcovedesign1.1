@@ -9,13 +9,16 @@ import {
   MoreVertical,
   ArrowLeft,
   User,
-  X
+  X,
+  MessageSquare
 } from 'lucide-react'
 import api, { getWebSocketUrl } from '../api'
 import { io, Socket } from 'socket.io-client'
 
 interface Message {
   id: number
+  projectId: number
+  projectToken: string
   content: string
   senderName: string
   senderType: 'client' | 'admin'
@@ -52,6 +55,7 @@ const Inbox: React.FC = () => {
   const selectedConversationRef = useRef<Conversation | null>(null)
   const autoSelectedRef = useRef(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const fetchHasRun = useRef(false)
 
   const scrollToBottom = () => {
     if (messagesEndRef.current) {
@@ -113,83 +117,11 @@ const Inbox: React.FC = () => {
   }, [selectedConversation?.messages])
 
   useEffect(() => {
-    const fetchConversations = async () => {
-      try {
-        // Use business-scoped endpoint instead of debug endpoint
-        const businessId = 1; // TODO: Get from user session/params
-        console.log(`📥 [BUSINESS_SCOPED] Fetching messages for business ${businessId}...`)
-        const messagesRes = await api.get(`/business/${businessId}/messages`)
-        const businessData = messagesRes.data
-        
-        // Transform project messages into conversations
-        const conversationList: Conversation[] = []
-        
-        if (businessData.projectMessages) {
-          businessData.projectMessages.forEach((project: any) => {
-            // Extract customer name from project title (e.g., "Ben Dickinson - Conversation xyz" -> "Ben Dickinson")
-            const customerName = project.projectTitle.split(' - ')[0] || 'Unknown Customer'
-            
-            const messages: Message[] = project.messages ? project.messages.map((msg: any) => ({
-              id: msg.id,
-              content: msg.content || msg.body || '',
-              senderName: msg.senderName || msg.sender || 'Unknown',
-              senderType: msg.senderType || 'client',
-              createdAt: msg.createdAt || msg.timestamp || new Date().toISOString(),
-              attachments: msg.attachments || []
-            })) : []
-            
-            // Sort messages by creation time (oldest first)
-            messages.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
-            
-            const conversation: Conversation = {
-              id: project.projectId,
-              projectId: project.projectId,
-              projectToken: project.accessToken, // ✅ FIX: API sends "accessToken", client expects "projectToken"
-              projectTitle: project.projectTitle,
-              customerName: customerName, // ✅ FIX: Extract actual customer name
-              customerEmail: `${customerName.toLowerCase().replace(/\s+/g, '.')}@example.com`, // Generate placeholder email
-              lastMessage: messages[messages.length - 1] || undefined,
-              lastMessageTime: messages[messages.length - 1]?.createdAt || new Date().toISOString(),
-              unreadCount: 0,
-              messages: messages
-            }
-            
-            conversationList.push(conversation)
-          })
-        }
-        
-        // Sort conversations by last message time (newest first)
-        conversationList.sort((a, b) => new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime())
-
-        setConversations(conversationList)
-        console.log(`📥 [BUSINESS_SCOPED] Loaded ${conversationList.length} conversations for business ${businessId}`)
-        
-        // Auto-select first conversation if none selected and conversations exist
-        if (!selectedConversation && !autoSelectedRef.current && conversationList.length > 0) {
-          const firstConversation = conversationList[0]
-          console.log(`🎯 [AUTO_SELECT] Auto-selecting first conversation: ${firstConversation.customerName} (${firstConversation.projectToken})`)
-          setSelectedConversation(firstConversation)
-          autoSelectedRef.current = true
-        }
-        
-      } catch (error) {
-        console.error('❌ [BUSINESS_SCOPED] Error fetching conversations:', error)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchConversations()
-  }, [])
-
-  // 🚀 SETUP WEBSOCKET CONNECTION  
-  useEffect(() => {
-    console.log(`🔌 [WEBSOCKET] Setting up WebSocket connection...`)
+    console.log(`🔌 [WEBSOCKET] Setting up WebSocket connection for Admin Inbox...`);
     
-    const backendUrl = getWebSocketUrl()
-    
-    console.log(`🔌 [WEBSOCKET] Connecting to: ${backendUrl}`)
-    setConnectionStatus('connecting')
+    const backendUrl = getWebSocketUrl();
+    console.log(`🔌 [WEBSOCKET] Connecting to: ${backendUrl}`);
+    setConnectionStatus('connecting');
     
     const socket = io(backendUrl, {
       transports: ['websocket'],
@@ -197,132 +129,233 @@ const Inbox: React.FC = () => {
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
-    })
+    });
     
-    socketRef.current = socket
+    socketRef.current = socket;
     
-    // Connection event handlers
     socket.on('connect', () => {
-      console.log(`✅ [WEBSOCKET] Connected to backend`)
-      setConnectionStatus('connected')
-      
-      // If there's a desired room stored, join it immediately
-      if (currentRoomRef.current) {
-        console.log(`🎯 [WEBSOCKET] Socket connected - joining stored room: ${currentRoomRef.current}`)
-        socket.emit('join', currentRoomRef.current, (response: any) => {
-          console.log(`✅ [WEBSOCKET] Rejoined room after connect:`, response)
-        })
-      }
-    })
+      console.log(`✅ [WEBSOCKET] Connected with ID: ${socket.id}`);
+      setConnectionStatus('connected');
+      console.log('🏠 [WEBSOCKET] Joining universal admin room...');
+      socket.emit('join', 'admin-room', (response: any) => {
+        console.log(`✅ [WEBSOCKET] Join response for admin-room:`, response);
+      });
+    });
 
     socket.on('disconnect', (reason) => {
-      console.log(`❌ [WEBSOCKET] Disconnected:`, reason)
-      setConnectionStatus('disconnected')
-      currentRoomRef.current = null
-    })
+      console.log(`❌ [WEBSOCKET] Disconnected:`, reason);
+      setConnectionStatus('disconnected');
+    });
 
-    socket.on('reconnect', () => {
-      console.log(`🔄 [WEBSOCKET] Reconnected`)
-      setConnectionStatus('connected')
-    })
+    // Add debugging for ALL socket events
+    socket.onAny((eventName, ...args) => {
+      console.log(`🎧 [SOCKET_EVENT] Received event: ${eventName}`, args);
+    });
 
-    // 🔧 FIXED MESSAGE HANDLER - uses refs to avoid closure issues
-    socket.on('newMessage', (message: any) => {
-      console.log('📨 [MESSAGE_DEBUG] Received message:', message)
-      console.log('📨 [MESSAGE_DEBUG] Message projectToken:', message.projectToken)
+    // Enhanced admin message handler with detailed logging
+    socket.on('newMessage', (message: Message) => {
+      console.log('📨 [ADMIN_BROADCAST] Received newMessage event');
+      console.log('📨 [ADMIN_BROADCAST] Message data:', JSON.stringify(message, null, 2));
       
-      // Use ref to get current selected conversation (avoids stale closure)
-      const currentConversation = selectedConversationRef.current
-      console.log('📨 [MESSAGE_DEBUG] Current conversation:', currentConversation?.customerName, currentConversation?.projectToken)
-      console.log('📨 [MESSAGE_DEBUG] Current room:', currentRoomRef.current)
-      
-      if (!currentConversation) {
-        console.log('🚫 [MESSAGE_DEBUG] No conversation selected, ignoring message')
-        return
+      // Validate message structure
+      if (!message.projectToken) {
+        console.error('❌ [ADMIN_BROADCAST] Message missing projectToken:', message);
+        return;
       }
       
-      if (message.projectToken !== currentConversation.projectToken) {
-        console.log(`🚫 [MESSAGE_DEBUG] Message for different conversation (expected: ${currentConversation.projectToken}, got: ${message.projectToken})`)
-        return
+      if (!message.id) {
+        console.error('❌ [ADMIN_BROADCAST] Message missing ID:', message);
+        return;
       }
       
-      console.log('✅ [MESSAGE_DEBUG] Message matches current conversation - processing...')
-      
-      // ✅ FIX: Map server fields to client fields correctly
-      const newMessage: Message = {
-        id: message.id,
-        content: message.content || message.body || '',  // Server sends "body", client expects "content"
-        senderName: message.senderName || message.sender || 'Unknown',  // Server sends "sender", client expects "senderName"
-        senderType: message.senderType || (message.sender !== 'Ben Dickinson' ? 'client' : 'admin') || 'client',  // Auto-detect client vs admin
-        createdAt: message.createdAt || message.timestamp || new Date().toISOString(),  // Server sends "timestamp", client expects "createdAt"
-        attachments: message.attachments || []
-      }
-      
-      console.log('📨 [MESSAGE_DEBUG] Processed message:', newMessage)
-      
-      // Update the current conversation with the new message
+      setConversations(prevConvos => {
+        console.log('🔄 [STATE_UPDATE] Current conversations count:', prevConvos.length);
+        console.log('🔄 [STATE_UPDATE] Looking for conversation with token:', message.projectToken);
+        
+        const newConversations = [...prevConvos];
+        const convoIndex = newConversations.findIndex(c => c.projectToken === message.projectToken);
+        console.log(`🤔 [STATE_UPDATE] Conversation found at index: ${convoIndex}`);
+
+        if (convoIndex > -1) {
+          const updatedConvo = { ...newConversations[convoIndex] };
+          console.log('✅ [STATE_UPDATE] Updating existing conversation:', updatedConvo.customerName);
+          
+          const messageExists = updatedConvo.messages.some(m => m.id === message.id);
+          console.log(`🔍 [STATE_UPDATE] Message already exists: ${messageExists}`);
+          
+          if (!messageExists) {
+            console.log('➕ [STATE_UPDATE] Adding new message to conversation');
+            updatedConvo.messages = [...updatedConvo.messages, message];
+            updatedConvo.lastMessage = message;
+            updatedConvo.lastMessageTime = message.createdAt;
+            newConversations[convoIndex] = updatedConvo;
+            console.log('✅ [STATE_UPDATE] Message added successfully');
+          } else {
+            console.log('⚠️ [STATE_UPDATE] Duplicate message ignored');
+          }
+        } else {
+          console.log('🆕 [STATE_UPDATE] Creating new conversation for:', message.senderName);
+          // For new conversations, just create a minimal entry
+          // The full data will be fetched on next refresh
+          const newConversation: Conversation = {
+            id: message.projectId || Date.now(),
+            projectId: message.projectId,
+            projectToken: message.projectToken,
+            projectTitle: `${message.senderName || 'Unknown'}'s Conversation`,
+            customerName: message.senderName || 'Unknown',
+            customerEmail: 'unknown@example.com',
+            lastMessage: message,
+            lastMessageTime: message.createdAt,
+            unreadCount: 1,
+            messages: [message],
+          };
+          newConversations.unshift(newConversation);
+          console.log('✅ [STATE_UPDATE] New conversation created');
+        }
+
+        const sortedConversations = newConversations.sort((a, b) => 
+          new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime()
+        );
+        
+        console.log('📊 [STATE_UPDATE] Final conversations count:', sortedConversations.length);
+        console.log('📊 [STATE_UPDATE] Conversations:', sortedConversations.map(c => ({
+          name: c.customerName,
+          token: c.projectToken,
+          messageCount: c.messages.length
+        })));
+        
+        return sortedConversations;
+      });
+
+      // Update selected conversation
       setSelectedConversation(prev => {
-        if (!prev || prev.projectToken !== currentConversation.projectToken) {
-          console.log('📨 [MESSAGE_DEBUG] Selected conversation mismatch, skipping update')
-          return prev
+        if (prev && prev.projectToken === message.projectToken) {
+          console.log('🎯 [STATE_UPDATE] Updating selected conversation');
+          const messageExists = prev.messages.some(m => m.id === message.id);
+          if (!messageExists) {
+            const updated = {
+              ...prev,
+              messages: [...prev.messages, message]
+            };
+            console.log('✅ [STATE_UPDATE] Selected conversation updated');
+            return updated;
+          }
         }
-        console.log('📨 [MESSAGE_DEBUG] Updating selected conversation with new message')
-        const updatedConversation = {
-          ...prev,
-          messages: [...prev.messages, newMessage],
-          lastMessage: newMessage,
-          lastMessageTime: newMessage.createdAt
-        }
-        console.log('📨 [MESSAGE_DEBUG] Updated conversation has', updatedConversation.messages.length, 'messages')
-        return updatedConversation
-      })
-      
-      // Update conversations list
-      setConversations(prev => {
-        const updated = prev.map(conv => 
-          conv.projectToken === currentConversation.projectToken
-            ? { 
-                ...conv, 
-                messages: [...conv.messages, newMessage], 
-                lastMessage: newMessage, 
-                lastMessageTime: newMessage.createdAt 
-              }
-            : conv
-        )
-        console.log('📨 [MESSAGE_DEBUG] Updated conversations list')
-        return updated
-      })
-      
-      // Scroll to bottom when new message arrives
-      setTimeout(scrollToBottom, 100)
-    })
+        return prev;
+      });
+    });
 
     return () => {
-      console.log(`🔌 [WEBSOCKET] Cleaning up connection...`)
-      socket.disconnect()
-    }
-  }, [])
+      console.log(`🔌 [WEBSOCKET] Cleaning up admin connection...`);
+      socket.disconnect();
+    };
+  }, []);
 
-  // 🔒 HANDLE CONVERSATION SELECTION CHANGES
   useEffect(() => {
-    console.log(`🎯 [SELECTION_DEBUG] Conversation selection effect triggered`)
-    console.log(`🎯 [SELECTION_DEBUG] selectedConversation:`, selectedConversation?.customerName, selectedConversation?.projectToken)
-    console.log(`🎯 [SELECTION_DEBUG] Socket connected:`, socketRef.current?.connected)
-    console.log(`🎯 [SELECTION_DEBUG] Current room:`, currentRoomRef.current)
-    
-    if (selectedConversation) {
-      // Update ref immediately to avoid closure issues  
-      selectedConversationRef.current = selectedConversation
-      console.log(`🎯 [SELECTION_DEBUG] Updated selectedConversationRef to:`, selectedConversation.customerName)
+    const fetchConversations = async () => {
+      if (fetchHasRun.current) {
+        console.log('⏭️ [FETCH] Fetch already ran, skipping');
+        return;
+      }
       
-      // ALWAYS join room - even if socket isn't connected yet
-      console.log(`🎯 [SELECTION_DEBUG] 🚀 FORCE JOINING ROOM: ${selectedConversation.projectToken}`)
-      joinConversationRoom(selectedConversation.projectToken)
-    } else {
-      console.log(`🎯 [SELECTION_DEBUG] No conversation selected`)
-      selectedConversationRef.current = null
-    }
-  }, [selectedConversation])
+      console.log('📥 [FETCH] Starting conversation fetch...');
+      
+      try {
+        const businessId = 1;
+        console.log(`📥 [FETCH] Fetching messages for business ${businessId}...`);
+        
+        const messagesRes = await api.get(`/admin/conversations`);
+        console.log('📥 [FETCH] Raw API response:', messagesRes.data);
+        
+        const businessData = messagesRes.data;
+        
+        if (!businessData.projectMessages) {
+          console.log('⚠️ [FETCH] No projectMessages in response');
+          setConversations([]);
+          setLoading(false);
+          return;
+        }
+        
+        console.log(`📥 [FETCH] Found ${businessData.projectMessages.length} projects`);
+        
+        const conversationList: Conversation[] = [];
+        
+        businessData.projectMessages.forEach((project: any, index: number) => {
+          console.log(`📋 [FETCH] Processing project ${index + 1}:`, {
+            projectId: project.projectId,
+            accessToken: project.accessToken,
+            projectTitle: project.projectTitle,
+            messageCount: project.messages?.length || 0
+          });
+          
+          const customerName = project.projectTitle.split(' - ')[0] || 'Unknown Customer';
+          
+          const messages: Message[] = project.messages ? project.messages.map((msg: any, msgIndex: number) => {
+            console.log(`📝 [FETCH] Processing message ${msgIndex + 1}:`, msg);
+            
+            return {
+              id: msg.id || `temp_${Date.now()}_${msgIndex}`,
+              projectId: project.projectId,
+              projectToken: project.accessToken, // Key mapping
+              content: msg.content || msg.body || '',
+              senderName: msg.senderName || msg.sender || 'Unknown',
+              senderType: msg.senderType || 'client',
+              createdAt: msg.createdAt || msg.timestamp || new Date().toISOString(),
+              attachments: msg.attachments || []
+            };
+          }) : [];
+          
+          messages.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+          
+          const conversation: Conversation = {
+            id: project.projectId,
+            projectId: project.projectId,
+            projectToken: project.accessToken,
+            projectTitle: project.projectTitle,
+            customerName: customerName,
+            customerEmail: `${customerName.toLowerCase().replace(/\s+/g, '.')}@example.com`,
+            lastMessage: messages[messages.length - 1] || undefined,
+            lastMessageTime: messages[messages.length - 1]?.createdAt || new Date().toISOString(),
+            unreadCount: 0,
+            messages: messages
+          };
+          
+          conversationList.push(conversation);
+          console.log(`✅ [FETCH] Created conversation for ${customerName} with ${messages.length} messages`);
+        });
+        
+        conversationList.sort((a, b) => new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime());
+
+        console.log(`📥 [FETCH] Final conversation list:`, conversationList.map(c => ({
+          name: c.customerName,
+          token: c.projectToken,
+          messageCount: c.messages.length
+        })));
+        
+        setConversations(conversationList);
+        
+        // Auto-select first conversation
+        if (!selectedConversation && !autoSelectedRef.current && conversationList.length > 0) {
+          const firstConversation = conversationList[0];
+          console.log(`🎯 [AUTO_SELECT] Auto-selecting: ${firstConversation.customerName}`);
+          setSelectedConversation(firstConversation);
+          autoSelectedRef.current = true;
+        }
+        
+      } catch (error) {
+        console.error('❌ [FETCH] Error fetching conversations:', error);
+        if (error instanceof Error) {
+          console.error('❌ [FETCH] Error details:', error.message);
+          console.error('❌ [FETCH] Error stack:', error.stack);
+        }
+      } finally {
+        setLoading(false);
+        fetchHasRun.current = true;
+      }
+    };
+
+    fetchConversations();
+  }, []);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files
@@ -401,6 +434,8 @@ const Inbox: React.FC = () => {
       // Add message instantly via optimistic update (WebSocket will handle real-time sync)
       const sentMessage: Message = {
         id: response.data.id || Date.now(), // Use server ID or temporary ID
+        projectId: selectedConversation.projectId,
+        projectToken: selectedConversation.projectToken,
         content: newMessage,
         senderName: 'Ben Dickinson',
         senderType: 'admin',
@@ -491,6 +526,68 @@ const Inbox: React.FC = () => {
             <h1 className="text-xl font-bold text-foreground">Business Inbox</h1>
             {/* Connection status */}
             <div className="flex items-center gap-3">
+              <button
+                onClick={async () => {
+                  console.log('🔄 Manual refresh triggered');
+                  fetchHasRun.current = false;
+                  const fetchConversations = async () => {
+                    try {
+                      const messagesRes = await api.get(`/admin/conversations`);
+                      const businessData = messagesRes.data;
+                      
+                      if (!businessData.projectMessages) {
+                        setConversations([]);
+                        return;
+                      }
+                      
+                      const conversationList: Conversation[] = [];
+                      
+                      businessData.projectMessages.forEach((project: any) => {
+                        const customerName = project.projectTitle.split(' - ')[0] || 'Unknown Customer';
+                        
+                        const messages: Message[] = project.messages ? project.messages.map((msg: any) => ({
+                          id: msg.id || `temp_${Date.now()}_${Math.random()}`,
+                          projectId: project.projectId,
+                          projectToken: project.accessToken,
+                          content: msg.content || msg.body || '',
+                          senderName: msg.senderName || msg.sender || 'Unknown',
+                          senderType: msg.senderType || 'client',
+                          createdAt: msg.createdAt || msg.timestamp || new Date().toISOString(),
+                          attachments: msg.attachments || []
+                        })) : [];
+                        
+                        messages.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+                        
+                        const conversation: Conversation = {
+                          id: project.projectId,
+                          projectId: project.projectId,
+                          projectToken: project.accessToken,
+                          projectTitle: project.projectTitle,
+                          customerName: customerName,
+                          customerEmail: `${customerName.toLowerCase().replace(/\s+/g, '.')}@example.com`,
+                          lastMessage: messages[messages.length - 1] || undefined,
+                          lastMessageTime: messages[messages.length - 1]?.createdAt || new Date().toISOString(),
+                          unreadCount: 0,
+                          messages: messages
+                        };
+                        
+                        conversationList.push(conversation);
+                      });
+                      
+                      conversationList.sort((a, b) => new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime());
+                      setConversations(conversationList);
+                      console.log('✅ Manual refresh complete:', conversationList.length, 'conversations');
+                    } catch (error) {
+                      console.error('❌ Manual refresh failed:', error);
+                    }
+                  };
+                  await fetchConversations();
+                }}
+                className="p-1 hover:bg-gray-100 rounded"
+                title="Refresh conversations"
+              >
+                🔄
+              </button>
               <span className="text-xs text-muted">{filteredConversations.length} conversation{filteredConversations.length !== 1 ? 's' : ''}</span>
               <div className="flex items-center gap-2">
                 <div className={`w-2 h-2 rounded-full ${
@@ -538,20 +635,22 @@ const Inbox: React.FC = () => {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
                     <p className="font-medium text-foreground truncate">
-                      {conversation.customerName}
+                      {conversation.customerName || 'Unknown Customer'}
                     </p>
                     <span className="text-xs text-muted">
-                      {formatTime(conversation.lastMessageTime)}
+                      {conversation.lastMessageTime ? formatTime(conversation.lastMessageTime) : ''}
                     </span>
                   </div>
                   <p className="text-sm text-muted truncate">
-                    {conversation.projectTitle}
+                    {conversation.projectTitle || 'No Title'}
                   </p>
-                  {conversation.lastMessage && (
+                  {conversation.lastMessage ? (
                     <p className="text-sm text-muted truncate mt-1">
                       {conversation.lastMessage.senderType === 'admin' ? '🔵 You: ' : '💬 '}
-                      {conversation.lastMessage.content || (conversation.lastMessage.attachments?.length ? `📎 ${conversation.lastMessage.attachments.length} file${conversation.lastMessage.attachments.length > 1 ? 's' : ''}` : 'Message')}
+                      {conversation.lastMessage.content || (conversation.lastMessage.attachments?.length ? `📎 ${conversation.lastMessage.attachments.length} file(s)` : 'Message')}
                     </p>
+                  ) : (
+                    <p className="text-sm text-muted truncate mt-1 italic">No messages yet</p>
                   )}
                   {conversation.unreadCount > 0 && (
                     <div className="inline-flex items-center justify-center w-5 h-5 bg-primary-600 text-white text-xs rounded-full mt-1">
@@ -563,9 +662,9 @@ const Inbox: React.FC = () => {
             </div>
           ))}
           
-          {filteredConversations.length === 0 && (
+          {filteredConversations.length === 0 && !loading && (
             <div className="p-8 text-center text-muted">
-              <User className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+              <MessageSquare className="h-12 w-12 mx-auto mb-3 text-gray-300" />
               <p>No conversations found</p>
             </div>
           )}
@@ -821,14 +920,10 @@ const Inbox: React.FC = () => {
             </div>
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center text-muted">
-              <User className="h-16 w-16 mx-auto mb-4 text-gray-300" />
-              <h3 className="text-lg font-medium text-foreground mb-2">
-                Select a conversation
-              </h3>
-              <p>Choose a conversation from the sidebar to start messaging</p>
-            </div>
+          <div className="flex flex-col items-center justify-center h-full text-center text-muted">
+            <MessageSquare className="h-16 w-16 mb-4 text-gray-300" />
+            <h2 className="text-lg font-medium">Select a conversation</h2>
+            <p className="text-sm">Choose a conversation from the left to start messaging.</p>
           </div>
         )}
       </div>

@@ -3,6 +3,7 @@
 
 import fs from 'fs';
 import path from 'path';
+import { Company, Project, Message, ProjectFile, Activity } from '../shared/schema.js';
 
 // Persistent storage file paths
 const DATA_DIR = path.join(process.cwd(), 'data');
@@ -11,45 +12,6 @@ const STORAGE_FILE = path.join(DATA_DIR, 'database.json');
 // Ensure data directory exists
 if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
-}
-
-interface Company {
-  id: number;
-  name: string;
-  email?: string;
-  phone: string;
-  address: string;
-  city: string;
-  state: string;
-  industry: string;
-  website?: string;
-  priority?: string;
-  tags?: string[];
-  createdAt?: string;
-  updatedAt?: string;
-}
-
-interface Project {
-  id: number;
-  companyId: number;
-  title: string;
-  type: string;
-  stage: string;
-  status: string;
-  score?: number;
-  notes?: string;
-  totalAmount?: number;
-  paidAmount?: number;
-  scheduledTime?: string;
-  appointmentStatus?: string;
-  paymentStatus?: string;
-  stripeCustomerId?: string;
-  stripePaymentLinkId?: string;
-  lastPaymentDate?: string;
-  paymentNotes?: string;
-  accessToken?: string;
-  createdAt?: string;
-  updatedAt?: string;
 }
 
 interface Business {
@@ -77,16 +39,6 @@ interface Business {
   stripePaymentLinkId?: string;
   lastPaymentDate?: string;
   paymentNotes?: string;
-  createdAt?: string;
-}
-
-interface Activity {
-  id: number;
-  type: string;
-  description: string;
-  companyId?: number;
-  projectId?: number;
-  businessId?: number; // legacy compatibility
   createdAt?: string;
 }
 
@@ -696,6 +648,25 @@ class InMemoryDatabase {
       console.error('❌ Error ensuring test project:', error);
     }
   }
+
+  async getProjectMessages(projectId: number): Promise<Message[]> {
+    const db = await this.read();
+    return db.projectMessages.filter(m => m.projectId === projectId);
+  }
+
+  async getProjectsWithMessages(): Promise<Project[]> {
+    const db = await this.read();
+    const projectIdsWithMessages = new Set(db.projectMessages.map(m => m.projectId));
+    return db.projects.filter(p => projectIdsWithMessages.has(p.id));
+  }
+
+  async createProjectMessage(message: Omit<Message, 'id' | 'createdAt' | 'attachments'> & { attachments?: string[] }): Promise<Message> {
+    const db = await this.read();
+    // ... rest of the method
+  }
+
+  abstract getAllMessages(): Promise<Message[]>;
+  abstract getProjectFiles(projectId: number): Promise<ProjectFile[]>;
 }
 
 // Create singleton instance

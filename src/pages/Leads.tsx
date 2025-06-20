@@ -1,9 +1,16 @@
 import React, { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Search, Filter, Plus, Tag, Building2 } from 'lucide-react'
+import { Search, Filter, Plus, Building2 } from 'lucide-react'
 import EntitySummaryCard from '../components/EntitySummaryCard'
 import api from '../api'
 import type { Company, Project } from '../../shared/schema'
+
+interface Tag {
+  id: number;
+  name: string;
+  color: string;
+  count: number;
+}
 
 interface CompanyWithProjects extends Company {
   projects: Project[]
@@ -19,7 +26,7 @@ const Leads: React.FC = () => {
   const [tagFilter, setTagFilter] = useState<string>('all')
   const [projectTypeFilter, setProjectTypeFilter] = useState<string>('all')
   const [companies, setCompanies] = useState<CompanyWithProjects[]>([])
-  const [availableTags, setAvailableTags] = useState<string[]>([])
+  const [availableTags, setAvailableTags] = useState<Tag[]>([])
   const [loading, setLoading] = useState(true)
   const [expandedCompanies, setExpandedCompanies] = useState<Set<number>>(new Set())
 
@@ -29,10 +36,9 @@ const Leads: React.FC = () => {
         const [companiesRes, projectsRes, tagsRes] = await Promise.all([
           api.get<Company[]>('/companies'),
           api.get<Project[]>('/projects'),
-          api.get<string[]>('/tags')
+          api.get<Tag[]>('/tags')
         ])
         
-        // Group projects by company
         const projectsByCompany = projectsRes.data.reduce((acc, project) => {
           if (!acc[project.companyId]) {
             acc[project.companyId] = []
@@ -41,7 +47,6 @@ const Leads: React.FC = () => {
           return acc
         }, {} as Record<number, Project[]>)
 
-        // Combine companies with their projects
         const companiesWithProjects: CompanyWithProjects[] = companiesRes.data.map(company => {
           const companyProjects = projectsByCompany[company.id!] || []
           const totalPaid = companyProjects.reduce((sum, project) => sum + (project.paidAmount || 0), 0)
@@ -66,7 +71,6 @@ const Leads: React.FC = () => {
     fetchData()
   }, [])
 
-  // Handle URL parameters for filtering
   useEffect(() => {
     const filter = searchParams.get('filter')
     if (filter === 'high-priority') {
@@ -74,7 +78,6 @@ const Leads: React.FC = () => {
     }
   }, [searchParams])
 
-  // Toggle company expansion
   const toggleCompanyExpansion = (companyId: number) => {
     setExpandedCompanies(prev => {
       const newSet = new Set(prev)
@@ -87,9 +90,7 @@ const Leads: React.FC = () => {
     })
   }
 
-  // Filter companies and projects based on search and filters
   const filteredCompanies = companies.filter(company => {
-    // Search matching
     const matchesSearch = company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          (company.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
                          company.industry.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -98,24 +99,20 @@ const Leads: React.FC = () => {
                            project.type.toLowerCase().includes(searchTerm.toLowerCase())
                          )
     
-    // Priority matching
     const matchesPriority = priorityFilter === 'all' || company.priority === priorityFilter
     
-    // Tag matching
-    const matchesTag = tagFilter === 'all' || (company.tags && company.tags.includes(tagFilter))
-    
-    // Stage matching (check both company and projects)
+    const companyTags = company.tags || [];
+    const matchesTag = tagFilter === 'all' || companyTags.includes(tagFilter);
+
     const matchesStage = stageFilter === 'all' || 
                         company.projects.some(project => project.stage === stageFilter)
 
-    // Project type matching
     const matchesProjectType = projectTypeFilter === 'all' ||
                               company.projects.some(project => project.type === projectTypeFilter)
     
     return matchesSearch && matchesPriority && matchesTag && matchesStage && matchesProjectType
   })
 
-  // Filter projects within expanded companies
   const getFilteredProjects = (company: CompanyWithProjects): Project[] => {
     return company.projects.filter(project => {
       const matchesStage = stageFilter === 'all' || project.stage === stageFilter
@@ -131,7 +128,6 @@ const Leads: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Companies & Projects</h1>
@@ -151,10 +147,8 @@ const Leads: React.FC = () => {
         </div>
       </div>
 
-      {/* Filters */}
       <div className="bg-white rounded-xl shadow-sm border border-border p-6">
         <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
-          {/* Search */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted" />
             <input
@@ -166,7 +160,6 @@ const Leads: React.FC = () => {
             />
           </div>
 
-          {/* Stage Filter */}
           <div>
             <select
               value={stageFilter}
@@ -186,7 +179,6 @@ const Leads: React.FC = () => {
             </select>
           </div>
 
-          {/* Priority Filter */}
           <div>
             <select
               value={priorityFilter}
@@ -200,7 +192,6 @@ const Leads: React.FC = () => {
             </select>
           </div>
 
-          {/* Project Type Filter */}
           <div>
             <select
               value={projectTypeFilter}
@@ -217,7 +208,6 @@ const Leads: React.FC = () => {
             </select>
           </div>
 
-          {/* Tag Filter */}
           <div>
             <select
               value={tagFilter}
@@ -226,12 +216,13 @@ const Leads: React.FC = () => {
             >
               <option value="all">All Tags</option>
               {availableTags.map((tag) => (
-                <option key={tag} value={tag}>{tag}</option>
+                <option key={tag.id} value={tag.name}>
+                  {tag.name}
+                </option>
               ))}
             </select>
           </div>
 
-          {/* Clear Filters */}
           <button
             onClick={() => {
               setSearchTerm('')
@@ -248,7 +239,6 @@ const Leads: React.FC = () => {
         </div>
       </div>
 
-      {/* Results */}
       <div className="bg-white rounded-xl shadow-sm border border-border">
         <div className="p-6 border-b border-border">
           <h3 className="text-lg font-semibold text-foreground">
@@ -268,7 +258,6 @@ const Leads: React.FC = () => {
                 
                 return (
                   <div key={company.id} className="space-y-2">
-                    {/* Company Card */}
                     <EntitySummaryCard
                       type="company"
                       data={company}
@@ -283,7 +272,6 @@ const Leads: React.FC = () => {
                       onNotes={() => console.log('View notes for company:', company.name)}
                     />
                     
-                    {/* Expanded Projects */}
                     {isExpanded && filteredProjects.length > 0 && (
                       <div className="space-y-2 animate-in slide-in-from-top-1 duration-200">
                         {filteredProjects.map((project) => (
@@ -302,7 +290,6 @@ const Leads: React.FC = () => {
                       </div>
                     )}
                     
-                    {/* No projects message */}
                     {isExpanded && filteredProjects.length === 0 && company.projects.length === 0 && (
                       <div className="ml-4 p-4 border-2 border-dashed border-gray-300 rounded-lg text-center">
                         <p className="text-gray-500">No projects yet</p>
@@ -313,7 +300,6 @@ const Leads: React.FC = () => {
                       </div>
                     )}
                     
-                    {/* Filtered out projects message */}
                     {isExpanded && filteredProjects.length === 0 && company.projects.length > 0 && (
                       <div className="ml-4 p-4 border border-gray-200 rounded-lg text-center bg-gray-50">
                         <p className="text-gray-500 text-sm">

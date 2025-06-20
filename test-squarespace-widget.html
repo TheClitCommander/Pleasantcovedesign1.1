@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Squarespace Widget Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .member-info {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .widget-container {
+            margin-top: 20px;
+            border: 2px dashed #ddd;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #5a67d8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Squarespace Widget Test Environment</h1>
+        
+        <div class="member-info">
+            <h3>Simulate Squarespace Member</h3>
+            <button onclick="simulateMember('ben@example.com', 'Ben Test')">Login as Ben</button>
+            <button onclick="simulateMember('jane@example.com', 'Jane Doe')">Login as Jane</button>
+            <button onclick="simulateMember('test@example.com', 'Test User')">Login as Test User</button>
+            <button onclick="clearMember()">Logout</button>
+            <p id="memberStatus">Not logged in</p>
+        </div>
+
+        <div class="widget-container">
+            <h3>Widget Integration (Same as Squarespace Code Block)</h3>
+            
+            <!-- This is exactly what goes in Squarespace -->
+            <div id="pcd-widget-container" style="width: 100%; height: 600px;">
+                <iframe 
+                    id="pcd-messaging-widget"
+                    src="squarespace-widgets/messaging-widget-unified.html"
+                    style="width: 100%; height: 100%; border: none; border-radius: 8px;"
+                    allow="clipboard-write"
+                ></iframe>
+            </div>
+
+            <script>
+            // Simulate Squarespace member detection
+            window.Static = {
+                SQUARESPACE_CONTEXT: {
+                    authenticatedAccount: null
+                }
+            };
+
+            function simulateMember(email, name) {
+                // Simulate Squarespace member context
+                window.Static.SQUARESPACE_CONTEXT.authenticatedAccount = {
+                    email: email,
+                    displayName: name,
+                    firstName: name.split(' ')[0],
+                    lastName: name.split(' ')[1] || '',
+                    id: 'member_' + Date.now()
+                };
+                
+                document.getElementById('memberStatus').textContent = `Logged in as: ${name} (${email})`;
+                
+                // Send member info to widget
+                const widget = document.getElementById('pcd-messaging-widget');
+                if (widget && widget.contentWindow) {
+                    const member = {
+                        email: email,
+                        name: name,
+                        id: window.Static.SQUARESPACE_CONTEXT.authenticatedAccount.id
+                    };
+                    
+                    console.log('Sending member info to widget:', member);
+                    widget.contentWindow.postMessage({
+                        type: 'PCD_MEMBER_INFO',
+                        member: member
+                    }, '*');
+                }
+            }
+
+            function clearMember() {
+                window.Static.SQUARESPACE_CONTEXT.authenticatedAccount = null;
+                document.getElementById('memberStatus').textContent = 'Not logged in';
+                location.reload(); // Reload to reset widget
+            }
+
+            // Function to get Squarespace member info (same as production)
+            function getSquarespaceMember() {
+                if (window.Static && window.Static.SQUARESPACE_CONTEXT) {
+                    const ctx = window.Static.SQUARESPACE_CONTEXT;
+                    if (ctx.authenticatedAccount) {
+                        return {
+                            email: ctx.authenticatedAccount.email,
+                            name: ctx.authenticatedAccount.displayName || ctx.authenticatedAccount.firstName + ' ' + ctx.authenticatedAccount.lastName,
+                            id: ctx.authenticatedAccount.id
+                        };
+                    }
+                }
+                return null;
+            }
+
+            // Wait for widget to load and send member info
+            const widget = document.getElementById('pcd-messaging-widget');
+            
+            widget.addEventListener('load', function() {
+                console.log('Widget loaded, checking for member...');
+                
+                const member = getSquarespaceMember();
+                
+                if (member) {
+                    console.log('Member detected:', member.name);
+                    widget.contentWindow.postMessage({
+                        type: 'PCD_MEMBER_INFO',
+                        member: member
+                    }, '*');
+                } else {
+                    console.log('No member detected - widget will show pre-chat form');
+                }
+            });
+
+            // Listen for widget ready signal
+            window.addEventListener('message', function(event) {
+                console.log('Received message from widget:', event.data);
+                
+                if (event.data.type === 'PCD_WIDGET_READY') {
+                    console.log('Widget is ready');
+                    const member = getSquarespaceMember();
+                    if (member) {
+                        event.source.postMessage({
+                            type: 'PCD_MEMBER_INFO',
+                            member: member
+                        }, '*');
+                    }
+                }
+            });
+            </script>
+        </div>
+
+        <div style="margin-top: 20px; padding: 20px; background: #f0f0f0; border-radius: 5px;">
+            <h4>Instructions:</h4>
+            <ol>
+                <li>Click one of the "Login as" buttons to simulate a Squarespace member</li>
+                <li>The widget should detect the member and show their name</li>
+                <li>Send a test message</li>
+                <li>Check the admin inbox at <a href="http://localhost:5173/business/1/inbox" target="_blank">http://localhost:5173/business/1/inbox</a></li>
+                <li>Messages should appear in real-time</li>
+            </ol>
+            <p><strong>Note:</strong> Open browser console (F12) to see debug messages</p>
+        </div>
+    </div>
+</body>
+</html> 

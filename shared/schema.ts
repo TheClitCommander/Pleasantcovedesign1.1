@@ -285,4 +285,16 @@ export type NewProject = Omit<Project, 'id'>;
 export type NewActivity = Omit<Activity, 'id'>;
 export type NewCampaign = Omit<Campaign, 'id'>;
 export type NewAppointment = Omit<Appointment, 'id'>;
-export type NewProgressEntry = Omit<ProgressEntry, 'id'>; 
+export type NewProgressEntry = Omit<ProgressEntry, 'id'>;
+
+export const messageSchema = z.object({
+  id: z.number(),
+  projectId: z.number(),
+  senderType: z.enum(['client', 'admin']),
+  senderName: z.string(),
+  content: z.string(),
+  attachments: z.array(z.string()).optional(),
+  createdAt: z.string(),
+});
+
+export type Message = z.infer<typeof messageSchema>; 

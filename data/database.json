@@ -210,6 +210,62 @@
       "priority": "medium",
       "id": 142,
       "createdAt": "2025-06-18T18:16:22.653Z"
+    },
+    {
+      "name": "Test Fixed User",
+      "email": "test-fixed@example.com",
+      "phone": "No phone provided",
+      "address": "To be enriched",
+      "city": "To be enriched",
+      "state": "To be enriched",
+      "website": "",
+      "industry": "Web Design Client",
+      "tags": [],
+      "priority": "medium",
+      "id": 150,
+      "createdAt": "2025-06-19T23:43:00.812Z"
+    },
+    {
+      "name": "Widget Test User",
+      "email": "widget-test@example.com",
+      "phone": "",
+      "address": "",
+      "city": "",
+      "state": "",
+      "website": "",
+      "industry": "Web Design Client",
+      "tags": [],
+      "priority": "medium",
+      "id": 153,
+      "createdAt": "2025-06-19T23:44:17.059Z"
+    },
+    {
+      "name": "Debug Test",
+      "email": "debug@test.com",
+      "phone": "",
+      "address": "",
+      "city": "",
+      "state": "",
+      "website": "",
+      "industry": "Web Design Client",
+      "tags": [],
+      "priority": "medium",
+      "id": 159,
+      "createdAt": "2025-06-20T03:02:15.394Z"
+    },
+    {
+      "name": "Ben",
+      "email": "68365f41ad68c86a876dcdba@squarespace.member",
+      "phone": "",
+      "address": "",
+      "city": "",
+      "state": "",
+      "website": "",
+      "industry": "Web Design Client",
+      "tags": [],
+      "priority": "medium",
+      "id": 219,
+      "createdAt": "2025-06-20T06:36:01.749Z"
     }
   ],
   "projects": [
@@ -469,6 +525,102 @@
       "accessToken": "mc29wwvx_iYdbgghrOG8G4Albp9ABMQ",
       "id": 143,
       "createdAt": "2025-06-18T18:16:22.653Z"
+    },
+    {
+      "companyId": 1,
+      "title": "Test Fixed User - Conversation 1750376580814",
+      "type": "consultation",
+      "stage": "discovery",
+      "status": "active",
+      "totalAmount": 0,
+      "paidAmount": 0,
+      "accessToken": "mc410tla_OZWbLvupcw1x8CHnSqGwtw",
+      "id": 151,
+      "createdAt": "2025-06-19T23:43:00.814Z"
+    },
+    {
+      "companyId": 153,
+      "title": "Widget Test User - Conversation 1750376657059",
+      "type": "consultation",
+      "stage": "discovery",
+      "status": "active",
+      "totalAmount": 0,
+      "paidAmount": 0,
+      "accessToken": "mc412gf7_wp9CKMYTVtrfARNnbnIBiA",
+      "id": 154,
+      "createdAt": "2025-06-19T23:44:17.059Z"
+    },
+    {
+      "companyId": 159,
+      "title": "Debug Test - Conversation 1750388535397",
+      "type": "consultation",
+      "stage": "discovery",
+      "status": "active",
+      "totalAmount": 0,
+      "paidAmount": 0,
+      "accessToken": "mc4851t1_xV9pnbUmwBVDduRi3Jot5w",
+      "id": 160,
+      "createdAt": "2025-06-20T03:02:15.397Z"
+    },
+    {
+      "companyId": 219,
+      "title": "Ben - 2025-06-20 - Session CTCOG2",
+      "type": "consultation",
+      "stage": "discovery",
+      "status": "active",
+      "totalAmount": 0,
+      "paidAmount": 0,
+      "accessToken": "mc4fryop_av3Jf-MnDGVKXbQ0nxrmiQ",
+      "id": 220,
+      "createdAt": "2025-06-20T06:36:01.755Z"
+    },
+    {
+      "companyId": 219,
+      "title": "Ben - 2025-06-20 - Session JORYBK",
+      "type": "consultation",
+      "stage": "discovery",
+      "status": "active",
+      "totalAmount": 0,
+      "paidAmount": 0,
+      "accessToken": "mc4ftpho_Pfq9jM3iEr4l7Wn3cmxhhg",
+      "id": 221,
+      "createdAt": "2025-06-20T06:37:23.149Z"
+    },
+    {
+      "companyId": 219,
+      "title": "Ben - 2025-06-20 - Session SGUVJP",
+      "type": "consultation",
+      "stage": "discovery",
+      "status": "active",
+      "totalAmount": 0,
+      "paidAmount": 0,
+      "accessToken": "mc4fuutv_adp5UWGfOCyGjDdEETnNrg",
+      "id": 222,
+      "createdAt": "2025-06-20T06:38:16.723Z"
+    },
+    {
+      "companyId": 219,
+      "title": "Ben - 2025-06-20 - Session 51OQCL",
+      "type": "consultation",
+      "stage": "discovery",
+      "status": "active",
+      "totalAmount": 0,
+      "paidAmount": 0,
+      "accessToken": "mc4fvbeh_UDnvcu8qVpfQVHxFXJavPg",
+      "id": 224,
+      "createdAt": "2025-06-20T06:38:38.201Z"
+    },
+    {
+      "companyId": 142,
+      "title": "Ben - 2025-06-20 - Session VM580Q",
+      "type": "consultation",
+      "stage": "discovery",
+      "status": "active",
+      "totalAmount": 0,
+      "paidAmount": 0,
+      "accessToken": "mc4fvp40_QAuzz_HY8cHEpcJli0Vtcw",
+      "id": 225,
+      "createdAt": "2025-06-20T06:38:55.968Z"
     }
   ],
   "projectMessages": [
@@ -883,6 +1035,345 @@
       "attachments": [],
       "id": 116,
       "createdAt": "2025-06-18T01:31:39.775Z"
+    },
+    {
+      "projectId": 52,
+      "senderType": "client",
+      "senderName": "Ben Dickinson",
+      "content": "hey",
+      "attachments": [],
+      "id": 144,
+      "createdAt": "2025-06-19T04:56:16.265Z"
+    },
+    {
+      "projectId": 52,
+      "senderType": "admin",
+      "senderName": "Ben Dickinson",
+      "content": "",
+      "attachments": [
+        "http://localhost:3000/uploads/project-mbzull5i-1750308986435-Screenshot_2025-06-18_at_12.08.16___PM.png"
+      ],
+      "id": 146,
+      "createdAt": "2025-06-19T04:56:26.445Z"
+    },
+    {
+      "projectId": 52,
+      "senderType": "client",
+      "senderName": "Ben Dickinson",
+      "content": "hwo are you",
+      "attachments": [],
+      "id": 148,
+      "createdAt": "2025-06-19T05:20:43.601Z"
+    },
+    {
+      "projectId": 151,
+      "senderType": "client",
+      "senderName": "Test Fixed User",
+      "content": "Testing the businessData fix",
+      "attachments": [],
+      "createdAt": "2025-06-19T23:43:00.814Z",
+      "id": 152
+    },
+    {
+      "projectId": 154,
+      "senderType": "client",
+      "senderName": "Widget Test User",
+      "content": "Hello from the widget test!",
+      "attachments": [],
+      "id": 155,
+      "createdAt": "2025-06-19T23:44:44.361Z"
+    },
+    {
+      "projectId": 49,
+      "senderType": "client",
+      "senderName": "Test User",
+      "content": "hey",
+      "attachments": [],
+      "id": 157,
+      "createdAt": "2025-06-20T02:56:30.265Z"
+    },
+    {
+      "projectId": 160,
+      "senderType": "client",
+      "senderName": "Debug Test",
+      "content": "Debug test message",
+      "attachments": [],
+      "id": 161,
+      "createdAt": "2025-06-20T03:03:06.220Z"
+    },
+    {
+      "projectId": 52,
+      "senderType": "client",
+      "senderName": "Test User",
+      "content": "Test from curl",
+      "attachments": [],
+      "id": 163,
+      "createdAt": "2025-06-20T03:33:03.254Z"
+    },
+    {
+      "projectId": 9,
+      "senderType": "client",
+      "senderName": "BEN dickinson",
+      "content": "Test message from curl to see if it appears in admin",
+      "attachments": [],
+      "id": 165,
+      "createdAt": "2025-06-20T04:23:04.155Z"
+    },
+    {
+      "projectId": 9,
+      "senderType": "client",
+      "senderName": "TEST USER",
+      "content": "TEST MESSAGE - Can you see this in admin UI?",
+      "attachments": [],
+      "id": 167,
+      "createdAt": "2025-06-20T04:28:05.263Z"
+    },
+    {
+      "projectId": 9,
+      "senderType": "admin",
+      "senderName": "Ben Dickinson",
+      "content": "yes ",
+      "attachments": [],
+      "id": 169,
+      "createdAt": "2025-06-20T04:28:10.384Z"
+    },
+    {
+      "projectId": 9,
+      "senderType": "client",
+      "senderName": "Terminal Test User",
+      "content": "TEST FROM TERMINAL - Please check admin UI",
+      "attachments": [],
+      "id": 171,
+      "createdAt": "2025-06-20T04:35:05.916Z"
+    },
+    {
+      "projectId": 9,
+      "senderType": "client",
+      "senderName": "System Test",
+      "content": "FINAL TEST - Check admin UI at http://localhost:5173",
+      "attachments": [],
+      "id": 173,
+      "createdAt": "2025-06-20T04:36:20.542Z"
+    },
+    {
+      "projectId": 9,
+      "senderType": "admin",
+      "senderName": "Ben Dickinson",
+      "content": "hey",
+      "attachments": [],
+      "id": 175,
+      "createdAt": "2025-06-20T04:44:05.262Z"
+    },
+    {
+      "projectId": 9,
+      "senderType": "client",
+      "senderName": "BEN dickinson",
+      "content": "yo yo",
+      "attachments": [],
+      "id": 177,
+      "createdAt": "2025-06-20T04:45:37.850Z"
+    },
+    {
+      "projectId": 9,
+      "senderType": "client",
+      "senderName": "BEN dickinson",
+      "content": "",
+      "attachments": [
+        "http://localhost:3000/uploads/project-Ae06uIlL-1750394753928-Screenshot_2025-06-18_at_12.08.16___PM.png"
+      ],
+      "id": 179,
+      "createdAt": "2025-06-20T04:45:53.935Z"
+    },
+    {
+      "projectId": 9,
+      "senderType": "admin",
+      "senderName": "Ben Dickinson",
+      "content": "",
+      "attachments": [
+        "http://localhost:3000/uploads/project-Ae06uIlL-1750394777527-ChatGPT_Image_May_27__2025__04_38_15_PM.png"
+      ],
+      "id": 181,
+      "createdAt": "2025-06-20T04:46:17.533Z"
+    },
+    {
+      "projectId": 9,
+      "senderType": "client",
+      "senderName": "BEN dickinson",
+      "content": "hey",
+      "attachments": [],
+      "id": 183,
+      "createdAt": "2025-06-20T04:49:20.470Z"
+    },
+    {
+      "projectId": 9,
+      "senderType": "client",
+      "senderName": "Automated Integration Test",
+      "content": "Test message at 2025-06-20T04:54:09.437Z",
+      "attachments": [],
+      "id": 185,
+      "createdAt": "2025-06-20T04:54:09.449Z"
+    },
+    {
+      "projectId": 9,
+      "senderType": "client",
+      "senderName": "Automated Integration Test",
+      "content": "Test message at 2025-06-20T05:02:49.660Z",
+      "attachments": [],
+      "id": 187,
+      "createdAt": "2025-06-20T05:02:49.671Z"
+    },
+    {
+      "projectId": 9,
+      "senderType": "client",
+      "senderName": "Automated Integration Test",
+      "content": "Test message at 2025-06-20T05:08:04.000Z",
+      "attachments": [],
+      "id": 189,
+      "createdAt": "2025-06-20T05:08:04.010Z"
+    },
+    {
+      "projectId": 9,
+      "senderType": "client",
+      "senderName": "Automated Integration Test",
+      "content": "Test message at 2025-06-20T05:10:10.900Z",
+      "attachments": [],
+      "id": 191,
+      "createdAt": "2025-06-20T05:10:10.910Z"
+    },
+    {
+      "projectId": 9,
+      "senderType": "admin",
+      "senderName": "Ben Dickinson",
+      "content": "yo",
+      "attachments": [],
+      "id": 193,
+      "createdAt": "2025-06-20T05:12:28.024Z"
+    },
+    {
+      "projectId": 9,
+      "senderType": "client",
+      "senderName": "BEN dickinson",
+      "content": "hey",
+      "attachments": [],
+      "id": 195,
+      "createdAt": "2025-06-20T05:14:08.611Z"
+    },
+    {
+      "projectId": 9,
+      "senderType": "client",
+      "senderName": "BEN dickinson",
+      "content": "sup supsup",
+      "attachments": [],
+      "id": 197,
+      "createdAt": "2025-06-20T05:14:38.896Z"
+    },
+    {
+      "projectId": 9,
+      "senderType": "client",
+      "senderName": "Automated Integration Test",
+      "content": "Test message at 2025-06-20T05:20:41.534Z",
+      "attachments": [],
+      "id": 199,
+      "createdAt": "2025-06-20T05:20:41.548Z"
+    },
+    {
+      "projectId": 9,
+      "senderType": "client",
+      "senderName": "BEN dickinson",
+      "content": "hey",
+      "attachments": [],
+      "id": 201,
+      "createdAt": "2025-06-20T05:24:38.582Z"
+    },
+    {
+      "projectId": 9,
+      "senderType": "client",
+      "senderName": "Automated Integration Test",
+      "content": "Test message at 2025-06-20T05:28:48.674Z",
+      "attachments": [],
+      "id": 203,
+      "createdAt": "2025-06-20T05:28:48.687Z"
+    },
+    {
+      "projectId": 9,
+      "senderType": "client",
+      "senderName": "Automated Integration Test",
+      "content": "Test message at 2025-06-20T05:33:11.997Z",
+      "attachments": [],
+      "id": 205,
+      "createdAt": "2025-06-20T05:33:12.008Z"
+    },
+    {
+      "projectId": 9,
+      "senderType": "client",
+      "senderName": "Automated Integration Test",
+      "content": "Test message at 2025-06-20T05:44:55.678Z",
+      "attachments": [],
+      "id": 207,
+      "createdAt": "2025-06-20T05:44:55.690Z"
+    },
+    {
+      "projectId": 9,
+      "senderType": "client",
+      "senderName": "BEN dickinson",
+      "content": "hey",
+      "attachments": [],
+      "id": 209,
+      "createdAt": "2025-06-20T05:46:08.996Z"
+    },
+    {
+      "projectId": 9,
+      "senderType": "admin",
+      "senderName": "Ben Dickinson",
+      "content": "yo",
+      "attachments": [],
+      "id": 211,
+      "createdAt": "2025-06-20T06:01:07.663Z"
+    },
+    {
+      "projectId": 9,
+      "senderType": "client",
+      "senderName": "Automated Integration Test",
+      "content": "Test message at 2025-06-20T06:07:35.528Z",
+      "attachments": [],
+      "id": 213,
+      "createdAt": "2025-06-20T06:07:35.545Z"
+    },
+    {
+      "projectId": 9,
+      "senderType": "client",
+      "senderName": "Automated Integration Test",
+      "content": "Test message at 2025-06-20T06:09:44.120Z",
+      "attachments": [],
+      "id": 215,
+      "createdAt": "2025-06-20T06:09:44.131Z"
+    },
+    {
+      "projectId": 9,
+      "senderType": "client",
+      "senderName": "Automated Integration Test",
+      "content": "Test message at 2025-06-20T06:12:26.490Z",
+      "attachments": [],
+      "id": 217,
+      "createdAt": "2025-06-20T06:12:26.501Z"
+    },
+    {
+      "projectId": 222,
+      "senderType": "admin",
+      "senderName": "Ben",
+      "content": "hey",
+      "attachments": [],
+      "createdAt": "2025-06-20T06:38:20.680Z",
+      "id": 223
+    },
+    {
+      "projectId": 225,
+      "senderType": "admin",
+      "senderName": "Ben",
+      "content": "yo yo",
+      "attachments": [],
+      "createdAt": "2025-06-20T06:39:01.836Z",
+      "id": 226
     }
   ],
   "projectFiles": [],
@@ -1462,6 +1953,278 @@
       "description": "Consultation appointment scheduled for 1/15/2025 at 9:00 AM - Services: Web Design, Budget: $5000-$10000",
       "id": 126,
       "createdAt": "2025-06-18T17:23:49.665Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Ben Dickinson: hey",
+      "companyId": 1,
+      "projectId": 52,
+      "id": 145,
+      "createdAt": "2025-06-19T04:56:16.270Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Ben Dickinson: files shared (1 files)",
+      "companyId": 1,
+      "projectId": 52,
+      "id": 147,
+      "createdAt": "2025-06-19T04:56:26.446Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Ben Dickinson: hwo are you",
+      "companyId": 1,
+      "projectId": 52,
+      "id": 149,
+      "createdAt": "2025-06-19T05:20:43.604Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Widget Test User: Hello from the widget test!",
+      "companyId": 153,
+      "projectId": 154,
+      "id": 156,
+      "createdAt": "2025-06-19T23:44:44.362Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Test User: hey",
+      "companyId": 48,
+      "projectId": 49,
+      "id": 158,
+      "createdAt": "2025-06-20T02:56:30.268Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Debug Test: Debug test message",
+      "companyId": 159,
+      "projectId": 160,
+      "id": 162,
+      "createdAt": "2025-06-20T03:03:06.222Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Test User: Test from curl",
+      "companyId": 1,
+      "projectId": 52,
+      "id": 164,
+      "createdAt": "2025-06-20T03:33:03.257Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from BEN dickinson: Test message from curl to see if it appears in adm...",
+      "companyId": 8,
+      "projectId": 9,
+      "id": 166,
+      "createdAt": "2025-06-20T04:23:04.162Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from TEST USER: TEST MESSAGE - Can you see this in admin UI?",
+      "companyId": 8,
+      "projectId": 9,
+      "id": 168,
+      "createdAt": "2025-06-20T04:28:05.267Z"
+    },
+    {
+      "type": "admin_message",
+      "description": "Admin message sent: yes ",
+      "companyId": 8,
+      "projectId": 9,
+      "id": 170,
+      "createdAt": "2025-06-20T04:28:10.386Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Terminal Test User: TEST FROM TERMINAL - Please check admin UI",
+      "companyId": 8,
+      "projectId": 9,
+      "id": 172,
+      "createdAt": "2025-06-20T04:35:05.917Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from System Test: FINAL TEST - Check admin UI at http://localhost:51...",
+      "companyId": 8,
+      "projectId": 9,
+      "id": 174,
+      "createdAt": "2025-06-20T04:36:20.544Z"
+    },
+    {
+      "type": "admin_message",
+      "description": "Admin message sent: hey",
+      "companyId": 8,
+      "projectId": 9,
+      "id": 176,
+      "createdAt": "2025-06-20T04:44:05.264Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from BEN dickinson: yo yo",
+      "companyId": 8,
+      "projectId": 9,
+      "id": 178,
+      "createdAt": "2025-06-20T04:45:37.852Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from BEN dickinson: files shared (1 files)",
+      "companyId": 8,
+      "projectId": 9,
+      "id": 180,
+      "createdAt": "2025-06-20T04:45:53.936Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Ben Dickinson: files shared (1 files)",
+      "companyId": 8,
+      "projectId": 9,
+      "id": 182,
+      "createdAt": "2025-06-20T04:46:17.535Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from BEN dickinson: hey",
+      "companyId": 8,
+      "projectId": 9,
+      "id": 184,
+      "createdAt": "2025-06-20T04:49:20.472Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Automated Integration Test: Test message at 2025-06-20T04:54:09.437Z",
+      "companyId": 8,
+      "projectId": 9,
+      "id": 186,
+      "createdAt": "2025-06-20T04:54:09.451Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Automated Integration Test: Test message at 2025-06-20T05:02:49.660Z",
+      "companyId": 8,
+      "projectId": 9,
+      "id": 188,
+      "createdAt": "2025-06-20T05:02:49.673Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Automated Integration Test: Test message at 2025-06-20T05:08:04.000Z",
+      "companyId": 8,
+      "projectId": 9,
+      "id": 190,
+      "createdAt": "2025-06-20T05:08:04.012Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Automated Integration Test: Test message at 2025-06-20T05:10:10.900Z",
+      "companyId": 8,
+      "projectId": 9,
+      "id": 192,
+      "createdAt": "2025-06-20T05:10:10.911Z"
+    },
+    {
+      "type": "admin_message",
+      "description": "Admin message sent: yo",
+      "companyId": 8,
+      "projectId": 9,
+      "id": 194,
+      "createdAt": "2025-06-20T05:12:28.026Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from BEN dickinson: hey",
+      "companyId": 8,
+      "projectId": 9,
+      "id": 196,
+      "createdAt": "2025-06-20T05:14:08.612Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from BEN dickinson: sup supsup",
+      "companyId": 8,
+      "projectId": 9,
+      "id": 198,
+      "createdAt": "2025-06-20T05:14:38.898Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Automated Integration Test: Test message at 2025-06-20T05:20:41.534Z",
+      "companyId": 8,
+      "projectId": 9,
+      "id": 200,
+      "createdAt": "2025-06-20T05:20:41.549Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from BEN dickinson: hey",
+      "companyId": 8,
+      "projectId": 9,
+      "id": 202,
+      "createdAt": "2025-06-20T05:24:38.584Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Automated Integration Test: Test message at 2025-06-20T05:28:48.674Z",
+      "companyId": 8,
+      "projectId": 9,
+      "id": 204,
+      "createdAt": "2025-06-20T05:28:48.689Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Automated Integration Test: Test message at 2025-06-20T05:33:11.997Z",
+      "companyId": 8,
+      "projectId": 9,
+      "id": 206,
+      "createdAt": "2025-06-20T05:33:12.009Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Automated Integration Test: Test message at 2025-06-20T05:44:55.678Z",
+      "companyId": 8,
+      "projectId": 9,
+      "id": 208,
+      "createdAt": "2025-06-20T05:44:55.691Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from BEN dickinson: hey",
+      "companyId": 8,
+      "projectId": 9,
+      "id": 210,
+      "createdAt": "2025-06-20T05:46:08.999Z"
+    },
+    {
+      "type": "admin_message",
+      "description": "Admin message sent: yo",
+      "companyId": 8,
+      "projectId": 9,
+      "id": 212,
+      "createdAt": "2025-06-20T06:01:07.670Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Automated Integration Test: Test message at 2025-06-20T06:07:35.528Z",
+      "companyId": 8,
+      "projectId": 9,
+      "id": 214,
+      "createdAt": "2025-06-20T06:07:35.548Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Automated Integration Test: Test message at 2025-06-20T06:09:44.120Z",
+      "companyId": 8,
+      "projectId": 9,
+      "id": 216,
+      "createdAt": "2025-06-20T06:09:44.132Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Automated Integration Test: Test message at 2025-06-20T06:12:26.490Z",
+      "companyId": 8,
+      "projectId": 9,
+      "id": 218,
+      "createdAt": "2025-06-20T06:12:26.504Z"
     }
   ],
   "campaigns": [],
@@ -1498,5 +2261,5 @@
     "appointments": 0,
     "progressEntries": 0
   },
-  "nextId": 144
+  "nextId": 227
 }

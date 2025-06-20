@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Messaging Widget</title>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .widget {
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+        .status {
+            margin-bottom: 20px;
+            padding: 10px;
+            border-radius: 4px;
+            background: #e9ecef;
+        }
+        .status.connected {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .messages {
+            min-height: 300px;
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 20px;
+            background: white;
+        }
+        .message {
+            margin-bottom: 10px;
+            padding: 8px;
+            border-radius: 4px;
+        }
+        .message.client {
+            background: #e3f2fd;
+            margin-left: 20%;
+        }
+        .message.admin {
+            background: #f3e5f5;
+            margin-right: 20%;
+        }
+        .input-group {
+            display: flex;
+            gap: 10px;
+        }
+        input[type="text"] {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+        }
+        button {
+            padding: 8px 16px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #5a67d8;
+        }
+        button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        .config {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 4px;
+        }
+        .config input {
+            width: 100%;
+            margin-top: 5px;
+        }
+        .log {
+            margin-top: 20px;
+            padding: 10px;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test Messaging Widget</h1>
+    
+    <div class="config">
+        <h3>Configuration</h3>
+        <label>
+            Backend URL:
+            <input type="text" id="backendUrl" value="http://localhost:3000" />
+        </label>
+        <br><br>
+        <label>
+            User Email:
+            <input type="text" id="userEmail" value="test@example.com" />
+        </label>
+        <br><br>
+        <label>
+            User Name:
+            <input type="text" id="userName" value="Test User" />
+        </label>
+        <br><br>
+        <button onclick="initializeWidget()">Initialize Widget</button>
+    </div>
+
+    <div class="widget">
+        <div class="status" id="status">Not initialized</div>
+        
+        <div class="messages" id="messages">
+            <div style="color: #6c757d; text-align: center;">No messages yet</div>
+        </div>
+        
+        <div class="input-group">
+            <input type="text" id="messageInput" placeholder="Type a message..." disabled />
+            <button id="sendButton" onclick="sendMessage()" disabled>Send</button>
+        </div>
+    </div>
+
+    <div class="log" id="log">
+        <strong>Debug Log:</strong><br>
+    </div>
+
+    <script>
+        let socket = null;
+        let projectToken = null;
+        let isConnected = false;
+
+        function log(message, type = 'info') {
+            const logEl = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const color = type === 'error' ? 'red' : type === 'success' ? 'green' : 'black';
+            logEl.innerHTML += `<span style="color: ${color}">[${timestamp}] ${message}</span><br>`;
+            logEl.scrollTop = logEl.scrollHeight;
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+
+        async function initializeWidget() {
+            const backendUrl = document.getElementById('backendUrl').value;
+            const userEmail = document.getElementById('userEmail').value;
+            const userName = document.getElementById('userName').value;
+
+            if (!backendUrl || !userEmail || !userName) {
+                alert('Please fill in all configuration fields');
+                return;
+            }
+
+            log('Initializing widget...');
+            updateStatus('Connecting...', 'warning');
+
+            try {
+                // Step 1: Get or create token
+                log('Requesting token from backend...');
+                const tokenResponse = await fetch(`${backendUrl}/api/token`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        type: 'member',
+                        email: userEmail,
+                        name: userName
+                    })
+                });
+
+                if (!tokenResponse.ok) {
+                    throw new Error(`Token request failed: ${tokenResponse.status} ${tokenResponse.statusText}`);
+                }
+
+                const tokenData = await tokenResponse.json();
+                projectToken = tokenData.token;
+                log(`Token received: ${projectToken.substring(0, 8)}...`, 'success');
+
+                // Step 2: Connect WebSocket
+                log('Connecting WebSocket...');
+                socket = io(backendUrl, {
+                    transports: ['websocket', 'polling']
+                });
+
+                socket.on('connect', () => {
+                    log(`WebSocket connected: ${socket.id}`, 'success');
+                    isConnected = true;
+                    updateStatus('Connected', 'connected');
+                    
+                    // Join project room
+                    log(`Joining room: ${projectToken}`);
+                    socket.emit('join', projectToken);
+                    
+                    // Enable input
+                    document.getElementById('messageInput').disabled = false;
+                    document.getElementById('sendButton').disabled = false;
+                });
+
+                socket.on('disconnect', () => {
+                    log('WebSocket disconnected', 'error');
+                    isConnected = false;
+                    updateStatus('Disconnected', 'error');
+                });
+
+                socket.on('newMessage', (message) => {
+                    log(`New message received: ${JSON.stringify(message)}`);
+                    addMessageToUI(message);
+                });
+
+                socket.on('error', (error) => {
+                    log(`Socket error: ${error}`, 'error');
+                });
+
+                // Step 3: Load existing messages
+                log('Loading existing messages...');
+                const messagesResponse = await fetch(`${backendUrl}/api/public/project/${projectToken}/messages`);
+                
+                if (!messagesResponse.ok) {
+                    throw new Error(`Failed to load messages: ${messagesResponse.status}`);
+                }
+
+                const messagesData = await messagesResponse.json();
+                const messages = messagesData.messages || messagesData;
+                log(`Loaded ${messages.length} existing messages`, 'success');
+
+                // Display messages
+                const messagesEl = document.getElementById('messages');
+                if (messages.length > 0) {
+                    messagesEl.innerHTML = '';
+                    messages.forEach(msg => addMessageToUI(msg));
+                }
+
+            } catch (error) {
+                log(`Initialization failed: ${error.message}`, 'error');
+                updateStatus(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const content = input.value.trim();
+            
+            if (!content || !projectToken) return;
+
+            const backendUrl = document.getElementById('backendUrl').value;
+            const userName = document.getElementById('userName').value;
+
+            log(`Sending message: "${content}"`);
+
+            try {
+                const response = await fetch(`${backendUrl}/api/public/project/${projectToken}/messages`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        content,
+                        senderName: userName,
+                        senderType: 'client'
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.text();
+                    throw new Error(`Send failed: ${response.status} - ${error}`);
+                }
+
+                const result = await response.json();
+                log(`Message sent successfully: ID ${result.id}`, 'success');
+                
+                // Clear input
+                input.value = '';
+
+                // Add to UI optimistically
+                addMessageToUI({
+                    id: result.id,
+                    content,
+                    senderName: userName,
+                    senderType: 'client',
+                    createdAt: new Date().toISOString()
+                });
+
+            } catch (error) {
+                log(`Failed to send message: ${error.message}`, 'error');
+                alert(`Failed to send message: ${error.message}`);
+            }
+        }
+
+        function addMessageToUI(message) {
+            const messagesEl = document.getElementById('messages');
+            
+            // Remove "no messages" text if it exists
+            if (messagesEl.querySelector('div[style*="text-align: center"]')) {
+                messagesEl.innerHTML = '';
+            }
+
+            const messageEl = document.createElement('div');
+            messageEl.className = `message ${message.senderType}`;
+            messageEl.innerHTML = `
+                <strong>${message.senderName}</strong>
+                <small>(${new Date(message.createdAt).toLocaleTimeString()})</small>
+                <br>
+                ${message.content}
+            `;
+            
+            messagesEl.appendChild(messageEl);
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+        }
+
+        function updateStatus(text, type) {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = text;
+            statusEl.className = `status ${type}`;
+        }
+
+        // Allow Enter key to send
+        document.getElementById('messageInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+    </script>
+</body>
+</html> 

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Project Messages</title>
+    <title>Bulletproof Messaging Widget</title>
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <style>
         .pcd-messaging-widget {
@@ -17,133 +17,48 @@
             height: 600px;
             display: flex;
             flex-direction: column;
-            position: relative;
         }
 
-        /* Pre-chat form styles */
-        .pcd-prechat-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.5);
+        .pcd-debug-info {
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+            padding: 8px 12px;
+            font-size: 11px;
+            font-family: monospace;
+            color: #6c757d;
+        }
+
+        .pcd-debug-info.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .pcd-debug-info.success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .pcd-user-info {
+            background: #e7f3ff;
+            padding: 8px 16px;
+            border-bottom: 1px solid #b8daff;
+            font-size: 12px;
+            color: #0066cc;
             display: flex;
+            justify-content: space-between;
             align-items: center;
-            justify-content: center;
-            z-index: 1000;
         }
 
-        .pcd-prechat-form {
-            background: white;
-            border-radius: 16px;
-            padding: 32px;
-            max-width: 400px;
-            width: 90%;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
-            animation: slideUp 0.3s ease-out;
-        }
-
-        @keyframes slideUp {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .pcd-prechat-form h3 {
-            margin: 0 0 8px 0;
-            color: #1f2937;
-            font-size: 24px;
-            font-weight: 600;
-        }
-
-        .pcd-prechat-form p {
-            margin: 0 0 24px 0;
-            color: #6b7280;
-            line-height: 1.5;
-        }
-
-        .pcd-form-group {
-            margin-bottom: 20px;
-        }
-
-        .pcd-form-label {
-            display: block;
-            margin-bottom: 6px;
-            color: #374151;
-            font-weight: 500;
-            font-size: 14px;
-        }
-
-        .pcd-form-input {
-            width: 100%;
-            padding: 12px 16px;
-            border: 2px solid #e5e7eb;
-            border-radius: 8px;
-            font-size: 16px;
-            transition: border-color 0.2s;
-            box-sizing: border-box;
-        }
-
-        .pcd-form-input:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-
-        .pcd-form-input.error {
-            border-color: #dc2626;
-        }
-
-        .pcd-form-error {
-            color: #dc2626;
-            font-size: 14px;
-            margin-top: 4px;
-            display: none;
-        }
-
-        .pcd-form-submit {
-            width: 100%;
-            padding: 14px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        .pcd-force-reload-btn {
+            background: #dc3545;
             color: white;
             border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: 600;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
             cursor: pointer;
-            transition: all 0.2s;
         }
 
-        .pcd-form-submit:hover:not(:disabled) {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-        }
-
-        .pcd-form-submit:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .pcd-form-loading {
-            display: none;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            margin-top: 16px;
-            color: #6b7280;
-            font-size: 14px;
-        }
-
-        .pcd-form-spinner {
-            width: 16px;
-            height: 16px;
-            border: 2px solid #e5e7eb;
-            border-top-color: #667eea;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        /* Messaging interface styles */
         .pcd-messaging-header {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
@@ -151,37 +66,6 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-        }
-
-        .pcd-messaging-header h2 {
-            margin: 0;
-            font-size: 20px;
-            font-weight: 600;
-        }
-
-        .pcd-connection-status {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 14px;
-        }
-
-        .pcd-status-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #10b981;
-            animation: pulse 2s infinite;
-        }
-
-        .pcd-status-dot.disconnected {
-            background: #f59e0b;
-            animation: none;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
         }
 
         .pcd-messages-container {
@@ -193,107 +77,56 @@
             flex-direction: column;
         }
 
-        .pcd-message {
-            margin-bottom: 16px;
-            max-width: 70%;
+        .pcd-waiting-state {
             display: flex;
             flex-direction: column;
-        }
-
-        .pcd-message.sent {
-            align-self: flex-end;
-        }
-
-        .pcd-message.received {
-            align-self: flex-start;
-        }
-
-        .pcd-message-header {
-            font-size: 12px;
+            align-items: center;
+            justify-content: center;
+            flex: 1;
+            text-align: center;
             color: #6b7280;
-            margin-bottom: 4px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
+            padding: 40px;
         }
 
-        .pcd-message.sent .pcd-message-header {
-            justify-content: flex-end;
-        }
-
-        .pcd-message-bubble {
-            padding: 12px 16px;
-            border-radius: 18px;
-            word-wrap: break-word;
-            position: relative;
-        }
-
-        .pcd-message.sent .pcd-message-bubble {
-            background: #667eea;
-            color: white;
-            border-bottom-right-radius: 4px;
-        }
-
-        .pcd-message.received .pcd-message-bubble {
-            background: white;
-            color: #374151;
-            border: 1px solid #e5e7eb;
-            border-bottom-left-radius: 4px;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-        }
-
-        .pcd-message-content {
-            margin: 0;
-            line-height: 1.4;
-        }
-
-        .pcd-message-attachments {
-            margin-top: 8px;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-        }
-
-        .pcd-attachment {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px 12px;
-            background: rgba(255, 255, 255, 0.2);
+        .pcd-detection-steps {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
             border-radius: 8px;
-            font-size: 14px;
-            color: white;
-            text-decoration: none;
-            transition: background 0.2s;
+            padding: 16px;
+            margin: 16px 0;
+            font-size: 12px;
         }
 
-        .pcd-message.received .pcd-attachment {
-            background: #f3f4f6;
-            color: #374151;
+        .pcd-detection-step {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
         }
 
-        .pcd-attachment:hover {
-            background: rgba(255, 255, 255, 0.3);
-        }
-
-        .pcd-message.received .pcd-attachment:hover {
-            background: #e5e7eb;
-        }
-
-        .pcd-attachment-icon {
+        .pcd-step-icon {
             width: 16px;
             height: 16px;
+            margin-right: 8px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
         }
 
-        .pcd-image-attachment {
-            max-width: 200px;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: transform 0.2s;
+        .pcd-step-icon.pending {
+            background: #ffc107;
+            color: white;
         }
 
-        .pcd-image-attachment:hover {
-            transform: scale(1.05);
+        .pcd-step-icon.success {
+            background: #28a745;
+            color: white;
+        }
+
+        .pcd-step-icon.error {
+            background: #dc3545;
+            color: white;
         }
 
         .pcd-message-input-container {
@@ -308,51 +141,15 @@
             align-items: flex-end;
         }
 
-        .pcd-input-wrapper {
-            flex: 1;
-            position: relative;
-        }
-
         .pcd-message-input {
-            width: 100%;
-            max-height: 120px;
-            min-height: 44px;
-            padding: 12px 48px 12px 16px;
+            flex: 1;
+            padding: 12px 16px;
             border: 2px solid #e5e7eb;
             border-radius: 22px;
             resize: none;
             font-family: inherit;
             font-size: 14px;
-            line-height: 1.4;
             outline: none;
-            transition: border-color 0.2s;
-            box-sizing: border-box;
-        }
-
-        .pcd-message-input:focus {
-            border-color: #667eea;
-        }
-
-        .pcd-file-input-btn {
-            position: absolute;
-            right: 12px;
-            top: 50%;
-            transform: translateY(-50%);
-            background: none;
-            border: none;
-            color: #6b7280;
-            cursor: pointer;
-            padding: 4px;
-            border-radius: 4px;
-            transition: color 0.2s;
-        }
-
-        .pcd-file-input-btn:hover {
-            color: #667eea;
-        }
-
-        .pcd-file-input {
-            display: none;
         }
 
         .pcd-send-btn {
@@ -366,2298 +163,760 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: all 0.2s;
-            flex-shrink: 0;
         }
 
-        .pcd-send-btn:hover:not(:disabled) {
-            background: #5a6fd8;
-            transform: scale(1.05);
+        .pcd-message {
+            margin: 8px 0;
+            padding: 12px;
+            border-radius: 12px;
+            max-width: 80%;
         }
 
-        .pcd-send-btn:disabled {
-            background: #9ca3af;
-            cursor: not-allowed;
-            transform: none;
+        .pcd-message.user {
+            background: #667eea;
+            color: white;
+            margin-left: auto;
+            border-bottom-right-radius: 4px;
         }
 
-        .pcd-file-preview {
+        .pcd-message.admin {
+            background: #f1f3f4;
+            color: #333;
+            margin-right: auto;
+            border-bottom-left-radius: 4px;
+        }
+
+        .pcd-message-header {
             display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin-bottom: 8px;
-            padding: 0 16px;
+            justify-content: space-between;
+            margin-bottom: 4px;
+            font-size: 12px;
+            opacity: 0.8;
         }
 
-        .pcd-file-preview-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px 12px;
-            background: #f3f4f6;
-            border-radius: 8px;
+        .pcd-message-text {
             font-size: 14px;
-            max-width: 200px;
+            line-height: 1.4;
         }
 
-        .pcd-file-preview-remove {
-            background: none;
-            border: none;
-            color: #6b7280;
-            cursor: pointer;
-            padding: 2px;
-            border-radius: 2px;
-            line-height: 1;
+        .pcd-attachment {
+            margin-top: 8px;
+            padding: 6px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            font-size: 12px;
         }
 
-        .pcd-file-preview-remove:hover {
-            color: #dc2626;
+        .pcd-attachment a {
+            color: inherit;
+            text-decoration: none;
         }
 
-        .pcd-empty-state {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            flex: 1;
-            text-align: center;
-            color: #6b7280;
-            padding: 40px;
-        }
-
-        .pcd-empty-state-icon {
-            width: 64px;
-            height: 64px;
-            margin-bottom: 16px;
-            opacity: 0.5;
-        }
-
-        .pcd-loading-messages {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex: 1;
-            color: #6b7280;
-            font-size: 14px;
-        }
-
-        .pcd-spinner {
-            width: 20px;
-            height: 20px;
-            border: 2px solid #e5e7eb;
-            border-top-color: #667eea;
+        .pcd-status-dot {
+            width: 8px;
+            height: 8px;
             border-radius: 50%;
-            animation: spin 1s linear infinite;
+            background: #ffc107;
             margin-right: 8px;
         }
 
-        .pcd-error-message {
-            padding: 16px;
-            background: #fef2f2;
-            color: #dc2626;
-            border: 1px solid #fecaca;
-            border-radius: 8px;
-            margin: 16px;
-            font-size: 14px;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        @media (max-width: 768px) {
-            .pcd-messaging-widget {
-                height: 500px;
-                margin: 0;
-                border-radius: 0;
-            }
-            
-            .pcd-message {
-                max-width: 85%;
-            }
+        .pcd-connection-status {
+            display: flex;
+            align-items: center;
+            font-size: 12px;
         }
     </style>
 </head>
 <body>
     <div class="pcd-messaging-widget">
-        <!-- Main messaging interface -->
+        <!-- Debug Info Bar -->
+        <div class="pcd-debug-info" id="debugInfo">
+            Initializing robust member detection...
+        </div>
+
+        <!-- User Info Bar -->
+        <div class="pcd-user-info" id="userInfoBar" style="display: none;">
+            <div>
+                <span>Authenticated as: <strong id="currentUserEmail">Loading...</strong></span>
+            </div>
+            <button class="pcd-force-reload-btn" onclick="window.messagingWidget?.forceReload()">
+                Force Reload
+            </button>
+        </div>
+
+        <!-- Header -->
         <div class="pcd-messaging-header">
             <h2>Pleasant Cove Design</h2>
             <div class="pcd-connection-status">
                 <div class="pcd-status-dot" id="connectionDot"></div>
-                <span id="connectionStatus">Connected</span>
+                <span id="connectionStatus">Detecting member...</span>
             </div>
         </div>
 
-        <!-- 🔒 Chat container - will show member auth prompt or messages -->
+        <!-- Messages Container -->
         <div class="pcd-messages-container" id="pcd-chat-container">
-            <div class="pcd-loading-messages" id="loadingMessages">
-                <div class="pcd-spinner"></div>
-                Loading messages...
+            <div class="pcd-waiting-state" id="waitingState">
+                <h3>🔍 Detecting Squarespace Member</h3>
+                <div class="pcd-detection-steps">
+                    <div class="pcd-detection-step">
+                        <div class="pcd-step-icon pending" id="step1">1</div>
+                        <span>Checking SiteUserInfo cookie...</span>
+                    </div>
+                    <div class="pcd-detection-step">
+                        <div class="pcd-step-icon pending" id="step2">2</div>
+                        <span>Checking Static.SQUARESPACE_CONTEXT...</span>
+                    </div>
+                    <div class="pcd-detection-step">
+                        <div class="pcd-step-icon pending" id="step3">3</div>
+                        <span>Checking alternative methods...</span>
+                    </div>
+                    <div class="pcd-detection-step">
+                        <div class="pcd-step-icon pending" id="step4">4</div>
+                        <span>Validating session consistency...</span>
+                    </div>
+                </div>
+                <p><small>Please wait while we securely identify your account...</small></p>
             </div>
         </div>
 
-        <div class="pcd-file-preview" id="filePreview"></div>
-
+        <!-- Message Input -->
         <div class="pcd-message-input-container">
             <form class="pcd-message-form" id="messageForm">
-                <div class="pcd-input-wrapper">
-                    <textarea 
-                        class="pcd-message-input" 
-                        id="messageInput"
-                        placeholder="Type your message..."
-                        rows="1"
-                    ></textarea>
-                    <button type="button" class="pcd-file-input-btn" id="fileButton">
-                        📎
-                    </button>
-                    <input type="file" class="pcd-file-input" id="fileInput" multiple accept="image/*,.pdf,.doc,.docx,.txt">
-                </div>
-                
-                <button type="submit" class="pcd-send-btn" id="sendButton">
+                <textarea 
+                    class="pcd-message-input" 
+                    id="messageInput"
+                    placeholder="Waiting for authentication..."
+                    rows="1"
+                    disabled
+                ></textarea>
+                <button type="submit" class="pcd-send-btn" id="sendButton" disabled>
                     ➤
                 </button>
             </form>
         </div>
     </div>
-
-    <!-- Pre-chat overlay (hidden by default) -->
-    <div id="prechatOverlay" class="pcd-prechat-overlay" style="display: none;">
-        <div class="pcd-prechat-form">
-            <h3>Welcome! Let's get started</h3>
-            <p>Please enter your name and email to begin</p>
-            <div class="pcd-form-group">
-                <label class="pcd-form-label" for="userName">Name</label>
-                <input class="pcd-form-input" id="userName" type="text" placeholder="Your name">
-                <div class="pcd-form-error" id="nameError">Required</div>
-            </div>
-            <div class="pcd-form-group">
-                <label class="pcd-form-label" for="userEmail">Email</label>
-                <input class="pcd-form-input" id="userEmail" type="email" placeholder="you@example.com">
-                <div class="pcd-form-error" id="emailError">Valid email required</div>
-            </div>
-            <button class="pcd-form-submit" id="formSubmitBtn">Start Chat</button>
-            <div class="pcd-form-loading" id="formLoading">
-                <div class="pcd-form-spinner"></div> Connecting…
-            </div>
-        </div>
-    </div>
-
-    <!-- 🧪 DEVELOPMENT ONLY - Manual Token Injection -->
-    <!-- REMOVE THIS BLOCK FOR PRODUCTION -->
-    <script>
-        // 🧪 DEVELOPMENT OVERRIDE - Inject your known working token here for local testing
-        // COMMENT OUT or REMOVE this block when deploying to production
-        
-        // ⚠️ TEMPORARILY DISABLE dev injection to let form handle token creation
-        // window.PROJECT_TOKEN = "mbzull5i_XT43KQsr_3jyoxS5ELr0fw"; // Known working token
-        // ⚠️ COMMENT OUT the user data below to use LIVE Squarespace member data:
-        // window.PROJECT_USER_NAME = "Ben Dickinson"; // Your name  
-        // window.PROJECT_USER_EMAIL = "ben@pleasantcovedesign.com"; // Your email
-        
-        console.log('🧪 [DEV_INJECT] Manual token injected for testing:', window.PROJECT_TOKEN);
-        console.log('🧪 [DEV_INJECT] REMEMBER: Remove this script block for production!');
-    </script>
     
     <script>
-
-
-        class PCDMessagingWidget {
-            constructor(projectToken, userEmail, userName) {
-                // Accept token and user info from gated initialization
-                this.projectToken = projectToken;
-                this.userName = userName;
-                this.userEmail = userEmail;
+        class BulletproofMessagingWidget {
+            constructor() {
+                this.projectToken = null;
+                this.userName = null;
+                this.userEmail = null;
                 this.socket = null;
                 this.messages = [];
+                this.detectionAttempts = 0;
+                this.maxDetectionAttempts = 10;
                 this.selectedFiles = [];
                 
-                // Configuration - UPDATE THESE URLs FOR YOUR ENVIRONMENT
                 this.config = {
                     backendUrl: this.detectBackendUrl(),
+                    debugMode: true // Enable for troubleshooting
                 };
                 
-                console.log('✅ [WIDGET] Initialized with secure token and member info');
+                console.log('🛡️ [BULLETPROOF_WIDGET] Initialized with robust detection');
                 this.init();
             }
 
             detectBackendUrl() {
-                // 🧪 DEV OVERRIDE: Force localhost for testing when manual token is injected
-                if (window.PROJECT_TOKEN) {
-                    console.log('🧪 [DEV] Manual token detected - forcing localhost backend for testing');
-                    return 'http://localhost:3000';
+                // Force local development for testing
+                return 'http://localhost:3000';
+                
+                // Uncomment for production:
+                // const hostname = window.location.hostname;
+                // if (hostname === 'localhost' || hostname === '127.0.0.1') {
+                //     return 'http://localhost:3000';
+                // }
+                // return 'https://pleasantcovedesign-production.up.railway.app';
+            }
+
+            updateDebugInfo(message, type = 'info') {
+                const debugInfo = document.getElementById('debugInfo');
+                debugInfo.textContent = message;
+                debugInfo.className = `pcd-debug-info ${type}`;
+                console.log(`🔍 [DEBUG] ${message}`);
+            }
+
+            updateDetectionStep(stepNumber, status, message = '') {
+                const stepIcon = document.getElementById(`step${stepNumber}`);
+                if (stepIcon) {
+                    stepIcon.className = `pcd-step-icon ${status}`;
+                    if (status === 'success') {
+                        stepIcon.textContent = '✓';
+                    } else if (status === 'error') {
+                        stepIcon.textContent = '✗';
+                    }
                 }
                 
-                // Auto-detect environment based on hostname
-                const hostname = window.location.hostname;
-                
-                if (hostname === 'localhost' || hostname === '127.0.0.1') {
-                    console.log('🏠 Local environment detected - using localhost:3000');
-                    return 'http://localhost:3000';
-                } else if (hostname.includes('pleasantcovedesign.com')) {
-                    console.log('🌐 Production environment detected - using Railway production backend');
-                    return 'https://pleasantcovedesign-production.up.railway.app';
-                } else {
-                    console.log('🌐 Unknown environment - defaulting to Railway production');
-                    return 'https://pleasantcovedesign-production.up.railway.app';
+                if (message) {
+                    console.log(`📋 [STEP${stepNumber}] ${message}`);
                 }
             }
 
             async init() {
-                console.log('🚀 [WIDGET] Initializing with token:', this.projectToken?.substring(0, 8) + '...');
-                console.log('🚀 [WIDGET] User:', this.userName, this.userEmail);
+                console.log('🚀 [BULLETPROOF_WIDGET] Starting bulletproof initialization...');
+                this.updateDebugInfo('Starting robust member detection...', 'info');
                 
-                this.bindEvents();
-                this.addDebugBanner();
-                
-                // Ensure we have valid data before starting
-                if (!this.projectToken || !this.userName || !this.userEmail) {
-                    console.error('❌ [WIDGET] Missing required data for initialization');
-                    this.showError('Initialization error: Missing user data');
-                    return;
-                }
-                
-                console.log('✅ [WIDGET] All required data present - starting messaging');
-                // Skip member auth check since we already have valid token + user data
-                this.startMessaging();
-            }
-
-
-
-            bindEvents() {
-                // Message form
-                const msgForm = document.getElementById('messageForm');
-                if (msgForm) {
-                    msgForm.addEventListener('submit', (e) => {
-                        e.preventDefault();
-                        this.sendMessage();
-                    });
-                } else {
-                    console.warn('[WIDGET] #messageForm not found; skipping form bind');
-                }
-
-                // File upload
-                const fileBtn = document.getElementById('fileButton');
-                if (fileBtn) {
-                    fileBtn.addEventListener('click', () => {
-                        const fileInput = document.getElementById('fileInput');
-                        if (fileInput) fileInput.click();
-                    });
-                } else {
-                    console.warn('[WIDGET] #fileButton not found; skipping file button bind');
-                }
-
-                const fileInput = document.getElementById('fileInput');
-                if (fileInput) {
-                    fileInput.addEventListener('change', (e) => {
-                        this.handleFileSelect(e);
-                    });
-                } else {
-                    console.warn('[WIDGET] #fileInput not found; skipping file input bind');
-                }
-
-                // Auto-resize textarea
-                const messageInput = document.getElementById('messageInput');
-                if (messageInput) {
-                    messageInput.addEventListener('input', () => {
-                        this.autoResizeTextarea(messageInput);
-                    });
-
-                    // Send on Enter (but not Shift+Enter)
-                    messageInput.addEventListener('keydown', (e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault();
-                            this.sendMessage();
-                        }
-                    });
-                } else {
-                    console.warn('[WIDGET] #messageInput not found; skipping input bind');
+                try {
+                    // STEP 1: Attempt to detect current Squarespace member
+                    const currentMember = await this.robustMemberDetection();
+                    
+                    if (!currentMember) {
+                        this.updateDebugInfo('No authenticated member detected', 'error');
+                        this.handleNoMemberDetected();
+                        return;
+                    }
+                    
+                    this.updateDebugInfo(`Member detected: ${currentMember.email}`, 'success');
+                    console.log(`✅ [BULLETPROOF_WIDGET] Detected member: ${currentMember.name} (${currentMember.email})`);
+                    
+                    // STEP 2: Check session consistency
+                    const sessionValid = await this.validateSessionConsistency(currentMember);
+                    
+                    if (!sessionValid) {
+                        this.updateDebugInfo('Session mismatch detected, forcing clean start...', 'error');
+                        this.forceCleanStart(currentMember);
+                        return;
+                    }
+                    
+                    // STEP 3: Proceed with authentication
+                    await this.authenticateUser(currentMember);
+                    
+                } catch (error) {
+                    console.error('🚨 [BULLETPROOF_WIDGET] Critical error:', error);
+                    this.updateDebugInfo(`Critical error: ${error.message}`, 'error');
+                    this.handleCriticalError(error);
                 }
             }
 
-            addDebugBanner() {
-                // CRITICAL: Skip debug banner entirely if form authenticated to prevent session clearing
-                if (this.isFormAuthenticated) {
-                    console.log('✅ [DEBUG] Skipping debug banner - form authenticated session (prevents session clearing)');
-                    return;
+            async robustMemberDetection() {
+                console.log('🔍 [DETECTION] Starting robust member detection...');
+                
+                // METHOD 1 (NEW PRIORITY): Static.SQUARESPACE_CONTEXT
+                this.updateDetectionStep(1, 'pending');
+                let member = this.detectMemberFromContext();
+                if (member) {
+                    this.updateDetectionStep(1, 'success', `Found via context: ${member.email}`);
+                    return member;
+                }
+                this.updateDetectionStep(1, 'error', 'Context method failed');
+                
+                // METHOD 2 (FALLBACK): SiteUserInfo Cookie
+                this.updateDetectionStep(2, 'pending');
+                member = this.detectMemberFromCookie();
+                if (member) {
+                    this.updateDetectionStep(2, 'success', `Found via cookie: ${member.email}`);
+                    return member;
+                }
+                this.updateDetectionStep(2, 'error', 'Cookie method failed');
+                
+                // METHOD 3: Alternative detection methods
+                this.updateDetectionStep(3, 'pending');
+                member = await this.detectMemberAlternative();
+                if (member) {
+                    this.updateDetectionStep(3, 'success', `Found via alternative: ${member.email}`);
+                    return member;
+                }
+                this.updateDetectionStep(3, 'error', 'Alternative methods failed');
+                
+                // METHOD 4: Retry with delay
+                if (this.detectionAttempts < this.maxDetectionAttempts) {
+                    this.detectionAttempts++;
+                    console.log(`🔄 [DETECTION] Retry attempt ${this.detectionAttempts}/${this.maxDetectionAttempts}`);
+                    await this.sleep(1000);
+                    return this.robustMemberDetection();
                 }
                 
-                const detectedUser = this.getUserEmail();
-                
-                const backendUrl = this.config.backendUrl;
-                const debugBanner = document.createElement('div');
-                debugBanner.id = 'pcd-debug-banner';
-                debugBanner.style.cssText = `
-                    position: fixed;
-                    top: 0;
-                    left: 0;
-                    right: 0;
-                    background: #111;
-                    color: #fff;
-                    padding: 10px;
-                    font-size: 14px;
-                    font-family: monospace;
-                    z-index: 999999;
-                    border-bottom: 2px solid #00ff00;
-                    text-align: center;
-                `;
-                debugBanner.innerHTML = `
-                    🔍 MEMBER: ${detectedUser || 'NO SQUARESPACE MEMBER DETECTED'} 
-                    | Backend: ${backendUrl.includes('localhost') ? 'LOCAL' : 'RAILWAY'} 
-                    | Auth: ${this.isFormAuthenticated ? 'FORM' : 'SQUARESPACE'}
-                    | Domain: ${window.location.hostname} 
-                    | <span onclick="this.parentElement.style.display='none'" style="cursor:pointer;background:#333;padding:2px 5px;border-radius:3px;">✕ Hide</span>
-                `;
-                document.body.insertBefore(debugBanner, document.body.firstChild);
-                
-                console.log("✅ DEBUG: Detected user:", detectedUser);
-                console.log("✅ DEBUG: Backend URL:", backendUrl);
-                console.log("✅ DEBUG: Current domain:", window.location.hostname);
+                console.log('❌ [DETECTION] All detection methods failed');
+                return null;
             }
 
-            // ENHANCED: Comprehensive Squarespace member authentication detection
-            getUserEmail() {
-                console.log('🔍 SQUARESPACE AUTH DEBUG: Starting comprehensive detection...');
-                console.log('🌐 Current URL:', window.location.href);
-                console.log('🌐 Origin:', window.location.origin);
-                
-                let detectedEmail = null;
-                let detectedName = null;
-                let authMethod = null;
-                
-                // ✅ METHOD 1: EXPLICIT MEMBER INFO INJECTION (MOST RELIABLE)
-                // This should be injected by SquareSpace template code
-                if (window.PCD_MEMBER_INFO) {
-                    console.log('🎯 [MEMBER_INJECTION] Found explicitly injected member info:', window.PCD_MEMBER_INFO);
-                    
-                    if (window.PCD_MEMBER_INFO.email) {
-                        detectedEmail = window.PCD_MEMBER_INFO.email;
-                        detectedName = window.PCD_MEMBER_INFO.name || window.PCD_MEMBER_INFO.firstName;
-                        authMethod = 'PCD_MEMBER_INFO (Template Injection)';
-                        console.log('✅ [MEMBER_INJECTION] Using explicitly injected member data');
-                    } else {
-                        console.log('❌ [MEMBER_INJECTION] Member info object exists but no email found');
-                    }
-                } else {
-                    console.log('❌ [MEMBER_INJECTION] No PCD_MEMBER_INFO found - add SquareSpace template injection');
-                }
-                
-                // If no explicit injection, fall back to detection methods
-                if (!detectedEmail) {
-                    console.log('🔍 [FALLBACK] Trying automatic detection methods...');
-                    
-                    // COMPREHENSIVE DEBUG: Log ALL window objects
-                    console.log('🔍 Available window objects:', {
-                        Static: !!window.Static,
-                        Y: !!window.Y,
-                        UserData: !!window.UserData,
-                        squarespace: !!window.squarespace,
-                        __INITIAL_SQUARESPACE_7_1_WEBSITE_CONTEXT__: !!window.__INITIAL_SQUARESPACE_7_1_WEBSITE_CONTEXT__,
-                        SQS: !!window.SQS,
-                        SquarespaceCommerce: !!window.SquarespaceCommerce,
-                        Squarespace: !!window.Squarespace
-                    });
-                    
-                    // DEBUG: List ALL window properties that contain 'user', 'member', 'auth', or 'squarespace'
-                    console.log('🔍 Searching for authentication-related window properties...');
-                    const authRelatedProps = [];
-                    for (const prop in window) {
-                        const lowerProp = prop.toLowerCase();
-                        if (lowerProp.includes('user') || lowerProp.includes('member') || 
-                            lowerProp.includes('auth') || lowerProp.includes('squarespace') ||
-                            lowerProp.includes('login') || lowerProp.includes('session')) {
-                            authRelatedProps.push({
-                                property: prop,
-                                type: typeof window[prop],
-                                hasEmail: window[prop] && typeof window[prop] === 'object' && window[prop].email
-                            });
-                        }
-                    }
-                    console.log('🔍 Found auth-related properties:', authRelatedProps);
-                    
-                    // DEBUG: Check document for member data
-                    const scripts = document.querySelectorAll('script');
-                    console.log('🔍 Checking', scripts.length, 'script tags for member data...');
-                    scripts.forEach((script, index) => {
-                        if (script.textContent && (
-                            script.textContent.includes('authenticatedUser') ||
-                            script.textContent.includes('memberEmail') ||
-                            script.textContent.includes('userEmail') ||
-                            script.textContent.includes('"email"')
-                        )) {
-                            console.log(`🔍 Script ${index} contains potential member data:`, script.textContent.substring(0, 200) + '...');
-                        }
-                    });
-                }
-                
-                // Method 1: Modern Squarespace 7.1 member authentication
-                if (window.Static && window.Static.SQUARESPACE_CONTEXT) {
-                    const context = window.Static.SQUARESPACE_CONTEXT;
-                    console.log('🔍 SQUARESPACE_CONTEXT found:', context);
-                    
-                    if (context.authenticatedUser) {
-                        console.log('🔍 authenticatedUser:', context.authenticatedUser);
-                        if (context.authenticatedUser.email) {
-                            detectedEmail = context.authenticatedUser.email;
-                            detectedName = context.authenticatedUser.firstName || context.authenticatedUser.displayName;
-                            authMethod = 'Static.SQUARESPACE_CONTEXT.authenticatedUser';
-                        }
+            detectMemberFromCookie() {
+                console.log('🍪 [DETECTION] Trying SiteUserInfo cookie...');
+                try {
+                    const cookie = document.cookie.split('; ').find(row => row.startsWith('SiteUserInfo='));
+                    if (!cookie) {
+                        console.log('❌ [COOKIE] No SiteUserInfo cookie found');
+                        return null;
                     }
                     
-                    if (context.memberAccounts) {
-                        console.log('🔍 memberAccounts:', context.memberAccounts);
-                    }
-                }
-                
-                // Method 2: Check window.__INITIAL_SQUARESPACE_7_1_WEBSITE_CONTEXT__
-                if (!detectedEmail && window.__INITIAL_SQUARESPACE_7_1_WEBSITE_CONTEXT__) {
-                    const ctx = window.__INITIAL_SQUARESPACE_7_1_WEBSITE_CONTEXT__;
-                    console.log('🔍 Initial context found:', ctx);
+                    const info = JSON.parse(decodeURIComponent(cookie.split('=')[1]));
+                    console.log('📦 [COOKIE] Cookie contents:', JSON.stringify(info, null, 2));
                     
-                    if (ctx.authenticatedUser && ctx.authenticatedUser.email) {
-                        detectedEmail = ctx.authenticatedUser.email;
-                        detectedName = ctx.authenticatedUser.firstName || ctx.authenticatedUser.displayName;
-                        authMethod = '__INITIAL_SQUARESPACE_7_1_WEBSITE_CONTEXT__.authenticatedUser';
-                    }
-                }
-                
-                // Method 3: Check modern window.squarespace object
-                if (!detectedEmail && window.squarespace) {
-                    console.log('🔍 window.squarespace found:', window.squarespace);
-                    
-                    if (window.squarespace.userAccountApi) {
-                        console.log('🔍 userAccountApi found:', window.squarespace.userAccountApi);
-                    }
-                    
-                    if (window.squarespace.memberAreas) {
-                        console.log('🔍 memberAreas found:', window.squarespace.memberAreas);
-                    }
-                }
-                
-                // Method 4: Legacy Squarespace Y.Squarespace (older sites)
-                if (!detectedEmail && window.Y && window.Y.Squarespace) {
-                    console.log('🔍 Y.Squarespace found:', window.Y.Squarespace);
-                    
-                    if (window.Y.Squarespace.UserData) {
-                        const userData = window.Y.Squarespace.UserData;
-                        console.log('🔍 Y.Squarespace.UserData:', userData);
-                        if (userData.email) {
-                            detectedEmail = userData.email;
-                            detectedName = userData.firstName || userData.displayName;
-                            authMethod = 'Y.Squarespace.UserData';
-                        }
-                    }
-                }
-                
-                // Method 5: Check for Squarespace Commerce customer data
-                if (!detectedEmail && window.UserData) {
-                    console.log('🔍 UserData found:', window.UserData);
-                    if (window.UserData.email) {
-                        detectedEmail = window.UserData.email;
-                        detectedName = window.UserData.firstName || window.UserData.displayName;
-                        authMethod = 'window.UserData';
-                    }
-                }
-                
-                // Method 6: Check cookies for member session (ENHANCED)
-                if (!detectedEmail) {
-                    const cookies = document.cookie.split(';');
-                    console.log('🔍 Checking cookies for member data...');
-                    
-                    cookies.forEach(cookie => {
-                        const [name, value] = cookie.trim().split('=');
-                        
-                        // CRITICAL: Parse SiteUserInfo cookie for SquareSpace member authentication
-                        if (name === 'SiteUserInfo' && value) {
-                            try {
-                                console.log('🍪 [AUTH] Found SiteUserInfo cookie, attempting to parse...');
-                                const userInfo = JSON.parse(decodeURIComponent(value));
-                                console.log('🍪 [AUTH] Parsed SiteUserInfo:', userInfo);
-                                
-                                if (userInfo.authenticated) {
-                                    // SquareSpace stores siteUserId, not email - create unique identifier
-                                    detectedEmail = userInfo.email || `${userInfo.siteUserId}@squarespace.member`;
-                                    detectedName = userInfo.firstName || userInfo.name || userInfo.displayName || `Member ${userInfo.siteUserId?.substring(0, 8)}`;
-                                    authMethod = 'cookie_SiteUserInfo';
-                                    console.log('🍪 [AUTH] Successfully extracted member data:', {
-                                        email: detectedEmail,
-                                        name: detectedName,
-                                        siteUserId: userInfo.siteUserId,
-                                        authenticated: userInfo.authenticated
-                                    });
-                                }
-                            } catch (e) {
-                                console.log('🍪 [AUTH] Failed to parse SiteUserInfo cookie:', e);
-                            }
+                    if (info.authenticated && info.siteUserId) {
+                        // Method 1: Use real email if available
+                        if (info.email && info.email.includes('@')) {
+                            const member = {
+                                email: info.email,
+                                name: info.firstName || info.displayName || 'Squarespace Member',
+                                userId: info.siteUserId,
+                                method: 'cookie'
+                            };
+                            console.log('✅ [COOKIE] Member detected with real email:', member);
+                            return member;
                         }
                         
-                        // Also check for other auth cookies for debugging
-                        if (name.includes('member') || name.includes('auth') || name.includes('user')) {
-                            console.log(`🔍 Found potential auth cookie: ${name}`);
+                        // Method 2: Generate email from siteUserId (for member-specific conversations)
+                        if (info.siteUserId) {
+                            const member = {
+                                email: `${info.siteUserId}@squarespace.member`,
+                                name: info.firstName || info.displayName || 'Squarespace Member',
+                                userId: info.siteUserId,
+                                method: 'cookie'
+                            };
+                            console.log('✅ [COOKIE] Member detected:', member);
+                            return member;
                         }
-                    });
-                }
-                
-                // Method 7: Check URL parameters (from authenticated redirects)
-                if (!detectedEmail) {
-                    const urlParams = new URLSearchParams(window.location.search);
-                    const urlEmail = urlParams.get('email') || urlParams.get('userEmail') || urlParams.get('member_email');
-                    const urlName = urlParams.get('name') || urlParams.get('userName') || urlParams.get('member_name');
-                    
-                    if (urlEmail) {
-                        detectedEmail = urlEmail;
-                        detectedName = urlName;
-                        authMethod = 'URL parameters';
-                        console.log('🔍 Found email in URL parameters:', urlEmail);
                     }
-                }
-                
-                // Method 8: Check meta tags for member data
-                if (!detectedEmail) {
-                    console.log('🔍 Checking meta tags for member data...');
-                    const metaTags = document.querySelectorAll('meta[name*="user"], meta[name*="member"], meta[property*="user"], meta[property*="member"]');
-                    metaTags.forEach(meta => {
-                        console.log('🔍 Found member-related meta tag:', {
-                            name: meta.getAttribute('name') || meta.getAttribute('property'),
-                            content: meta.getAttribute('content')
-                        });
-                        if (meta.getAttribute('content') && meta.getAttribute('content').includes('@')) {
-                            detectedEmail = meta.getAttribute('content');
-                            authMethod = 'Meta tag';
-                        }
-                    });
-                }
-                
-                // Method 9: CRITICAL - Domain-based session isolation and forced clearing
-                console.log('🔍 Checking domain-based session isolation...');
-                const currentDomain = window.location.hostname;
-                const sessionDomain = localStorage.getItem('pcd_session_domain');
-                
-                // If we're on a different domain, FORCE clear everything
-                if (sessionDomain && sessionDomain !== currentDomain) {
-                    console.log(`🚨 DOMAIN CHANGE DETECTED: ${sessionDomain} → ${currentDomain}`);
-                    console.log('🧹 FORCE CLEARING all session data for security');
-                    this.clearSession();
-                    // Do not use localStorage data - force fresh authentication
-                } else if (!detectedEmail) {
-                    // ONLY clear session if we truly have no Squarespace authentication
-                    console.log('🚨 [MEMBER_ISOLATION] No current Squarespace member authentication detected');
-                    console.log('🚨 [MEMBER_ISOLATION] Will not fall back to localStorage - this could be a different user');
                     
-                    // Clear any existing localStorage to prevent session sharing between different users
-                    const existingEmail = localStorage.getItem('pcd_user_email');
-                    if (existingEmail) {
-                        console.log(`🧹 [MEMBER_ISOLATION] Clearing stale session data for: ${existingEmail}`);
-                        this.clearSession();
-                    }
-                } else {
-                    // We have valid Squarespace authentication - check if it matches stored session
-                    const existingEmail = localStorage.getItem('pcd_user_email');
-                    if (existingEmail && existingEmail !== detectedEmail) {
-                        console.log(`🔄 [MEMBER_ISOLATION] Different member detected`);
-                        console.log(`🔄 [MEMBER_ISOLATION] Old: ${existingEmail} → New: ${detectedEmail}`);
-                        console.log(`🧹 [MEMBER_ISOLATION] Clearing session for previous member`);
-                        this.clearSession();
-                    } else if (existingEmail === detectedEmail) {
-                        console.log(`✅ [MEMBER_ISOLATION] Same authenticated member - keeping session`);
-                    }
-                }
-                
-                // Final result
-                if (detectedEmail) {
-                    console.log(`✅ SQUARESPACE AUTH SUCCESS: ${detectedEmail} via ${authMethod}`);
-                    console.log(`👤 Detected name: ${detectedName || 'Not provided'}`);
+                    console.log('❌ [COOKIE] User not authenticated or missing user ID');
+                    return null;
                     
-                    // Store the successful detection method and domain for future reference
-                    localStorage.setItem('pcd_auth_method', authMethod);
-                    localStorage.setItem('pcd_session_timestamp', Date.now().toString());
-                    localStorage.setItem('pcd_session_domain', window.location.hostname);
-                    
-                    // Return both email and name
-                    this.detectedUserName = detectedName;
-                    return detectedEmail;
-                } else {
-                    console.log('❌ SQUARESPACE AUTH FAILED: No authentication detected');
-                    console.log('🚨 CLEARING any existing localStorage for security');
-                    
-                    // SECURITY: If we can't detect Squarespace authentication, clear everything
-                    // This prevents different users from sharing sessions
-                    this.clearSession();
-                    
-                    console.log('📝 User will need to use pre-chat form for new authentication');
+                } catch (error) {
+                    console.error('❌ [COOKIE] Error parsing cookie:', error);
                     return null;
                 }
             }
-            
-            // NEW: Validate existing session token
-            async validateAndUseSession(token, name, email) {
+
+            detectMemberFromContext() {
+                console.log('🌐 [DETECTION] Trying Static.SQUARESPACE_CONTEXT...');
                 try {
-                    console.log(`🔍 Validating session token: ${token.substring(0, 8)}...`);
-                    
-                                    const response = await fetch(`${this.config.backendUrl}/api/token`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ type: 'validate', token })
-                });
-                    
-                    if (response.ok) {
-                        console.log('✅ Session token valid, resuming conversation');
-                        this.projectToken = token;
-                        this.userName = name;
-                        this.userEmail = email;
-                        this.startMessaging();
-                    } else {
-                        console.log('❌ Session token invalid, clearing session');
-                        this.clearSession();
+                    if (typeof window.Static !== 'undefined' && window.Static.SQUARESPACE_CONTEXT) {
+                        const context = window.Static.SQUARESPACE_CONTEXT;
+                        // DEEP DIVE LOGGING:
+                        console.log('📦 [CONTEXT PAYLOAD] Full SQUARESPACE_CONTEXT object:', JSON.stringify(context, null, 2));
                         
-                        // Try to get new token for this user
-                        const userEmail = this.getUserEmail();
-                        if (userEmail) {
-                            this.getTokenForUser(userEmail);
-                        } else {
-                            this.showPrechatForm();
+                        // NEW STRICT LOGIC:
+                        if (context.authenticatedAccount && context.authenticatedAccount.email) {
+                            const account = context.authenticatedAccount;
+                            const member = {
+                                email: account.email,
+                                name: account.displayName || account.firstName || 'Squarespace Member',
+                                method: 'context'
+                            };
+                            console.log('✅ [CONTEXT] Member detected:', member);
+                            return member;
+                        }
+                    }
+                    console.log('❌ [CONTEXT] No authenticated account with a unique email in context.');
+                    return null;
+                } catch (error) {
+                    console.error('❌ [CONTEXT] Error accessing context:', error);
+                    return null;
+                }
+            }
+
+            async detectMemberAlternative() {
+                console.log('🔧 [DETECTION] Trying alternative methods...');
+                
+                // METHOD: Check for member-specific page elements
+                try {
+                    const memberElements = document.querySelectorAll('[data-member-email], .member-email, #member-email');
+                    for (const element of memberElements) {
+                        const email = element.getAttribute('data-member-email') || element.textContent?.trim();
+                        if (email && email.includes('@')) {
+                            console.log('✅ [ALTERNATIVE] Found email in DOM:', email);
+                            return {
+                                email: email,
+                                name: 'Squarespace Member',
+                                method: 'dom'
+                            };
                         }
                     }
                 } catch (error) {
-                    console.error('Error validating session:', error);
-                    this.clearSession();
-                    this.showPrechatForm();
+                    console.error('❌ [ALTERNATIVE] DOM detection failed:', error);
                 }
-            }
-            
-            // ENHANCED: Get or create conversation for authenticated member
-            async getTokenForUser(email, name = null) {
-                try {
-                    console.log(`🔄 [MEMBER_AUTH] Getting conversation for member: ${email}`);
-                    console.log(`🌐 [MEMBER_AUTH] Backend URL: ${this.config.backendUrl}`);
-                    
-                    // Use detected name if available
-                    const memberName = name || this.detectedUserName || email.split('@')[0];
-                    
-                    // Enhanced Railway connectivity check
-                    const isRailway = this.config.backendUrl.includes('railway.app');
-                    
-                    if (isRailway) {
-                        console.log('🚂 [RAILWAY] Using Railway production backend');
-                        console.log('🚂 [RAILWAY] Testing connectivity...');
-                        
-                        // Test Railway connectivity first
-                        try {
-                            const healthCheck = await fetch(`${this.config.backendUrl}/api/health`, {
-                                method: 'GET',
-                                timeout: 10000,
-                                headers: {
-                                    'User-Agent': 'PleasantCove-Widget/1.0'
-                                }
-                            });
-                            
-                            if (healthCheck.ok) {
-                                console.log('✅ [RAILWAY] Backend connectivity verified');
-                            } else {
-                                console.log('⚠️ [RAILWAY] Backend responding but not healthy');
-                            }
-                        } catch (healthError) {
-                            console.error('❌ [RAILWAY] Backend connectivity test failed:', healthError);
-                            console.log('⚠️ [RAILWAY] Proceeding anyway, may be normal...');
-                        }
-                    }
-                    
-                    // Step 1: Try to find existing conversation for this member
-                    console.log(`🔍 [MEMBER_AUTH] Step 1: Checking for existing conversation...`);
-                    
-                    let existingResponse;
-                    try {
-                                            existingResponse = await this.makeRequest(`${this.config.backendUrl}/api/token`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ 
-                            type: 'member',
-                            email: email,
-                            name: memberName
-                        })
-                    });
-                    } catch (error) {
-                        console.log('⚠️ [MEMBER_AUTH] Error checking existing conversation:', error.message);
-                        console.log('🔄 [MEMBER_AUTH] Will proceed to create new conversation...');
-                    }
-                    
-                    if (existingResponse && existingResponse.ok) {
-                        const existingData = await existingResponse.json();
-                        if (existingData.valid && existingData.token) {
-                            console.log(`✅ [MEMBER_AUTH] Found existing conversation: ${existingData.projectTitle}`);
-                            console.log(`🔑 [MEMBER_AUTH] Using token: ${existingData.token.substring(0, 8)}...`);
-                            
-                            // Set session data for existing conversation
-                            this.projectToken = existingData.token;
-                            this.userName = existingData.clientName || memberName;
-                            this.userEmail = email;
-                            
-                            // Save session with member authentication flag
-                            this.saveSession(true);
-                            
-                            console.log('🚀 [MEMBER_AUTH] Resuming existing conversation - No form needed!');
-                            this.startMessaging();
-                            return;
-                        }
-                    }
-                    
-                    // Step 2: No existing conversation found, create new one
-                    console.log(`🆕 [MEMBER_AUTH] Step 2: Creating new conversation for member...`);
-                    
-                    const newConversationResponse = await this.makeRequest(`${this.config.backendUrl}/api/token`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ 
-                            type: 'member',
-                            name: memberName,
-                            email: email
-                        })
-                    });
-                    
-                    if (!newConversationResponse.ok) {
-                        throw new Error(`Failed to create conversation: ${newConversationResponse.status}`);
-                    }
-                    
-                    const newConversationData = await newConversationResponse.json();
-                    if (newConversationData.valid && newConversationData.token) {
-                        console.log(`✅ [MEMBER_AUTH] Created new conversation for member`);
-                        console.log(`🔑 [MEMBER_AUTH] New token: ${newConversationData.token.substring(0, 8)}...`);
-                        
-                        // Set session data for new conversation
-                        this.projectToken = newConversationData.token;
-                        this.userName = memberName;
-                        this.userEmail = email;
-                        
-                        // Save session with member authentication flag
-                        this.saveSession(true);
-                        
-                        console.log('🚀 [MEMBER_AUTH] Starting new authenticated conversation - No form needed!');
-                        this.startMessaging();
-                        return;
-                    } else {
-                        throw new Error('No project token received from new conversation creation');
-                    }
-                    
-                } catch (error) {
-                    console.error('[MEMBER_AUTH] Error getting/creating conversation:', error);
-                    
-                    // Enhanced error handling for Railway
-                    if (this.config.backendUrl.includes('railway.app')) {
-                        console.log('🚂 [RAILWAY] Error on Railway backend - checking specific issues...');
-                        
-                        if (error.message.includes('502') || error.message.includes('Bad Gateway')) {
-                            console.log('❌ [RAILWAY] 502 Bad Gateway - Railway may be starting up');
-                            this.showError('Backend is starting up, please wait a moment and try again.');
-                        } else if (error.message.includes('CORS')) {
-                            console.log('❌ [RAILWAY] CORS error - configuration issue');
-                            this.showError('Configuration error. Please contact support.');
-                        } else if (error.message.includes('timeout') || error.message.includes('fetch')) {
-                            console.log('❌ [RAILWAY] Network timeout or connectivity issue');
-                            this.showError('Connection timeout. Please check your internet and try again.');
-                        } else {
-                            console.log('❌ [RAILWAY] Unknown Railway error:', error.message);
-                            this.showError('Backend connection error. Please try again.');
-                        }
-                    } else {
-                        console.log('❌ [LOCAL] Local backend error:', error.message);
-                        this.showError('Local backend error. Please check your development setup.');
-                    }
-                    
-                    console.log('📝 [MEMBER_AUTH] Falling back to pre-chat form');
-                    this.showPrechatForm();
-                }
+                
+                // Add more alternative methods here if needed
+                return null;
             }
 
-            // Enhanced request method with Railway-specific handling
-            async makeRequest(url, options = {}) {
-                const isRailway = url.includes('railway.app');
+            async validateSessionConsistency(currentMember) {
+                console.log('🔍 [SESSION] Validating session consistency...');
+                this.updateDetectionStep(4, 'pending');
                 
-                // Railway-specific timeouts and headers
-                const requestOptions = {
-                    ...options,
-                    timeout: isRailway ? 15000 : 10000, // Longer timeout for Railway
-                    headers: {
-                        ...options.headers,
-                        'User-Agent': 'PleasantCove-Widget/1.0',
-                        ...(isRailway && {
-                            'X-Requested-With': 'XMLHttpRequest',
-                            'Accept': 'application/json'
-                        })
-                    }
-                };
+                const storedEmail = localStorage.getItem('pcd_user_email');
+                const storedToken = localStorage.getItem('pcd_project_token');
                 
-                // Enhanced error handling with retries for Railway
-                let lastError;
-                const maxRetries = isRailway ? 2 : 1;
+                console.log(`📋 [SESSION] Current: ${currentMember.email}`);
+                console.log(`📋 [SESSION] Stored: ${storedEmail}`);
                 
-                for (let attempt = 1; attempt <= maxRetries; attempt++) {
-                    try {
-                        console.log(`🔄 Request attempt ${attempt}/${maxRetries} to: ${url}`);
-                        
-                        const response = await fetch(url, requestOptions);
-                        
-                        if (response.ok) {
-                            console.log(`✅ Request successful on attempt ${attempt}`);
-                            return response;
-                        } else {
-                            console.log(`⚠️ Request failed with status ${response.status} on attempt ${attempt}`);
-                            
-                            // For Railway, retry on 502/503 (service starting up)
-                            if (isRailway && (response.status === 502 || response.status === 503) && attempt < maxRetries) {
-                                console.log('🚂 [RAILWAY] Service may be starting, retrying in 2 seconds...');
-                                await new Promise(resolve => setTimeout(resolve, 2000));
-                                continue;
-                            }
-                            
-                            lastError = new Error(`HTTP ${response.status}: ${response.statusText}`);
-                            if (attempt === maxRetries) {
-                                throw lastError;
-                            }
-                        }
-                    } catch (error) {
-                        console.log(`❌ Request error on attempt ${attempt}:`, error.message);
-                        lastError = error;
-                        
-                        // For Railway, retry on network errors
-                        if (isRailway && attempt < maxRetries && (
-                            error.message.includes('fetch') ||
-                            error.message.includes('network') ||
-                            error.message.includes('timeout')
-                        )) {
-                            console.log('🚂 [RAILWAY] Network error, retrying in 1 second...');
-                            await new Promise(resolve => setTimeout(resolve, 1000));
-                            continue;
-                        }
-                        
-                        if (attempt === maxRetries) {
-                            throw lastError;
-                        }
-                    }
+                if (!storedEmail || !storedToken) {
+                    console.log('✅ [SESSION] No existing session, starting fresh');
+                    this.updateDetectionStep(4, 'success', 'No existing session');
+                    return true;
                 }
                 
-                throw lastError || new Error('Max retries exceeded');
-            }
-            
-            // NEW: Show pre-chat form
-            showPrechatForm() {
-                document.getElementById('prechatOverlay').style.display = 'flex';
-            }
-
-            async handlePrechatSubmit() {
-                const name = document.getElementById('userName').value.trim();
-                const email = document.getElementById('userEmail').value.trim();
-
-                if (!name || !email) {
-                    this.showFormError('Please fill in all required fields');
-                    return;
-                }
-
-                console.log(`📝 [FORM] Form submission for: ${email}`);
-
-                // 🔒 PRIVACY CHECK: Clear session if different email
-                const savedEmail = localStorage.getItem('pcd_user_email');
-                if (savedEmail && savedEmail !== email) {
-                    console.log('🔒 [FORM] Different email detected, clearing old session');
-                    console.log(`🔒 [FORM] Old: ${savedEmail} → New: ${email}`);
-                    this.clearSession();
-                }
-
-                try {
-                    this.showLoading(true);
-                    
-                    // Use the same member authentication flow as getTokenForUser
-                    // Step 1: Try to find existing conversation for this user
-                    console.log(`🔍 [FORM] Step 1: Checking for existing conversation...`);
-                    const existingResponse = await fetch(`${this.config.backendUrl}/api/token`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ 
-                            type: 'member',
-                            email: email,
-                            name: name
-                        })
-                    });
-                    
-                    if (existingResponse.ok) {
-                        const existingData = await existingResponse.json();
-                        if (existingData.valid && existingData.token) {
-                            console.log(`✅ [FORM] Found existing conversation: ${existingData.projectTitle}`);
-                            console.log(`🔑 [FORM] Using token: ${existingData.token.substring(0, 8)}...`);
-                            
-                            // Set session data for existing conversation
-                            this.projectToken = existingData.token;
-                            this.userName = existingData.clientName || name;
-                            this.userEmail = email;
-                            
-                            // Save session (form-based, not member authenticated)
-                            this.saveSession(false);
-                            
-                            console.log('🚀 [FORM] Resuming existing conversation');
-                            this.startMessaging();
-                            return;
-                        }
-                    }
-                    
-                    // Step 2: No existing conversation found, create new one
-                    console.log(`🆕 [FORM] Step 2: Creating new conversation...`);
-                    const response = await fetch(`${this.config.backendUrl}/api/token`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            type: 'member',
-                            name: name,
-                            email: email
-                        })
-                    });
-
-                    if (!response.ok) {
-                        throw new Error('Failed to create customer project');
-                    }
-
-                    const result = await response.json();
-                    console.log('✅ [FORM] Customer project result:', result);
-
-                    if (result.valid && result.token) {
-                        this.projectToken = result.token;
-                        this.userName = name;
-                        this.userEmail = email;
-
-                        // Save session (form-based, not member authenticated)
-                        this.saveSession(false);
-
-                        console.log('🚀 [FORM] Starting new conversation');
-                        this.startMessaging();
-                    } else {
-                        throw new Error('No project token received');
-                    }
-
-                } catch (error) {
-                    console.error('[FORM] Prechat error:', error);
-                    this.showFormError('Failed to start conversation. Please try again.');
-                } finally {
-                    this.showLoading(false);
-                }
-            }
-
-            showError(message) {
-                console.error('🚨 [WIDGET] Error:', message);
-                const container = document.getElementById('pcd-chat-container');
-                if (container) {
-                    container.innerHTML = `
-                        <div class="pcd-error-message">
-                            <h3>⚠️ Error</h3>
-                            <p>${message}</p>
-                            <button onclick="location.reload()" style="background: #dc3545; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; margin-top: 10px;">
-                                Refresh Page
-                            </button>
-                        </div>
-                    `;
-                }
-            }
-
-            startMessaging() {
-                console.log('🚀 [WIDGET] Starting messaging interface...');
-                
-                // Switch container to show messages interface
-                const container = document.getElementById('pcd-chat-container');
-                if (!container) {
-                    console.error('❌ [WIDGET] Chat container not found');
-                    return;
-                }
-                
-                container.innerHTML = `
-                    <div class="pcd-loading-messages" id="loadingMessages">
-                        <div class="pcd-spinner"></div>
-                        Loading messages...
-                    </div>
-                `;
-                // ✅ KEEP ORIGINAL ID - don't break other references to pcd-chat-container
-                
-                console.log('🔌 [WIDGET] Initializing WebSocket connection...');
-                this.connectWebSocket();
-                
-                console.log('📥 [WIDGET] Loading existing messages...');
-                this.loadMessages();
-            }
-
-            connectWebSocket() {
-                console.log('🔌 Connecting to WebSocket...', this.config.backendUrl);
-                this.updateConnectionStatus('connecting');
-
-                // Enhanced WebSocket configuration with Railway Pro support
-                const socketConfig = {
-                    path: '/socket.io',
-                    transports: ['websocket', 'polling'],
-                    timeout: 15000,
-                    forceNew: true,
-                    reconnection: true,
-                    reconnectionDelay: 2000,
-                    reconnectionAttempts: 5,
-                    maxReconnectionAttempts: 5
-                };
-
-                // Add Railway-specific configuration for Pro plan
-                if (this.config.backendUrl.includes('railway.app')) {
-                    console.log('🚂 Railway Pro detected - attempting WebSocket connection');
-                    socketConfig.transports = ['websocket', 'polling']; // Try WebSocket first
-                    socketConfig.upgrade = true;
-                    socketConfig.rememberUpgrade = true;
-                }
-
-                try {
-                    this.socket = io(this.config.backendUrl, socketConfig);
-                    this.websocketAttempted = true;
-
-                    this.socket.on('connect', () => {
-                        console.log('🔌 [WIDGET] Socket connected:', this.socket.id);
-                        console.log('🔌 [WIDGET] Project token:', this.projectToken);
-                        this.updateConnectionStatus('connected');
-                        
-                        // Stop polling if it was running
-                        if (this.pollingInterval) {
-                            clearInterval(this.pollingInterval);
-                            this.pollingInterval = null;
-                        }
-                        
-                        // Join project room with callback for verification
-                        if (this.projectToken) {
-                            console.log('🏠 [WIDGET] Attempting to join room:', this.projectToken);
-                            this.socket.emit('join', this.projectToken, (response) => {
-                                console.log('🏠 [WIDGET] Join response:', response);
-                                if (response && response.error) {
-                                    console.error('❌ [WIDGET] Failed to join room:', response.error);
-                                }
-                            });
-                        }
-                    });
-
-                    this.socket.on('joined', (data) => {
-                        console.log('🏠 [WIDGET] Successfully joined project room:', data);
-                        console.log('🏠 [WIDGET] Socket ID:', this.socket.id);
-                        console.log('🏠 [WIDGET] Room info:', data);
-                        
-                        // Verify we're in the right room
-                        if (data.room !== this.projectToken) {
-                            console.error('❌ [WIDGET] Joined wrong room!', data.room, 'vs', this.projectToken);
-                        }
-                    });
-
-                    this.socket.on('newMessage', (message) => {
-                        console.log('📨 [WIDGET] WebSocket newMessage event:', message);
-                        console.log('📨 [WIDGET] Message content:', message.content);
-                        console.log('📨 [WIDGET] Message sender:', message.senderName);
-                        console.log('📨 [WIDGET] Message type:', message.senderType);
-                        
-                        this.addMessage(message);
-                    });
-
-                    this.socket.on('disconnect', (reason) => {
-                        console.log('🔌 Socket disconnected:', reason);
-                        this.updateConnectionStatus('disconnected');
-                        
-                        // Start polling as fallback
-                        if (!this.pollingInterval) {
-                            this.startHttpPolling();
-                        }
-                    });
-
-                    this.socket.on('connect_error', (error) => {
-                        if (this.config.backendUrl.includes('railway.app')) {
-                            console.log('🚂 Railway WebSocket connection failed, falling back to HTTP polling');
-                        } else {
-                            console.log('🔌 Socket connection failed, falling back to HTTP polling');
-                        }
-                        this.updateConnectionStatus('disconnected');
-                        
-                        // Immediately start polling on connection error
-                        if (!this.pollingInterval) {
-                            this.startHttpPolling();
-                        }
-                    });
-
-                    this.socket.on('reconnect_failed', () => {
-                        console.log('🔌 Socket reconnection failed, using HTTP polling');
-                        this.updateConnectionStatus('disconnected');
-                        
-                        // Ensure polling is running
-                        if (!this.pollingInterval) {
-                            this.startHttpPolling();
-                        }
-                    });
-
-                } catch (error) {
-                    console.error('🔌 Failed to initialize socket:', error);
-                    this.updateConnectionStatus('disconnected');
-                    this.startHttpPolling();
-                }
-            }
-
-            // HTTP polling fallback for when WebSocket fails
-            startHttpPolling() {
-                // Prevent multiple polling instances
-                if (this.pollingInterval) {
-                    console.log('🔄 Polling already running, skipping...');
-                    return;
-                }
-
-                console.log('🔄 Starting HTTP polling for messages...');
-                this.updateConnectionStatus('connecting');
-
-                // Initial load
-                this.loadMessages().then(() => {
-                    this.updateConnectionStatus('connected');
-                }).catch(() => {
-                    this.updateConnectionStatus('disconnected');
-                });
-
-                // Poll every 5 seconds (reduced frequency to be less aggressive)
-                this.pollingInterval = setInterval(async () => {
-                    try {
-                        await this.loadMessages();
-                        this.updateConnectionStatus('connected'); // Show as connected via polling
-                    } catch (error) {
-                        console.error('🔄 Polling error:', error);
-                        this.updateConnectionStatus('disconnected');
-                    }
-                }, 5000);
-            }
-
-            async loadMessages() {
-                try {
-                    const loadingElement = document.getElementById('loadingMessages');
-                    if (loadingElement) {
-                        loadingElement.style.display = 'flex';
-                    }
-                    
-                    const response = await fetch(`${this.config.backendUrl}/api/public/project/${this.projectToken}/messages`);
-                    
-                    if (!response.ok) {
-                        if (response.status === 404) {
-                            console.log('❌ Project token invalid, clearing session...');
-                            this.clearSession();
-                            return;
-                        }
-                        throw new Error('Failed to load messages');
-                    }
-                    
-                    const data = await response.json();
-                    console.log('📥 Raw message data from server:', data);
-                    
-                    const serverMessages = data.messages || data;
-                    
-                    // ⚡ PRESERVE OPTIMISTIC MESSAGES - Don't wipe them out!
-                    console.log('💾 Current messages before merge:', this.messages.length);
-                    const optimisticMessages = this.messages.filter(m => m.id && typeof m.id === 'string' && m.id.startsWith('temp_'));
-                    console.log('⚡ Found optimistic messages to preserve:', optimisticMessages.length);
-                    
-                    // Merge server messages with optimistic messages
-                    this.messages = [...serverMessages, ...optimisticMessages];
-                    console.log('💾 Messages after preserving optimistic:', this.messages.length);
-                    console.log('📋 Final processed messages for rendering:', this.messages);
-                    
-                    this.renderMessages();
-                    
-                } catch (error) {
-                    console.error('Failed to load messages:', error);
-                    this.showError('Failed to load messages');
-                } finally {
-                    const loadingElement = document.getElementById('loadingMessages');
-                    if (loadingElement) {
-                        loadingElement.style.display = 'none';
-                    }
-                }
-            }
-
-            async sendMessage() {
-                console.log('🚀 sendMessage called!');
-                
-                const messageInput = document.getElementById('messageInput');
-                const message = messageInput ? messageInput.value.trim() : '';
-                
-                console.log('🔍 Debug sendMessage:', {
-                    messageInput: !!messageInput,
-                    message: message,
-                    userName: this.userName,
-                    projectToken: this.projectToken,
-                    selectedFiles: this.selectedFiles.length
-                });
-                
-                // Ensure we have required data FIRST
-                if (!this.projectToken || this.projectToken.trim() === '') {
-                    console.error('❌ No project token available');
-                    this.showError('Session error. Please refresh and try again.');
-                    this.clearSession(); // Force user to re-enter details
-                    return;
-                }
-
-                if (!this.userName || this.userName.trim() === '') {
-                    console.error('❌ No user name available');
-                    this.showError('Session error. Please refresh and try again.');
-                    this.clearSession(); // Force user to re-enter details
-                    return;
-                }
-                
-                // Check for content AFTER ensuring we have session data
-                if (!message && this.selectedFiles.length === 0) {
-                    console.log('📝 No message content or files to send');
-                    return;
-                }
-
-                const messageContent = message || '';
-                
-                // ⚡⚡⚡ BULLETPROOF INSTANT UPDATE ⚡⚡⚡
-                console.log('⚡ STEP 1: Starting instant message display...');
-                console.log('⚡ STEP 2: Message content:', messageContent);
-                console.log('⚡ STEP 3: Current messages array:', this.messages.length);
-                
-                const instantMessage = {
-                    id: `temp_${Date.now()}_${Math.random()}`,
-                    content: messageContent,
-                    senderName: this.userName,
-                    senderType: 'client',
-                    createdAt: new Date().toISOString(),
-                    attachments: [],
-                    isOptimistic: true // Debug flag
-                };
-                
-                console.log('⚡ STEP 4: Created instant message:', instantMessage);
-                
-                // Add to messages array immediately
-                this.messages.push(instantMessage);
-                console.log('⚡ STEP 5: Messages after push:', this.messages.length);
-                console.log('⚡ STEP 6: Last message in array:', this.messages[this.messages.length - 1]);
-                
-                // Force render immediately
-                console.log('⚡ STEP 7: Calling renderMessages()...');
-                this.renderMessages();
-                
-                console.log('⚡ STEP 8: Calling scrollToBottom()...');
-                this.scrollToBottom();
-                
-                console.log('⚡ STEP 9: INSTANT UPDATE COMPLETE - MESSAGE SHOULD BE VISIBLE!');
-
-                try {
-                    console.log('📤 Now sending to server in background...');
-
-                    // Disable send button
-                    const sendButton = document.getElementById('sendButton');
-                    if (sendButton) {
-                        sendButton.disabled = true;
-                    }
-
-                    let response;
-
-                    if (this.selectedFiles.length > 0) {
-                        // Use FormData for file uploads
-                        console.log('📎 Sending with files using FormData');
-                        const formData = new FormData();
-                        formData.append('content', messageContent);
-                        formData.append('senderName', this.userName);
-                        formData.append('senderType', 'client');
-
-                        // Add files
-                        this.selectedFiles.forEach((file, index) => {
-                            console.log(`📎 Adding file ${index + 1}:`, file.name);
-                            formData.append('files', file);
-                        });
-
-                        response = await fetch(`${this.config.backendUrl}/api/public/project/${this.projectToken}/messages`, {
-                            method: 'POST',
-                            body: formData
-                        });
-                    } else {
-                        // Use JSON for text-only messages
-                        console.log('📝 Sending text-only message using JSON');
-                        response = await fetch(`${this.config.backendUrl}/api/public/project/${this.projectToken}/messages`, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({
-                                content: messageContent,
-                                senderName: this.userName,
-                                senderType: 'client'
-                            })
-                        });
-                    }
-
-                    if (!response.ok) {
-                        const errorText = await response.text();
-                        console.error('❌ Send message failed:', response.status, errorText);
-                        throw new Error(`Failed to send message: ${response.status}`);
-                    }
-
-                    const result = await response.json();
-                    console.log('✅ Message sent successfully:', result);
-
-                    // Clear form
-                    messageInput.value = '';
-                    this.selectedFiles = [];
-                    this.updateFilePreview();
-                    this.autoResizeTextarea(messageInput);
-
-                    // The real message will come via WebSocket and replace the optimistic one
-                    // No need for setTimeout - instant feedback!
-
-                } catch (error) {
-                    console.error('❌ Failed to send message:', error);
-                    this.showError('Failed to send message: ' + error.message);
-                } finally {
-                    const sendButton = document.getElementById('sendButton');
-                    if (sendButton) {
-                        sendButton.disabled = false;
-                    }
-                }
-            }
-
-            addMessage(message) {
-                console.log('📨 [WIDGET] Received message:', message);
-                console.log('📨 [WIDGET] Current project token:', this.projectToken);
-                console.log('📨 [WIDGET] Message for project:', message.projectToken || 'unknown');
-                
-                // Verify this message is for our project
-                if (message.projectToken && message.projectToken !== this.projectToken) {
-                    console.log('⚠️ [WIDGET] Message for different project, ignoring');
-                    return;
-                }
-                
-                // Check for duplicates using improved logic
-                if (this.isDuplicateMessage(message, this.messages)) {
-                    console.log('⚠️ [WIDGET] Ignoring duplicate message:', message.id || 'no-id');
-                    return;
-                }
-                
-                // If this is a real message from server, remove matching optimistic message
-                if (!message.isOptimistic && message.id && !message.id.toString().startsWith('temp_')) {
-                    console.log('📨 [WIDGET] Processing real message from server:', message.id);
-                    
-                    // Find and remove matching optimistic message
-                    const optimisticIndex = this.messages.findIndex(m => {
-                        if (!m.isOptimistic) return false;
-                        
-                        // More precise matching for optimistic messages
-                        const contentMatch = m.content === message.content;
-                        const senderMatch = m.senderName === message.senderName;
-                        const typeMatch = m.senderType === message.senderType;
-                        
-                        // Time-based matching (within 30 seconds)
-                        const messageTime = new Date(message.createdAt || message.timestamp).getTime();
-                        const optimisticTime = new Date(m.createdAt).getTime();
-                        const timeDiff = Math.abs(messageTime - optimisticTime);
-                        const timeMatch = timeDiff < 30000; // 30 seconds tolerance
-                        
-                        return contentMatch && senderMatch && typeMatch && timeMatch;
-                    });
-                    
-                    if (optimisticIndex !== -1) {
-                        console.log('🔄 [WIDGET] Removing optimistic message at index:', optimisticIndex);
-                        this.messages.splice(optimisticIndex, 1);
-                    }
-                }
-
-                this.messages.push(message);
-                console.log('✅ [WIDGET] Added message, total count:', this.messages.length);
-                
-                // Sort messages by timestamp to ensure proper order
-                this.messages.sort((a, b) => {
-                    const timeA = new Date(a.createdAt || a.timestamp || 0).getTime();
-                    const timeB = new Date(b.createdAt || b.timestamp || 0).getTime();
-                    return timeA - timeB;
-                });
-                
-                this.renderMessages();
-            }
-            
-            // NEW: Improved duplicate detection
-            isDuplicateMessage(newMessage, existingMessages) {
-                return existingMessages.some(existing => {
-                    // Check for exact ID match
-                    if (existing.id && newMessage.id && existing.id === newMessage.id) {
-                        console.log('🔍 [WIDGET] Duplicate found: exact ID match');
-                        return true;
-                    }
-                    
-                    // Check for content + time match (for optimistic messages)
-                    const contentMatch = existing.content === newMessage.content;
-                    const senderMatch = existing.senderName === newMessage.senderName;
-                    const typeMatch = existing.senderType === newMessage.senderType;
-                    
-                    if (contentMatch && senderMatch && typeMatch) {
-                        const time1 = new Date(existing.createdAt || existing.timestamp).getTime();
-                        const time2 = new Date(newMessage.createdAt || newMessage.timestamp).getTime();
-                        const timeDiff = Math.abs(time1 - time2);
-                        
-                        // Consider duplicates if within 5 seconds
-                        if (timeDiff < 5000) {
-                            console.log('🔍 [WIDGET] Duplicate found: content + time match');
-                            return true;
-                        }
-                    }
-                    
+                if (storedEmail !== currentMember.email) {
+                    console.warn('🚨 [SESSION] EMAIL MISMATCH DETECTED!');
+                    console.warn(`   Current: ${currentMember.email}`);
+                    console.warn(`   Stored:  ${storedEmail}`);
+                    this.updateDetectionStep(4, 'error', 'Session mismatch detected');
                     return false;
-                });
-            }
-
-            renderMessages() {
-                console.log('🎨 renderMessages() called - Messages to render:', this.messages.length);
-                
-                const container = document.getElementById('pcd-chat-container');
-                const loadingElement = document.getElementById('loadingMessages');
-                
-                if (this.messages.length === 0) {
-                    console.log('🎨 No messages to render, showing empty state');
-                    container.innerHTML = `
-                        <div class="pcd-empty-state">
-                            <div class="pcd-empty-state-icon">💬</div>
-                            <p><strong>Welcome to Pleasant Cove Design!</strong></p>
-                            <p>Send us a message and we'll get back to you as soon as possible.</p>
-                        </div>
-                    `;
-                    return;
                 }
                 
-                console.log('🎨 About to render', this.messages.length, 'messages');
-
-                // Sort messages by timestamp to ensure proper order (oldest first, newest last)
-                const sortedMessages = [...this.messages].sort((a, b) => {
-                    const timeA = new Date(a.createdAt || a.timestamp || 0).getTime();
-                    const timeB = new Date(b.createdAt || b.timestamp || 0).getTime();
-                    return timeA - timeB;
-                });
-
-                let html = '';
-                sortedMessages.forEach(message => {
-                    console.log('🎨 Rendering message:', message);
-                    
-                    // Handle different message formats from backend
-                    const sender = message.senderName || message.sender || 'Unknown';
-                    const content = message.content || message.body || '';
-                    const timestamp = message.createdAt || message.timestamp || new Date().toISOString();
-                    const attachments = message.attachments || [];
-                    const senderType = message.senderType || 'client';
-                    
-                    // Use senderType to determine message direction instead of name comparison
-                    // client = customer messages (sent by widget user) = blue bubbles on right
-                    // admin = admin replies (sent by Ben) = gray/white bubbles on left
-                    const isClientMessage = senderType === 'client';
-                    const messageClass = isClientMessage ? 'sent' : 'received';
-                    
-                    console.log('🎨 Message styling:', {
-                        sender,
-                        senderType,
-                        isClientMessage,
-                        messageClass
-                    });
-                    
-                    html += `
-                        <div class="pcd-message ${messageClass}">
-                            <div class="pcd-message-header">
-                                <span>${this.escapeHtml(sender)}</span>
-                                <span>${this.formatTime(timestamp)}</span>
-                            </div>
-                            <div class="pcd-message-bubble">
-                                <p class="pcd-message-content">${this.escapeHtml(content)}</p>
-                                ${this.renderAttachments(attachments, messageClass)}
-                            </div>
-                        </div>
-                    `;
-                });
-
-                console.log('🎨 Generated HTML length:', html.length);
-                console.log('🎨 Setting container innerHTML...');
-                container.innerHTML = html;
-                console.log('🎨 Container innerHTML set, content length:', container.innerHTML.length);
-                
-                // Always scroll to bottom to show newest messages
-                console.log('🎨 Calling scrollToBottom...');
-                this.scrollToBottom();
-            }
-
-            renderAttachments(attachments, messageClass) {
-                if (!attachments || attachments.length === 0) return '';
-
-                let html = '<div class="pcd-message-attachments">';
-                attachments.forEach(attachment => {
-                    const fileName = attachment.split('/').pop() || 'attachment';
-                    const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(fileName);
-                    
-                    if (isImage) {
-                        html += `
-                            <img src="${attachment}" 
-                                 alt="${fileName}"
-                                 class="pcd-image-attachment"
-                                 onclick="window.open('${attachment}', '_blank')">
-                        `;
-                    } else {
-                        html += `
-                            <a href="${attachment}" 
-                               target="_blank" 
-                               class="pcd-attachment">
-                                <span class="pcd-attachment-icon">📎</span>
-                                ${fileName}
-                            </a>
-                        `;
-                    }
-                });
-                html += '</div>';
-                return html;
-            }
-
-            handleFileSelect(event) {
-                const files = Array.from(event.target.files);
-                this.selectedFiles = [...this.selectedFiles, ...files];
-                this.updateFilePreview();
-                
-                // Clear input so same file can be selected again
-                event.target.value = '';
-            }
-
-            updateFilePreview() {
-                const preview = document.getElementById('filePreview');
-                
-                if (this.selectedFiles.length === 0) {
-                    preview.innerHTML = '';
-                    return;
-                }
-
-                let html = '';
-                this.selectedFiles.forEach((file, index) => {
-                    html += `
-                        <div class="pcd-file-preview-item">
-                            <span>📎 ${file.name}</span>
-                            <button type="button" class="pcd-file-preview-remove" onclick="messagingWidget.removeFile(${index})">
-                                ✕
-                            </button>
-                        </div>
-                    `;
-                });
-                
-                preview.innerHTML = html;
-            }
-
-            removeFile(index) {
-                this.selectedFiles.splice(index, 1);
-                this.updateFilePreview();
-            }
-
-            updateConnectionStatus(status) {
-                const dot = document.getElementById('connectionDot');
-                const statusText = document.getElementById('connectionStatus');
-                
-                if (status === 'connected') {
-                    dot.className = 'pcd-status-dot';
-                    statusText.textContent = 'Connected';
-                } else {
-                    dot.className = 'pcd-status-dot disconnected';
-                    statusText.textContent = status === 'connecting' ? 'Connecting...' : 'Disconnected';
-                }
-            }
-
-            autoResizeTextarea(textarea) {
-                textarea.style.height = 'auto';
-                textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
-            }
-
-            scrollToBottom() {
-                const container = document.getElementById('pcd-chat-container');
-                if (container) {
-                    container.scrollTop = container.scrollHeight;
-                }
-            }
-
-            formatTime(timestamp) {
-                if (!timestamp) {
-                    return 'Now';
+                // Validate token with backend
+                const tokenValid = await this.validateTokenWithBackend(storedToken);
+                if (!tokenValid) {
+                    console.warn('🚨 [SESSION] Stored token is invalid');
+                    this.updateDetectionStep(4, 'error', 'Invalid token');
+                    return false;
                 }
                 
+                console.log('✅ [SESSION] Session is consistent and valid');
+                this.updateDetectionStep(4, 'success', 'Session validated');
+                return true;
+            }
+
+            async validateTokenWithBackend(token) {
                 try {
-                    const date = new Date(timestamp);
-                    if (isNaN(date.getTime())) {
-                        return 'Now';
-                    }
-                    
-                    return date.toLocaleTimeString('en-US', {
-                        hour: '2-digit',
-                        minute: '2-digit'
-                    });
+                    const response = await fetch(`${this.config.backendUrl}/api/public/project/${token}/messages`);
+                    return response.ok;
                 } catch (error) {
-                    console.error('Error formatting time:', error, timestamp);
-                    return 'Now';
+                    console.error('❌ [TOKEN_VALIDATION] Error:', error);
+                    return false;
                 }
             }
 
-            escapeHtml(text) {
-                const div = document.createElement('div');
-                div.textContent = text;
-                return div.innerHTML;
-            }
-
-            showLoading(show) {
-                const loadingElement = document.getElementById('loadingMessages');
-                if (loadingElement) {
-                    loadingElement.style.display = show ? 'flex' : 'none';
-                }
-            }
-
-            showError(message) {
-                const container = document.getElementById('pcd-chat-container');
-                if (container) {
-                    container.innerHTML = `<div class="pcd-error-message">${message}</div>`;
-                } else {
-                    console.error('PCD widget error:', message);
-                    // Fallback: Show error in widget container if messages container doesn't exist
-                    const widgetContainer = document.querySelector('.pcd-messaging-widget');
-                    if (widgetContainer) {
-                        widgetContainer.innerHTML = `
-                            <div style="padding: 20px; text-align: center; background: #f8d7da; border-radius: 8px; border: 1px solid #f5c6cb;">
-                                <h3 style="color: #721c24; margin-bottom: 15px;">⚠️ Error</h3>
-                                <p style="color: #721c24;">${message}</p>
-                            </div>
-                        `;
-                    }
-                }
-            }
-
-            // ENHANCED: Clear all session data including member authentication
-            clearSession() {
-                // Clear all localStorage data
-                localStorage.removeItem('pcd_project_token');
-                localStorage.removeItem('pcd_user_name');
-                localStorage.removeItem('pcd_user_email');
-                localStorage.removeItem('pcd_member_authenticated');
-                localStorage.removeItem('pcd_session_timestamp');
-                localStorage.removeItem('pcd_auth_method');
-                localStorage.removeItem('pcd_session_domain');
+            forceCleanStart(currentMember) {
+                console.log('🧹 [CLEAN_START] Forcing complete clean start...');
                 
-                console.log('🧹 [SESSION] All session data cleared including domain tracking');
+                // Clear all storage
+                localStorage.clear();
+                sessionStorage.clear();
                 
-                // Reset widget state
+                // Clear instance variables
                 this.projectToken = null;
                 this.userName = null;
                 this.userEmail = null;
-                this.detectedUserName = null;
                 this.messages = [];
                 
-                // Disconnect any active sockets
+                // Disconnect socket
                 if (this.socket) {
                     this.socket.disconnect();
                     this.socket = null;
                 }
                 
-                // Clear any polling intervals
-                if (this.pollingInterval) {
-                    clearInterval(this.pollingInterval);
-                    this.pollingInterval = null;
-                }
+                this.updateDebugInfo('Clean start completed, authenticating...', 'info');
                 
-                // Clear logout watcher
-                if (this.logoutWatcher) {
-                    clearInterval(this.logoutWatcher);
-                    this.logoutWatcher = null;
-                }
-                
-                // Update debug banner
-                const debugBanner = document.getElementById('pcd-debug-banner');
-                if (debugBanner) {
-                    debugBanner.innerHTML = `
-                        🔍 MEMBER AUTH DEBUG: SESSION CLEARED - NO MEMBER DETECTED
-                        | Domain: ${window.location.hostname} 
-                        | <span onclick="this.parentElement.style.display='none'" style="cursor:pointer;background:#333;padding:2px 5px;border-radius:3px;">✕ Hide</span>
-                    `;
-                    debugBanner.style.background = '#990000'; // Red to indicate no member
-                }
-                
-                // Show sign-in prompt again
-                const container = document.getElementById('pcd-chat-container');
-                if (container) {
-                    container.innerHTML = `
-                        <div style="padding: 20px; text-align: center; background: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;">
-                            <h3 style="color: #495057; margin-bottom: 15px;">🔒 Member Chat</h3>
-                            <p style="color: #6c757d; margin-bottom: 20px;">
-                                Please <a href="/account/login" style="color: #007bff; text-decoration: none;">sign in to your member account</a> 
-                                to chat with us securely.
-                            </p>
-                            <p style="color: #6c757d; font-size: 14px;">
-                                Don't have an account? 
-                                <a href="/account/signup" style="color: #28a745; text-decoration: none;">Sign up here</a>
-                            </p>
-                        </div>
-                    `;
-                }
+                // Start fresh authentication
+                setTimeout(() => this.authenticateUser(currentMember), 500);
             }
 
-            // NEW: Save session data with member authentication flag
-            saveSession(isMemberAuthenticated = false) {
-                console.log('💾 [MEMBER_ISOLATION] Saving session data:', {
-                    email: this.userEmail,
-                    name: this.userName,
-                    token: this.projectToken?.substring(0, 8) + '...',
-                    isMemberAuthenticated
-                });
-                
-                localStorage.setItem('pcd_project_token', this.projectToken);
-                localStorage.setItem('pcd_user_name', this.userName);
-                localStorage.setItem('pcd_user_email', this.userEmail);
-                localStorage.setItem('pcd_member_authenticated', isMemberAuthenticated.toString());
-                localStorage.setItem('pcd_session_timestamp', Date.now().toString());
-                localStorage.setItem('pcd_session_domain', window.location.hostname);
-                
-                // Update debug banner with success
-                const debugBanner = document.getElementById('pcd-debug-banner');
-                if (debugBanner) {
-                    debugBanner.innerHTML = `
-                        🔍 MEMBER AUTH DEBUG: ✅ ${this.userEmail} (${isMemberAuthenticated ? 'MEMBER AUTH' : 'FORM AUTH'})
-                        | Domain: ${window.location.hostname} 
-                        | <span onclick="this.parentElement.style.display='none'" style="cursor:pointer;background:#333;padding:2px 5px;border-radius:3px;">✕ Hide</span>
-                    `;
-                    debugBanner.style.background = isMemberAuthenticated ? '#006600' : '#666600'; // Green for member, yellow for form
-                }
-                
-                // Start watching for logout if this is a member session
-                if (isMemberAuthenticated) {
-                    this.watchForLogout();
-                }
-                
-                console.log('✅ [MEMBER_ISOLATION] Session saved successfully');
+            forceReload() {
+                console.log('🔄 [FORCE_RELOAD] User requested force reload...');
+                localStorage.clear();
+                sessionStorage.clear();
+                window.location.reload();
             }
-            
-            // NEW: Watch for logout events and force reload
-            watchForLogout() {
-                console.log('👀 [LOGOUT_WATCHER] Starting logout detection...');
-                
-                // Clear any existing watcher
-                if (this.logoutWatcher) {
-                    clearInterval(this.logoutWatcher);
-                }
-                
-                // Check for member logout every 2 minutes (less aggressive)
-                this.logoutWatcher = setInterval(() => {
-                    // NON-DESTRUCTIVE authentication check - don't clear sessions!
-                    const currentMember = this.checkAuthenticationStatus();
-                    const savedEmail = localStorage.getItem('pcd_user_email');
-                    const wasMemberAuth = localStorage.getItem('pcd_member_authenticated') === 'true';
-                    
-                    // CONSERVATIVE CHECK: Only clear if we're ABSOLUTELY sure they logged out
-                    // Check both SiteUserInfo cookie AND domain consistency
-                    const hasSiteUserCookie = document.cookie.indexOf('SiteUserInfo') !== -1;
-                    const sessionDomain = localStorage.getItem('pcd_session_domain');
-                    const currentDomain = window.location.hostname;
-                    
-                    if (wasMemberAuth && savedEmail && !currentMember && !hasSiteUserCookie && sessionDomain === currentDomain) {
-                        console.log('🚨 [LOGOUT_DETECTED] Member definitely logged out - clearing session');
-                        this.clearSession();
-                        
-                        // Force reload widget to show logged-out state
-                        location.reload(); // Simply reload the page to reset widget state
-                        
-                        // Stop watching since we're now logged out
-                        clearInterval(this.logoutWatcher);
-                        this.logoutWatcher = null;
-                        
-                        console.log('🔄 [LOGOUT_DETECTED] Widget reset to logged-out state');
-                    } else {
-                        console.log('👀 [LOGOUT_WATCHER] Session check passed - member still authenticated');
-                    }
-                }, 120000); // Check every 2 minutes (less frequent)
-                
-                console.log('👀 [LOGOUT_WATCHER] Logout detection active');
-            }
-            
-            // NEW: Non-destructive authentication status check (doesn't clear sessions)
-            checkAuthenticationStatus() {
-                // Only check cookie for SiteUserInfo - don't clear anything!
-                const cookies = document.cookie.split(';');
-                
-                for (const cookie of cookies) {
-                    const [name, value] = cookie.trim().split('=');
-                    
-                    if (name === 'SiteUserInfo' && value) {
-                        try {
-                            const userInfo = JSON.parse(decodeURIComponent(value));
-                            if (userInfo.authenticated) {
-                                // Return member email if authenticated
-                                return userInfo.email || `${userInfo.siteUserId}@squarespace.member`;
-                            }
-                        } catch (e) {
-                            // Ignore parsing errors
-                        }
-                    }
-                }
-                
-                return null; // No authentication detected
-            }
-        }
 
-        // Helper function to detect backend URL
-        function detectBackendUrl() {
-            // 🧪 DEV OVERRIDE: Force localhost for testing when manual token is injected
-            if (window.PROJECT_TOKEN) {
-                console.log('🧪 [DEV] Manual token detected - forcing localhost backend for testing');
-                return 'http://localhost:3000';
-            }
-            
-            const hostname = window.location.hostname;
-            
-            if (hostname === 'localhost' || hostname === '127.0.0.1') {
-                console.log('🏠 Local environment detected - using localhost:3000');
-                return 'http://localhost:3000';
-            } else if (hostname.includes('pleasantcovedesign.com')) {
-                console.log('🌐 Production environment detected - using Railway production backend');
-                return 'https://pleasantcovedesign-production.up.railway.app';
-            } else {
-                console.log('🌐 Unknown environment - defaulting to localhost for testing');
-                return 'http://localhost:3000';
-            }
-        }
-
-        // Show pre-chat form overlay
-        function showPrechatForm() {
-            console.log('📝 [FORM] Showing pre-chat form');
-            const overlay = document.getElementById('prechatOverlay');
-            if (overlay) {
-                overlay.style.display = 'flex';
-                console.log('✅ [FORM] Pre-chat overlay is now visible');
+            async authenticateUser(member) {
+                console.log(`🔐 [AUTH] Authenticating ${member.name} (${member.email})`);
+                this.updateDebugInfo(`Authenticating ${member.email}...`, 'info');
                 
-                // Wire up form handlers if not already done
-                const submitBtn = document.getElementById('formSubmitBtn');
-                if (submitBtn && !submitBtn.onclick) {
-                    console.log('🔗 [FORM] Binding form submit handler');
-                    submitBtn.onclick = handlePrechatSubmit;
-                }
-            } else {
-                console.error('❌ [FORM] Pre-chat overlay element not found!');
-            }
-        }
-
-        // Handle pre-chat form submission
-        async function handlePrechatSubmit() {
-            console.log('📝 [FORM] Form submission started');
-            
-            const nameInput = document.getElementById('userName');
-            const emailInput = document.getElementById('userEmail');
-            const nameError = document.getElementById('nameError');
-            const emailError = document.getElementById('emailError');
-            const submitBtn = document.getElementById('formSubmitBtn');
-            const loadingDiv = document.getElementById('formLoading');
-            
-            if (!nameInput || !emailInput) {
-                console.error('❌ [FORM] Form elements not found');
-                alert('Form error: Please refresh the page');
-                return;
-            }
-            
-            // Clear previous errors
-            if (nameError) nameError.style.display = 'none';
-            if (emailError) emailError.style.display = 'none';
-            nameInput.classList.remove('error');
-            emailInput.classList.remove('error');
-            
-            // Validate inputs
-            let isValid = true;
-            const name = nameInput.value.trim();
-            const email = emailInput.value.trim();
-            
-            if (!name) {
-                console.log('❌ [FORM] Name validation failed');
-                if (nameError) nameError.style.display = 'block';
-                nameInput.classList.add('error');
-                isValid = false;
-            }
-            
-            if (!email || !email.includes('@')) {
-                console.log('❌ [FORM] Email validation failed');
-                if (emailError) emailError.style.display = 'block';
-                emailInput.classList.add('error');
-                isValid = false;
-            }
-            
-            if (!isValid) {
-                console.log('❌ [FORM] Validation failed, stopping submission');
-                return;
-            }
-            
-            console.log('✅ [FORM] Validation passed, submitting:', { name, email });
-            
-            try {
-                // Show loading state
-                if (submitBtn) submitBtn.disabled = true;
-                if (loadingDiv) loadingDiv.style.display = 'flex';
-                
-                const backendUrl = detectBackendUrl();
-                console.log('🌐 [FORM] Sending request to:', backendUrl);
-                
-                const response = await fetch(`${backendUrl}/api/token`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        type: 'member',
-                        email: email,
-                        name: name
-                    })
-                });
-                
-                console.log('📡 [FORM] Response status:', response.status);
-                
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    console.error('❌ [FORM] Server error:', errorText);
-                    throw new Error(`Server error: ${response.status}`);
-                }
-                
-                const data = await response.json();
-                console.log('📦 [FORM] Response data:', data);
-                
-                if (!data.valid || !data.token) {
-                    throw new Error('No valid token received from server');
-                }
-                
-                console.log('✅ [FORM] Token received:', data.token.substring(0, 8) + '...');
-                
-                // Save session data
-                localStorage.setItem('pcd_project_token', data.token);
-                localStorage.setItem('pcd_user_email', email);
-                localStorage.setItem('pcd_user_name', name);
-                localStorage.setItem('pcd_session_timestamp', Date.now().toString());
-                localStorage.setItem('pcd_session_domain', window.location.hostname);
-                
-                console.log('💾 [FORM] Session data saved');
-                
-                // Hide overlay
-                const overlay = document.getElementById('prechatOverlay');
-                if (overlay) overlay.style.display = 'none';
-                
-                console.log('🚀 [FORM] Initializing messaging widget...');
-                
-                // Initialize messaging widget with form authentication flag
-                const messagingWidget = new PCDMessagingWidget(data.token, email, name);
-                messagingWidget.isFormAuthenticated = true; // Skip auth checks since we just authenticated
-                await messagingWidget.init(); // Directly initialize
-                window.messagingWidget = messagingWidget;
-                
-                console.log('✅ [FORM] Widget initialized successfully!');
-                
-            } catch (error) {
-                console.error('❌ [FORM] Submission error:', error);
-                alert('Failed to start chat: ' + error.message);
-            } finally {
-                // Reset form state
-                if (submitBtn) submitBtn.disabled = false;
-                if (loadingDiv) loadingDiv.style.display = 'none';
-            }
-        }
-
-        // 🚀 SIMPLIFIED WIDGET INITIALIZATION
-        (async function initPCDWidget() {
-            // 🔒 PREVENT DUPLICATE INITIALIZATION: If widget already exists, skip
-            if (window.messagingWidget) {
-                console.log('🔒 [WIDGET_INIT] Widget already exists, skipping duplicate initialization');
-                return;
-            }
-            
-            // 🧪 DEV OVERRIDE: if you've injected a token + user info, skip cookies entirely
-            if (window.PROJECT_TOKEN && window.PROJECT_USER_EMAIL && window.PROJECT_USER_NAME) {
-                console.log('🧪 [DEV] Manual injection detected – initializing widget directly');
-                const messagingWidget = new PCDMessagingWidget(
-                    window.PROJECT_TOKEN,
-                    window.PROJECT_USER_EMAIL,
-                    window.PROJECT_USER_NAME
-                );
-                messagingWidget.isFormAuthenticated = true; // Skip auth checks for dev injection
-                await messagingWidget.init(); // Initialize directly
-                window.messagingWidget = messagingWidget;
-                return;  // <-- don't run any of the cookie logic below
-            }
-            
-            // 🧪 DEV OVERRIDE: if only token is injected but we have Squarespace member data, use that
-            if (window.PROJECT_TOKEN && !window.PROJECT_USER_EMAIL && !window.PROJECT_USER_NAME) {
-                console.log('🧪 [DEV] Token injection detected - checking for Squarespace member data...');
-                
-                // Try to get member data from Squarespace cookie
-                const match = document.cookie.match(/SiteUserInfo=(\{.*?\})/);
-                if (match) {
-                    try {
-                        const memberInfo = JSON.parse(decodeURIComponent(match[1]));
-                        if (memberInfo.authenticated && memberInfo.siteUserId) {
-                            const memberEmail = `${memberInfo.siteUserId}@squarespace.member`;
-                            const memberName = memberInfo.firstName || 'Squarespace Member';
-                            
-                            console.log('🧪 [DEV] Using Squarespace member data with injected token');
-                            console.log('🧪 [DEV] Member:', memberName, memberEmail);
-                            const messagingWidget = new PCDMessagingWidget(
-                                window.PROJECT_TOKEN,
-                                memberEmail,
-                                memberName
-                            );
-                            messagingWidget.isFormAuthenticated = true;
-                            await messagingWidget.init();
-                            window.messagingWidget = messagingWidget;
-                            return;
-                        }
-                    } catch (error) {
-                        console.warn('🧪 [DEV] Could not parse Squarespace member data:', error);
-                    }
-                }
-                
-                console.log('🧪 [DEV] No Squarespace member data found - showing pre-chat form');
-                showPrechatForm();
-                return;
-            }
-            
-            console.log('🚀 [WIDGET_INIT] Starting widget initialization...');
-            
-            try {
-                // Check for existing valid session first
-                const savedToken = localStorage.getItem('pcd_project_token');
-                const savedEmail = localStorage.getItem('pcd_user_email');
-                const savedName = localStorage.getItem('pcd_user_name');
-                
-                if (savedToken && savedEmail && savedName) {
-                    console.log('🔍 [WIDGET_INIT] Found existing session, validating...');
-                    
-                    const backendUrl = detectBackendUrl();
-                    const validateResp = await fetch(`${backendUrl}/api/token`, {
+                try {
+                    const response = await fetch(`${this.config.backendUrl}/api/token`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ type: 'validate', token: savedToken })
+                        body: JSON.stringify({ 
+                            type: 'member', 
+                            email: member.email, 
+                            name: member.name 
+                        })
                     });
                     
-                    if (validateResp.ok) {
-                        console.log('✅ [WIDGET_INIT] Session valid, resuming...');
-                        const messagingWidget = new PCDMessagingWidget(savedToken, savedEmail, savedName);
-                        window.messagingWidget = messagingWidget;
-                        return;
-                    } else {
-                        console.log('❌ [WIDGET_INIT] Session invalid, clearing...');
-                        localStorage.removeItem('pcd_project_token');
-                        localStorage.removeItem('pcd_user_email');
-                        localStorage.removeItem('pcd_user_name');
+                    if (!response.ok) {
+                        throw new Error(`Authentication failed: ${response.status}`);
                     }
-                }
-                
-                // Try Squarespace member authentication
-                const match = document.cookie.match(/SiteUserInfo=(\{.*?\})/);
-                if (match) {
-                    try {
-                        const memberInfo = JSON.parse(decodeURIComponent(match[1]));
-                        if (memberInfo.authenticated && memberInfo.siteUserId) {
-                            const memberEmail = memberInfo.email || `${memberInfo.siteUserId}@squarespace.member`;
-                            console.log('✅ [WIDGET_INIT] Squarespace member detected:', memberEmail);
-                            
-                            showLoadingState();
-                            
-                            const backendUrl = detectBackendUrl();
-                            const tokenResp = await fetch(`${backendUrl}/api/token`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ 
-                                    type: 'member',
-                                    email: memberEmail,
-                                    name: memberInfo.firstName || memberEmail.split('@')[0]
-                                })
-                            });
-                            
-                            if (tokenResp.ok) {
-                                const tokenData = await tokenResp.json();
-                                if (tokenData.valid && tokenData.token) {
-                                    console.log('✅ [WIDGET_INIT] Member token acquired');
-                                    
-                                    localStorage.setItem('pcd_project_token', tokenData.token);
-                                    localStorage.setItem('pcd_user_email', memberEmail);
-                                    localStorage.setItem('pcd_user_name', memberInfo.firstName || memberEmail.split('@')[0]);
-                                    
-                                    const messagingWidget = new PCDMessagingWidget(
-                                        tokenData.token, 
-                                        memberEmail, 
-                                        memberInfo.firstName || memberEmail.split('@')[0]
-                                    );
-                                    window.messagingWidget = messagingWidget;
-                                    return;
-                                }
-                            }
-                        }
-                    } catch (e) {
-                        console.log('⚠️ [WIDGET_INIT] Squarespace auth failed:', e.message);
+                    
+                    const data = await response.json();
+                    if (!data.valid || !data.token) {
+                        throw new Error('Invalid token response from server');
                     }
+                    
+                    // Store session data
+                    this.projectToken = data.token;
+                    this.userName = member.name;
+                    this.userEmail = member.email;
+                    
+                    localStorage.setItem('pcd_user_email', member.email);
+                    localStorage.setItem('pcd_user_name', member.name);
+                    localStorage.setItem('pcd_project_token', data.token);
+                    
+                    console.log(`✅ [AUTH] Authentication successful!`);
+                    console.log(`   Type: ${data.type}`);
+                    console.log(`   Token: ${data.token?.substring(0, 8)}...`);
+                    
+                    this.updateDebugInfo(`Authenticated successfully as ${member.email}`, 'success');
+                    this.showUserInterface();
+                    
+                } catch (error) {
+                    console.error('❌ [AUTH] Authentication failed:', error);
+                    this.updateDebugInfo(`Authentication failed: ${error.message}`, 'error');
+                    this.handleAuthenticationError(error);
                 }
+            }
+
+            showUserInterface() {
+                console.log('🎨 [UI] Showing authenticated interface...');
                 
-                // Fall back to pre-chat form
-                console.log('📝 [WIDGET_INIT] Showing pre-chat form');
-                showPrechatForm();
+                // Hide waiting state
+                document.getElementById('waitingState').style.display = 'none';
                 
-            } catch (error) {
-                console.error('❌ [WIDGET_INIT] Initialization error:', error);
-                showPrechatForm();
+                // Show user info
+                document.getElementById('userInfoBar').style.display = 'flex';
+                document.getElementById('currentUserEmail').textContent = this.userEmail;
+                
+                // Enable input
+                document.getElementById('messageInput').disabled = false;
+                document.getElementById('sendButton').disabled = false;
+                document.getElementById('messageInput').placeholder = 'Type your message...';
+                
+                // Start messaging
+                this.startMessaging();
             }
-        })();
-        
-        function showSignInPrompt() {
-            const widgetContainer = document.querySelector('.pcd-messaging-widget');
-            if (widgetContainer) {
-                widgetContainer.innerHTML = `
-                    <div style="padding: 30px 20px; text-align: center; background: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef; height: 400px; display: flex; flex-direction: column; justify-content: center;">
-                        <h3 style="color: #495057; margin-bottom: 15px; font-size: 18px;">🔒 Member Chat</h3>
-                        <p style="color: #6c757d; margin-bottom: 20px; line-height: 1.5;">
-                            Please <a href="/account/login" style="color: #007bff; text-decoration: none; font-weight: 500;">sign in to your member account</a> 
-                            to chat with us securely.
-                        </p>
-                        <p style="color: #6c757d; font-size: 14px;">
-                            Don't have an account? 
-                            <a href="/account/signup" style="color: #28a745; text-decoration: none; font-weight: 500;">Sign up here</a>
-                        </p>
-                    </div>
-                `;
+
+            startMessaging() {
+                console.log('🚀 [MESSAGING] Starting messaging interface...');
+                this.bindEvents();
+                this.connectWebSocket();
+                this.loadMessages();
             }
-        }
-        
-        function showLoadingState() {
-            const widgetContainer = document.querySelector('.pcd-messaging-widget');
-            if (widgetContainer) {
-                widgetContainer.innerHTML = `
-                    <div style="padding: 30px 20px; text-align: center; background: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef; height: 400px; display: flex; flex-direction: column; justify-content: center;">
-                        <div style="margin-bottom: 15px;">
-                            <div style="width: 40px; height: 40px; border: 3px solid #e9ecef; border-top: 3px solid #007bff; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto;"></div>
-                        </div>
-                        <h3 style="color: #495057; margin-bottom: 10px; font-size: 16px;">Loading Chat...</h3>
-                        <p style="color: #6c757d; font-size: 14px;">Setting up your secure conversation</p>
-                    </div>
-                    <style>
-                        @keyframes spin {
-                            0% { transform: rotate(0deg); }
-                            100% { transform: rotate(360deg); }
-                        }
-                    </style>
-                `;
-            }
-        }
-        
-        function showErrorState(errorMessage) {
-            const widgetContainer = document.querySelector('.pcd-messaging-widget');
-            if (widgetContainer) {
-                widgetContainer.innerHTML = `
-                    <div style="padding: 30px 20px; text-align: center; background: #f8d7da; border-radius: 8px; border: 1px solid #f5c6cb; height: 400px; display: flex; flex-direction: column; justify-content: center;">
-                        <h3 style="color: #721c24; margin-bottom: 15px; font-size: 18px;">⚠️ Connection Error</h3>
-                        <p style="color: #721c24; margin-bottom: 15px; line-height: 1.5;">
-                            Unable to connect to chat service: ${errorMessage}
-                        </p>
-                        <button onclick="location.reload()" style="background: #dc3545; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 14px;">
-                            Refresh Page
+
+            handleNoMemberDetected() {
+                console.log('👤 [NO_MEMBER] No member detected, showing fallback...');
+                
+                document.getElementById('pcd-chat-container').innerHTML = `
+                    <div class="pcd-waiting-state">
+                        <h3>🔒 Members Only</h3>
+                        <p>This messaging feature is available to logged-in Squarespace members only.</p>
+                        <p>Please log in to your member account to access your private conversation.</p>
+                        <br>
+                        <button onclick="window.location.reload()" class="pcd-force-reload-btn">
+                            Retry Detection
                         </button>
                     </div>
                 `;
             }
-        }
-        
-        // Development helper - expose clear function globally  
-        window.clearPCDSession = () => {
-            if (window.messagingWidget) {
-                window.messagingWidget.clearSession();
-            } else {
-                localStorage.clear();
-                location.reload();
+
+            handleCriticalError(error) {
+                console.error('🚨 [CRITICAL] Critical error occurred:', error);
+                
+                document.getElementById('pcd-chat-container').innerHTML = `
+                    <div class="pcd-waiting-state">
+                        <h3>⚠️ Error</h3>
+                        <p>A critical error occurred while initializing the messaging widget.</p>
+                        <p><small>Error: ${error.message}</small></p>
+                        <br>
+                        <button onclick="window.location.reload()" class="pcd-force-reload-btn">
+                            Reload Widget
+                        </button>
+                    </div>
+                `;
             }
-        };
-        
-        // Debug helper - widget will be available as window.messagingWidget after initialization
-        
-        // Add development helper buttons for testing
-        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-            console.log('🧪 [DEV] Adding testing interface for member simulation');
-            
-            // Create test panel
-            const testPanel = document.createElement('div');
-            testPanel.style.cssText = 'position: fixed; top: 10px; right: 10px; z-index: 9999; background: rgba(0,0,0,0.8); color: white; padding: 15px; border-radius: 8px; font-family: monospace; font-size: 12px; min-width: 200px;';
-            testPanel.innerHTML = `
-                <div style="margin-bottom: 10px; font-weight: bold;">🧪 TESTING MODE</div>
-                <div style="margin-bottom: 8px;">Simulate Member Accounts:</div>
-            `;
-            
-            // Test member accounts
-            const testMembers = [
-                { name: 'Member Account 1', email: 'member1@test.com' },
-                { name: 'Member Account 2', email: 'member2@test.com' },
-                { name: 'Member Account 3', email: 'member3@test.com' }
-            ];
-            
-            testMembers.forEach((member, index) => {
-                const memberButton = document.createElement('button');
-                memberButton.textContent = `👤 ${member.name}`;
-                memberButton.style.cssText = 'display: block; width: 100%; margin: 3px 0; padding: 5px; background: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px;';
-                memberButton.onclick = () => {
-                    console.log(`🧪 [DEV] Testing with ${member.name} (${member.email})`);
-                    
-                    // Simulate member cookie for testing
-                    const memberInfo = {
-                        authenticated: true,
-                        siteUserId: `test-${Date.now()}`,
-                        email: member.email,
-                        firstName: member.name
-                    };
-                    
-                    // Set mock cookie
-                    document.cookie = `SiteUserInfo=${encodeURIComponent(JSON.stringify(memberInfo))}; path=/`;
-                    
-                    // Reload to trigger gated initialization
-                    window.location.reload();
-                };
-                testPanel.appendChild(memberButton);
-            });
-            
-            // Clear Session Button
-            const clearButton = document.createElement('button');
-            clearButton.textContent = '🧹 Clear All Sessions';
-            clearButton.style.cssText = 'display: block; width: 100%; margin: 8px 0 3px 0; padding: 5px; background: #ff4444; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px;';
-            clearButton.onclick = () => {
-                console.log('🧪 [DEV] Manual session clear triggered');
+
+            handleAuthenticationError(error) {
+                document.getElementById('pcd-chat-container').innerHTML = `
+                    <div class="pcd-waiting-state">
+                        <h3>🔐 Authentication Failed</h3>
+                        <p>Unable to authenticate your account.</p>
+                        <p><small>Error: ${error.message}</small></p>
+                        <br>
+                        <button onclick="window.messagingWidget.init()" class="pcd-force-reload-btn">
+                            Retry Authentication
+                        </button>
+                    </div>
+                `;
+            }
+
+            sleep(ms) {
+                return new Promise(resolve => setTimeout(resolve, ms));
+            }
+
+            bindEvents() {
+                console.log('🔗 [EVENTS] Binding event listeners...');
                 
-                // Clear all localStorage
-                localStorage.clear();
-                
-                // Clear all cookies (for testing)
-                document.cookie.split(";").forEach(function(c) { 
-                    document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
-                });
-                
-                window.location.reload();
-            };
-            testPanel.appendChild(clearButton);
-            
-            // Debug Authentication Button
-            const debugButton = document.createElement('button');
-            debugButton.textContent = '🔍 Debug Current State';
-            debugButton.style.cssText = 'display: block; width: 100%; margin: 3px 0; padding: 5px; background: #4444ff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px;';
-            debugButton.onclick = () => {
-                console.log('🧪 [DEV] Manual authentication debug triggered');
-                
-                // Check current authentication state
-                const match = document.cookie.match(/SiteUserInfo=(\{.*?\})/);
-                let memberInfo = null;
-                if (match) {
-                    try {
-                        memberInfo = JSON.parse(decodeURIComponent(match[1]));
-                    } catch (e) {
-                        memberInfo = 'Parse Error';
-                    }
+                const messageForm = document.getElementById('messageForm');
+                if (messageForm) {
+                    messageForm.addEventListener('submit', (e) => {
+                        e.preventDefault();
+                        this.sendMessage();
+                    });
                 }
                 
-                const debugInfo = {
-                    memberCookie: memberInfo || 'None',
-                    widgetLoaded: !!window.messagingWidget,
-                    currentDomain: window.location.hostname,
-                    projectToken: localStorage.getItem('pcd_project_token') || 'None',
-                    userName: localStorage.getItem('pcd_user_name') || 'None',
-                    userEmail: localStorage.getItem('pcd_user_email') || 'None',
-                    sessionTimestamp: localStorage.getItem('pcd_session_timestamp') || 'None'
-                };
+                // Auto-resize textarea
+                const messageInput = document.getElementById('messageInput');
+                if (messageInput) {
+                    messageInput.addEventListener('input', () => {
+                        messageInput.style.height = 'auto';
+                        messageInput.style.height = Math.min(messageInput.scrollHeight, 120) + 'px';
+                    });
+                }
+            }
+
+            connectWebSocket() {
+                console.log('🔌 [SOCKET] Connecting WebSocket...');
                 
-                console.log('🧪 [DEV] Current state:', debugInfo);
-                alert(`Debug Results:\n${JSON.stringify(debugInfo, null, 2)}`);
-            };
-            testPanel.appendChild(debugButton);
-            
-            document.body.appendChild(testPanel);
+                if (this.socket) {
+                    this.socket.disconnect();
+                }
+                
+                this.socket = io(this.config.backendUrl, {
+                    transports: ['websocket', 'polling']
+                });
+                
+                this.socket.on('connect', () => {
+                    console.log('✅ [SOCKET] Connected to server');
+                    document.getElementById('connectionStatus').textContent = 'Connected';
+                    document.getElementById('connectionDot').style.background = '#28a745';
+                    
+                    // Join the project room
+                    this.socket.emit('join', this.projectToken);
+                });
+                
+                this.socket.on('disconnect', () => {
+                    console.log('❌ [SOCKET] Disconnected from server');
+                    document.getElementById('connectionStatus').textContent = 'Disconnected';
+                    document.getElementById('connectionDot').style.background = '#dc3545';
+                });
+                
+                this.socket.on('newMessage', (message) => {
+                    console.log('📨 [SOCKET] New message received:', message);
+                    this.addMessageToUI(message);
+                });
+                
+                this.socket.on('error', (error) => {
+                    console.error('❌ [SOCKET] Error:', error);
+                });
+            }
+
+            async loadMessages() {
+                console.log('📥 [MESSAGES] Loading conversation history...');
+                
+                try {
+                    const response = await fetch(`${this.config.backendUrl}/api/public/project/${this.projectToken}/messages`);
+                    
+                    if (!response.ok) {
+                        throw new Error(`Failed to load messages: ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    this.messages = data.messages || [];
+                    
+                    console.log(`📥 [MESSAGES] Loaded ${this.messages.length} messages`);
+                    
+                    // Clear and populate UI
+                    const container = document.getElementById('pcd-chat-container');
+                    container.innerHTML = '';
+                    
+                    this.messages.forEach(message => {
+                        this.addMessageToUI(message, false);
+                    });
+                    
+                    this.scrollToBottom();
+                    
+                } catch (error) {
+                    console.error('❌ [MESSAGES] Failed to load messages:', error);
+                    this.updateDebugInfo(`Failed to load messages: ${error.message}`, 'error');
+                }
+            }
+
+            addMessageToUI(message, shouldScroll = true) {
+                const container = document.getElementById('pcd-chat-container');
+                const messageDiv = document.createElement('div');
+                
+                const isFromUser = message.senderType === 'client';
+                const timestamp = new Date(message.createdAt).toLocaleTimeString();
+                
+                messageDiv.className = `pcd-message ${isFromUser ? 'user' : 'admin'}`;
+                messageDiv.innerHTML = `
+                    <div class="pcd-message-content">
+                        <div class="pcd-message-header">
+                            <strong>${message.senderName}</strong>
+                            <span class="pcd-message-time">${timestamp}</span>
+                        </div>
+                        <div class="pcd-message-text">${message.content}</div>
+                        ${message.attachments && message.attachments.length > 0 ? 
+                            message.attachments.map(att => `
+                                <div class="pcd-attachment">
+                                    <a href="${att.url}" target="_blank">📎 ${att.filename}</a>
+                                </div>
+                            `).join('') : ''
+                        }
+                    </div>
+                `;
+                
+                container.appendChild(messageDiv);
+                
+                if (shouldScroll) {
+                    this.scrollToBottom();
+                }
+            }
+
+            scrollToBottom() {
+                const container = document.getElementById('pcd-chat-container');
+                container.scrollTop = container.scrollHeight;
+            }
+
+            async sendMessage() {
+                console.log('📤 [SEND] Sending message...');
+                const messageInput = document.getElementById('messageInput');
+                const message = messageInput.value.trim();
+                
+                if (!message && this.selectedFiles.length === 0) {
+                    console.log('❌ [SEND] No message content to send');
+                    return;
+                }
+
+                console.log(`📤 [SEND] Message content: "${message}"`);
+                console.log(`📤 [SEND] Using token: ${this.projectToken?.substring(0, 8)}...`);
+                console.log(`📤 [SEND] Backend URL: ${this.config.backendUrl}`);
+
+                // Clear input immediately for better UX
+                messageInput.value = '';
+                this.selectedFiles = [];
+
+                try {
+                                    const requestBody = {
+                    projectToken: this.projectToken,
+                    sender: this.userName,
+                    body: message,
+                    attachmentKeys: [],
+                    hasFiles: false
+                };
+
+                    console.log('📤 [SEND] Request body:', requestBody);
+
+                    const response = await fetch(`${this.config.backendUrl}/api/messages`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(requestBody)
+                    });
+
+                    console.log(`📤 [SEND] Response status: ${response.status}`);
+
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        throw new Error(`Server error: ${response.status} - ${errorText}`);
+                    }
+
+                    const result = await response.json();
+                    console.log('✅ [SEND] Message sent successfully:', result);
+                    
+                } catch (error) {
+                    console.error('❌ [SEND] Failed to send message:', error);
+                    this.updateDebugInfo(`Failed to send message: ${error.message}`, 'error');
+                    
+                    // Restore message to input on error
+                    messageInput.value = message;
+                }
+            }
+
         }
+
+        // Initialize the bulletproof widget
+        window.messagingWidget = new BulletproofMessagingWidget();
     </script>
 </body>
 </html>

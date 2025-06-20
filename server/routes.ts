@@ -248,7 +248,18 @@ const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
   next();
 };
 
-export async function registerRoutes(app: Express, io?: any): Promise<any> {
+export async function registerRoutes(app: Express, io: any) {
+  console.log('🔌 Socket.IO server initialized for routes');
+
+  // Helper function to broadcast to admin room
+  const broadcastToAdmin = (eventName: string, data: any) => {
+      if (!io) {
+          console.error('❌ Socket.IO not available to broadcast event:', eventName);
+          return;
+      }
+      console.log(`📡 [SOCKET_BROADCAST] Broadcasting ${eventName} to admin-room`);
+      io.to('admin-room').emit(eventName, data);
+  };
   
   // Mount presigned URL routes BEFORE body-parser
   app.use(uploadRoutes);
@@ -790,7 +801,7 @@ export async function registerRoutes(app: Express, io?: any): Promise<any> {
       
       if (email) {
         try {
-          console.log(`🔍 Looking for existing client: ${email}, ${businessData.name}, ${businessData.phone}`);
+          console.log(`🔍 Looking for existing client: ${email}, ${name || 'No name provided'}, No phone provided`);
           
           // Check if client already exists
           const existingClientData = await storage.findClientByEmail(email);
@@ -829,16 +840,16 @@ export async function registerRoutes(app: Express, io?: any): Promise<any> {
           } else {
             // Create new client under admin business
             const newCompany = await storage.createCompany({
-              name: businessData.name,
-              email: businessData.email,
-              phone: businessData.phone,
-              address: businessData.address,
-              city: businessData.city,
-              state: businessData.state,
-              website: businessData.website,
-              industry: businessData.businessType,
+              name: name || email.split('@')[0] || "Unknown Client",
+              email: email,
+              phone: phone || "No phone provided",
+              address: "To be enriched",
+              city: "To be enriched",
+              state: "To be enriched",
+              website: website || "",
+              industry: "Web Design Client",
               tags: [],
-              priority: businessData.priority
+              priority: "medium"
             });
             
             const secureToken = generateSecureProjectToken('squarespace_new_member', email);
@@ -873,7 +884,7 @@ export async function registerRoutes(app: Express, io?: any): Promise<any> {
             await storage.addMessage({
               projectId: project.id!,
               senderType: 'client',
-              senderName: businessData.name,
+              senderName: name || email.split('@')[0],
               content: message,
               attachments: []
             });
@@ -889,7 +900,7 @@ export async function registerRoutes(app: Express, io?: any): Promise<any> {
       addNotification({
         type: leadScore >= 80 ? 'high_score_lead' : 'new_lead',
         title: leadScore >= 80 ? 'High Score Lead!' : 'New Lead',
-        message: `${businessData.name} (Score: ${leadScore}) - ${businessType}`,
+        message: `${name || business_name || company} (Score: ${leadScore}) - ${businessType}`,
         businessId: 1 // Always admin business for notifications
       });
       
@@ -1205,37 +1216,21 @@ export async function registerRoutes(app: Express, io?: any): Promise<any> {
       if (io) {
         const broadcastMessage = {
           id: message.id,
+          projectId: projectData.id,  // Add projectId for admin inbox
           projectToken: token,
-          senderName: message.senderName,  // ← Fixed: was "sender"
-          content: message.content,        // ← Fixed: was "body"
-          createdAt: message.createdAt,    // ← Fixed: was "timestamp"
-          senderType: 'client',            // ← Added: required by React UI
+          senderName: message.senderName,
+          content: message.content,
+          createdAt: message.createdAt,
+          senderType: senderType as 'client' | 'admin',  // Use actual senderType
           attachments: message.attachments || []
         };
         
-        console.log(`📤 [SERVER] About to broadcast message to room: ${token}`);
-        console.log(`📤 [SERVER] Message data:`, JSON.stringify(broadcastMessage, null, 2));
+        console.log(`📤 [SERVER] Broadcasting to room: ${token}`);
+        io.to(token).emit('newMessage', broadcastMessage);
         
-        // Get room information before broadcasting
-        io.in(token).allSockets().then(clients => {
-          console.log(`📊 [SERVER] Room ${token} has ${clients.size} connected clients`);
-          console.log(`📊 [SERVER] Client IDs:`, Array.from(clients));
-          
-          // Broadcast the message
-          io.to(token).emit('newMessage', broadcastMessage);
-          console.log(`✅ [SERVER] Broadcast complete to ${clients.size} clients in room ${token}`);
-          
-          if (clients.size === 0) {
-            console.log(`⚠️ [SERVER] No clients in room ${token} - message not delivered in real-time`);
-          }
-        }).catch(error => {
-          console.error(`❌ [SERVER] Error getting room info for ${token}:`, error);
-          // Still try to broadcast even if room info fails
-          io.to(token).emit('newMessage', broadcastMessage);
-          console.log(`✅ [SERVER] Broadcast attempted despite room info error`);
-        });
-      } else {
-        console.log(`⚠️ [SERVER] WebSocket not available - cannot broadcast message`);
+        // --- ADMIN BROADCAST ---
+        console.log(`📡 [SERVER] Broadcasting to admin-room with message:`, broadcastMessage);
+        io.to('admin-room').emit('newMessage', broadcastMessage);
       }
 
       // Log activity for admin
@@ -1747,58 +1742,24 @@ export async function registerRoutes(app: Express, io?: any): Promise<any> {
   // ===================
 
   // Get all messages for a specific business (replaces debug endpoint)
-  app.get("/api/business/:businessId/messages", async (req: Request, res: Response) => {
+  app.get("/api/business/:businessId/messages", requireAdmin, async (req: Request, res: Response) => {
     try {
-      const businessId = parseInt(req.params.businessId);
-      console.log(`📬 Fetching messages for business ${businessId}...`);
-      
-      // Verify business exists
-      const business = await storage.getCompanyById(businessId);
-      if (!business) {
-        return res.status(404).json({ error: "Business not found" });
-      }
-      
-      // Get all projects for this business
-      const projects = await storage.getProjectsByCompany(businessId);
-      console.log(`📬 Found ${projects.length} projects for business ${businessId}`);
-      
-      // Get all messages for each project
-      const projectMessages = [];
-      for (const project of projects) {
-        const messages = await storage.getProjectMessages(project.id!);
-        console.log(`📬 Project ${project.id} (${project.title}) has ${messages.length} messages`);
+        const businessId = parseInt(req.params.businessId);
+        console.log(`📥 [ADMIN INBOX] Fetching all conversations for Business ID: ${businessId}...`);
+
+        // This new storage method will get all data needed in a single, efficient call
+        const conversations = await storage.getAllConversations();
         
-        // Only include projects with messages for cleaner inbox
-        if (messages.length > 0) {
-          projectMessages.push({
-            projectId: project.id,
-            projectTitle: project.title,
-            accessToken: project.accessToken,
-            messageCount: messages.length,
-            messages: messages,
-            status: project.status,
-            stage: project.stage,
-            createdAt: project.createdAt
-          });
-        }
-      }
-      
-      // Sort by most recent message activity
-      projectMessages.sort((a, b) => {
-        const aLastMsg = a.messages[a.messages.length - 1]?.createdAt || a.createdAt;
-        const bLastMsg = b.messages[b.messages.length - 1]?.createdAt || b.createdAt;
-        return new Date(bLastMsg).getTime() - new Date(aLastMsg).getTime();
-      });
-      
-      res.json({
-        businessId,
-        businessName: business.name,
-        totalProjects: projectMessages.length,
-        projectMessages: projectMessages
-      });
+        console.log(`✅ [ADMIN INBOX] Returning ${conversations.length} total conversations.`);
+        
+        res.json({
+            businessId,
+            projectMessages: conversations, // The frontend expects this structure
+        });
+        
     } catch (error) {
-      console.error("Failed to fetch business messages:", error);
-      res.status(500).json({ error: "Failed to fetch business messages" });
+        console.error('❌ [ADMIN INBOX] Error fetching business messages:', error);
+        res.status(500).json({ error: "Failed to fetch conversations" });
     }
   });
 
@@ -1921,15 +1882,19 @@ export async function registerRoutes(app: Express, io?: any): Promise<any> {
         const broadcastMessage = {
           id: message.id,
           projectToken: project.accessToken,
-          senderName: message.senderName,  // ← Fixed: was "sender"
-          content: message.content,        // ← Fixed: was "body"
-          createdAt: message.createdAt,    // ← Fixed: was "timestamp"
-          senderType: 'admin',             // ← Added: required by React UI
+          senderName: message.senderName,
+          content: message.content,
+          createdAt: message.createdAt,
+          senderType: 'admin',
           attachments: message.attachments || []
         };
         
         console.log(`📡 Broadcasting admin message to project room: ${project.accessToken}`);
         io.to(project.accessToken).emit('newMessage', broadcastMessage);
+        
+        // --- ADMIN BROADCAST ---
+        console.log(`📡 [SERVER] Broadcasting admin message to admin-room`);
+        io.to('admin-room').emit('admin-new-message', broadcastMessage);
       }
 
       // Log activity
@@ -4010,6 +3975,10 @@ Booked via: ${source}
       if (io) {
         console.log(`📡 Broadcasting message to project: ${projectToken}`);
         io.to(projectToken).emit('newMessage', unifiedMessage);
+        
+        // ALSO broadcast to admin room so admin UI receives all messages
+        console.log(`📡 Broadcasting message to admin-room for admin UI`);
+        io.to('admin-room').emit('newMessage', unifiedMessage);
       }
       
       // If this is an admin message, also push to Squarespace  
@@ -4242,93 +4211,70 @@ Booked via: ${source}
       
       // MEMBER TOKEN REQUEST (for Squarespace widgets)
       if (type === 'member' && email) {
-        console.log(`🔍 [TOKEN_REQUEST] Looking for member conversation: ${email}`);
+        console.log(`[MEMBER_AUTH] Authenticating member: ${email}`);
         
-        // Check for existing conversation
-        const existingClientData = await storage.findClientByEmail(email);
-        let existingClient: any = null;
+        // Step 1: Find if this member (company) already exists.
+        const existingClient = await storage.findClientByEmail(email);
         
-        if (existingClientData) {
-          if ('name' in existingClientData && 'id' in existingClientData) {
-            existingClient = existingClientData;
-          } else if (typeof existingClientData === 'object' && 'company' in existingClientData) {
-            existingClient = (existingClientData as any).company;
-          }
-        }
-        
-        if (existingClient) {
-          // Get the most recent active conversation  
-          try {
-            const existingProjects = await storage.getProjectsByCompany(existingClient.id);
-            console.log(`🔍 [TOKEN_REQUEST] Found ${existingProjects.length} projects for client ${existingClient.id}`);
+        if (existingClient?.id) {
+            console.log(`[MEMBER_AUTH] Found existing client: ${existingClient.name} (ID: ${existingClient.id})`);
             
-            const activeProjects = existingProjects
-              .filter(p => p.status === 'active' && p.accessToken)
-              .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
-            
-            console.log(`🔍 [TOKEN_REQUEST] Found ${activeProjects.length} active projects with tokens`);
-            
-            if (activeProjects.length > 0) {
-              const latestProject = activeProjects[0];
-              console.log(`✅ [TOKEN_REQUEST] Existing conversation found: ${latestProject.accessToken?.substring(0, 8)}...`);
-              return res.json({
-                token: latestProject.accessToken,
-                type: 'member',
-                valid: true,
-                existing: true,
-                projectId: latestProject.id,
-                projectTitle: latestProject.title,
-                clientName: existingClient.name
-              });
+            // Step 2: Find the most recent active project for this client.
+            const projects = await storage.getProjectsByCompanyId(existingClient.id);
+            const latestProject = projects
+                .filter(p => p.status === 'active')
+                .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+
+            if (latestProject) {
+                console.log(`[MEMBER_AUTH] Resuming existing conversation: ${latestProject.title}`);
+                return res.json({
+                    token: latestProject.accessToken,
+                    projectToken: latestProject.accessToken,
+                    type: 'member',
+                    valid: true,
+                    existing: true, // Let the widget know this is a returning user
+                    projectId: latestProject.id,
+                    projectTitle: latestProject.title,
+                    clientName: existingClient.name
+                });
             }
-          } catch (projectError) {
-            console.error(`❌ [TOKEN_REQUEST] Error fetching projects for client ${existingClient.id}:`, projectError);
-            // Continue to create new conversation
-          }
+            console.log(`[MEMBER_AUTH] Client exists, but no active project found. Creating a new one.`);
         }
+
+        // Step 3: No existing client or no active project found. Create a new one.
+        console.log(`[MEMBER_AUTH] Creating new client/conversation for: ${email}`);
         
-        // Create new conversation (member doesn't exist or no active conversations)
         let clientData = existingClient;
-        
         if (!clientData) {
-          // Create new client
-          clientData = await storage.createCompany({
-            name: name || email.split('@')[0],
-            email: email,
-            phone: '',
-            address: '',
-            city: '',
-            state: '',
-            website: '',
-            industry: 'Web Design Client',
-            tags: [],
-            priority: 'medium'
-          });
-          console.log(`📝 [TOKEN_REQUEST] Created new client: ${clientData.name} (${clientData.email})`);
+            clientData = await storage.createCompany({
+                name: name || email.split('@')[0],
+                email: email,
+                phone: '',
+                industry: 'Web Design Client',
+                tags: ['squarespace-member']
+            });
+            console.log(`[MEMBER_AUTH] Created new client: ${clientData.name} (ID: ${clientData.id})`);
         }
         
-        // Create new project with unified token linked to the actual client company
         const secureToken = generateSecureProjectToken('member_conversation', email);
         const newProject = await storage.createProject({
-          companyId: clientData.id, // Link to the actual client company for proper retrieval
-          title: `${clientData.name} - Conversation ${Date.now()}`,
-          type: 'consultation',
-          stage: 'discovery',
-          status: 'active',
-          totalAmount: 0,
-          paidAmount: 0,
-          accessToken: secureToken.token
+            companyId: clientData.id,
+            title: `${clientData.name} - Member Conversation`,
+            type: 'consultation',
+            status: 'active',
+            accessToken: secureToken.token
         });
         
-        console.log(`✨ [TOKEN_REQUEST] Created new conversation: ${secureToken.token.substring(0, 8)}...`);
+        console.log(`[MEMBER_AUTH] Created new conversation: ${secureToken.token.substring(0, 8)}...`);
         return res.json({
-          token: secureToken.token,
-          type: 'member',
-          valid: true,
-          existing: false,
-          projectId: newProject.id,
-          projectTitle: newProject.title,
-          clientName: clientData.name
+            token: secureToken.token,
+            projectToken: secureToken.token,
+            type: 'member',
+            valid: true,
+            existing: false, // This is a brand new conversation
+            projectId: newProject.id,
+            projectTitle: newProject.title,
+            clientName: clientData.name
         });
       }
       
@@ -4485,201 +4431,59 @@ Booked via: ${source}
 
   // ===================
 
-  return app;
-} 
-
-// Email confirmation function
-interface EmailConfirmationData {
-  to: string;
-  clientName: string;
-  appointmentDate: string;
-  appointmentTime: string;
-  services: string;
-  projectToken: string;
-  businessName: string;
-  appointmentId?: number; // Optional appointment ID for action links
-  }
-
-async function sendAppointmentConfirmationEmail(data: EmailConfirmationData): Promise<void> {
-  // Build URLs for client actions - Auto-detect environment
-  let baseUrl: string;
-  
-  if (process.env.NODE_ENV === 'production') {
-    // Production Railway URL
-    baseUrl = 'https://pleasantcovedesign-production.up.railway.app';
-  } else if (process.env.CLIENT_PORTAL_URL) {
-    // Custom URL from environment
-    baseUrl = process.env.CLIENT_PORTAL_URL;
-  } else {
-    // Local development
-    baseUrl = 'http://localhost:5174';
-  }
-  
-  const appointmentId = data.appointmentId || ''; // We'll need to pass this
-  
-  // Client appointment management links (removed dashboard as requested)
-  const rescheduleUrl = `${baseUrl}/api/appointments/${appointmentId}/reschedule?token=${data.projectToken}`;
-  const cancelUrl = `${baseUrl}/cancel-appointment/${appointmentId}?token=${data.projectToken}`;
-  
-  const emailContent = `
-=== APPOINTMENT CONFIRMATION EMAIL ===
-To: ${data.to}
-Subject: ✅ Appointment Confirmed - Pleasant Cove Design
-
-Dear ${data.clientName},
-
-🎉 Your consultation with Pleasant Cove Design is confirmed!
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📋 APPOINTMENT DETAILS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-📅 Date: ${new Date(data.appointmentDate).toLocaleDateString('en-US', { 
-    weekday: 'long', 
-    year: 'numeric', 
-    month: 'long', 
-    day: 'numeric' 
-  })}
-🕒 Time: ${data.appointmentTime}
-⏱️ Duration: 30 minutes
-🎯 Services: ${data.services}
-${data.businessName ? `🏢 Business: ${data.businessName}` : ''}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🎯 WHAT TO EXPECT
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-This 30-minute consultation will help us understand your project goals and outline a clear plan tailored to your business needs.
-
-📝 PREPARATION CHECKLIST:
-• Think about your current challenges and goals
-• Consider your target audience and competitors  
-• Have examples of designs you like ready to share
-• Prepare any questions about timeline and budget
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🔗 MANAGE YOUR APPOINTMENT
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-📅 Reschedule: ${rescheduleUrl}
-   Need to change your appointment time?
-
-❌ Cancel: ${cancelUrl}
-   Cancel if you can't make it
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📞 CONTACT INFORMATION
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-📧 Email: pleasantcovedesign@gmail.com
-📱 Phone: (207) 380-5680
-
-We're excited to work with you and help bring your vision to life!
-
-Best regards,
-The Pleasant Cove Design Team
-
-🔐 Project Reference: ${data.projectToken}
-=====================================
-  `;
-  
-  console.log(emailContent);
-  
-  // Enhanced HTML version for actual email sending
-  const htmlContent = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: #000; color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
-        .content { background: #fff; padding: 30px; border: 1px solid #ddd; }
-        .appointment-details { background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; }
-        .action-buttons { margin: 30px 0; text-align: center; }
-        .btn { display: inline-block; padding: 12px 24px; margin: 0 10px 10px 0; text-decoration: none; border-radius: 6px; font-weight: 600; text-align: center; }
-        .btn-primary { background: #000; color: white; }
-        .btn-secondary { background: #6c757d; color: white; }
-        .btn-danger { background: #dc3545; color: white; }
-        .footer { background: #f8f9fa; padding: 20px; text-align: center; border-radius: 0 0 8px 8px; color: #6c757d; font-size: 14px; }
-        .checklist { background: #e7f3ff; padding: 15px; border-left: 4px solid #0066cc; margin: 15px 0; }
-        .checklist ul { margin: 0; padding-left: 20px; }
-      </style>
-    </head>
-    <body>
-      <div class="header">
-        <h1>✅ Appointment Confirmed!</h1>
-        <p>Pleasant Cove Design Consultation</p>
-      </div>
-      
-      <div class="content">
-        <p>Dear <strong>${data.clientName}</strong>,</p>
-        <p>🎉 Your consultation with Pleasant Cove Design is confirmed!</p>
-        
-        <div class="appointment-details">
-          <h3>📋 Appointment Details</h3>
-          <p><strong>📅 Date:</strong> ${new Date(data.appointmentDate).toLocaleDateString('en-US', { 
-            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
-          })}</p>
-          <p><strong>🕒 Time:</strong> ${data.appointmentTime}</p>
-          <p><strong>⏱️ Duration:</strong> 30 minutes</p>
-          <p><strong>🎯 Services:</strong> ${data.services}</p>
-          ${data.businessName ? `<p><strong>🏢 Business:</strong> ${data.businessName}</p>` : ''}
-        </div>
-        
-        <div class="checklist">
-          <h4>📝 Preparation Checklist:</h4>
-          <ul>
-            <li>Think about your current challenges and goals</li>
-            <li>Consider your target audience and competitors</li>
-            <li>Have examples of designs you like ready to share</li>
-            <li>Prepare questions about timeline and budget</li>
-          </ul>
-        </div>
-        
-        <div class="action-buttons">
-          <h3>🔗 Manage Your Appointment</h3>
-          <a href="${rescheduleUrl}" class="btn btn-secondary">📅 Reschedule</a>
-          <a href="${cancelUrl}" class="btn btn-danger">❌ Cancel</a>
-        </div>
-        
-        <p>We're excited to work with you and help bring your vision to life!</p>
-        
-        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd;">
-          <h4>📞 Contact Information</h4>
-          <p>📧 <strong>Email:</strong> pleasantcovedesign@gmail.com</p>
-          <p>📱 <strong>Phone:</strong> (207) 380-5680</p>
-        </div>
-      </div>
-      
-      <div class="footer">
-        <p>🔐 Project Reference: ${data.projectToken}</p>
-        <p>© 2025 Pleasant Cove Design. All rights reserved.</p>
-      </div>
-    </body>
-    </html>
-  `;
-  
-  // Send real email via Gmail SMTP
-  const transporter = createEmailTransporter();
-  
-  if (transporter) {
+  // NEW, RELIABLE ENDPOINT FOR ADMIN INBOX
+  app.get("/api/admin/conversations", requireAdmin, async (req: Request, res: Response) => {
     try {
-      await transporter.sendMail({
-        from: process.env.EMAIL_FROM || '"Pleasant Cove Design" <pleasantcovedesign@gmail.com>',
-        to: data.to,
-        subject: '✅ Appointment Confirmed - Pleasant Cove Design',
-        html: htmlContent,
-        text: emailContent // Fallback plain text version
-      });
+      console.log("✅ [ADMIN INBOX] Fetching all conversations via new dedicated route...");
       
-      console.log(`📧 Email sent successfully to ${data.to} via Gmail SMTP`);
-      return; // Exit early on successful email send
+      // Manually read the database to bypass the storage layer bugs
+      const dbPath = path.join(process.cwd(), 'data', 'database.json');
+      const dbData = JSON.parse(fs.readFileSync(dbPath, 'utf-8'));
+      
+      const allProjects: Project[] = dbData.projects;
+      const allMessages: Message[] = dbData.projectMessages;
+      const allCompanies: Company[] = dbData.companies;
+
+      const companyMap = new Map(allCompanies.map(c => [c.id, c]));
+
+      const conversations = allProjects
+        .map(project => {
+          const company = companyMap.get(project.companyId);
+          const projectMessages = allMessages.filter(m => m.projectId === project.id);
+
+          if (!company || projectMessages.length === 0) {
+            return null;
+          }
+          
+          projectMessages.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+          const lastMessage = projectMessages[projectMessages.length - 1];
+
+          return {
+            projectId: project.id,
+            projectTitle: project.title,
+            customerName: company.name,
+            accessToken: project.accessToken,
+            lastMessage: lastMessage,
+            lastMessageTime: lastMessage.createdAt,
+            messages: projectMessages,
+          };
+        })
+        .filter((c): c is NonNullable<typeof c> => c !== null);
+
+      conversations.sort((a, b) => 
+        new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime()
+      );
+      
+      console.log(`✅ [ADMIN INBOX] Successfully fetched ${conversations.length} conversations.`);
+      // The frontend expects the data nested under a `projectMessages` key
+      res.json({ projectMessages: conversations });
+
     } catch (error) {
-      console.error('📧 Gmail SMTP failed, falling back to console log:', error);
-      // Continue to console logging as fallback
+      console.error("❌ [ADMIN INBOX] Failed to fetch conversations:", error);
+      res.status(500).json({ error: "Failed to fetch conversations" });
     }
-  }
-  
-  // Fallback: Console logging (if Gmail not configured or failed)
-  console.log('📧 Falling back to console logging:');
+  });
+
+  // Correctly closing the function
 }
