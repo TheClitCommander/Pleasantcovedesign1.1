@@ -3886,9 +3886,12 @@ Booked via: ${source}
     try {
       const { projectToken, sender, body } = req.body;
       
-      if (!projectToken || !sender || !body) {
+      // Allow empty body if files are attached
+      const hasFiles = req.files && Array.isArray(req.files) && req.files.length > 0;
+      
+      if (!projectToken || !sender || (!body && !hasFiles)) {
         return res.status(400).json({ 
-          error: "projectToken, sender, and body are required" 
+          error: "projectToken, sender, and either body or files are required" 
         });
       }
       
@@ -3912,28 +3915,21 @@ Booked via: ${source}
          
          for (const file of req.files) {
            try {
-             // For now, use simple local file storage (implement R2 later if needed)
-             const fileName = `${projectToken}-${Date.now()}-${file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-             const localPath = `/uploads/${fileName}`;
-             
-             // Simple file save using Node.js fs (you can enhance this later)
-             const fs = await import('fs/promises');
-             const path = await import('path');
-             const uploadsDir = path.join(process.cwd(), 'uploads');
-             
-             // Ensure uploads directory exists
-             try {
-               await fs.access(uploadsDir);
-             } catch {
-               await fs.mkdir(uploadsDir, { recursive: true });
+             // With disk storage, the file is already saved by multer
+             // We just need to construct the URL from the filename
+             if (file.filename) {
+               const fileUrl = `http://localhost:3000/uploads/${file.filename}`;
+               attachmentUrls.push(fileUrl);
+               console.log(`📎 File processed via disk storage: ${file.filename}`);
+             } else {
+               console.error(`File missing filename:`, {
+                 originalname: file.originalname,
+                 filename: file.filename,
+                 path: file.path
+               });
              }
-             
-             // Save file
-             await fs.writeFile(path.join(uploadsDir, fileName), file.buffer);
-             attachmentUrls.push(`http://localhost:3000${localPath}`);
-             console.log(`📎 Local upload successful: ${fileName}`);
            } catch (uploadError) {
-             console.error(`Failed to upload file ${file.originalname}:`, uploadError);
+             console.error(`Failed to process file ${file.originalname}:`, uploadError);
              // Continue with other files, don't fail the entire message
            }
          }
@@ -3953,21 +3949,39 @@ Booked via: ${source}
          attachments: attachmentUrls,
          createdAt: new Date().toISOString()
        });
+
+       // DEBUG: Log the saved message to see what was actually stored
+       console.log(`🔍 [DEBUG] Saved message from storage:`, {
+         id: savedMessage.id,
+         senderName: savedMessage.senderName,
+         content: savedMessage.content?.substring(0, 50),
+         senderType: savedMessage.senderType,
+         attachments: savedMessage.attachments?.length || 0
+       });
       
       // Create unified response
       const unifiedMessage: UnifiedMessage = {
         id: savedMessage.id,
         projectToken,
-        senderName: sender,                    // ← Fixed: was "sender"
-        content: body,                         // ← Fixed: was "body"
-        createdAt: new Date().toISOString(),   // ← Fixed: was "timestamp"
-        senderType,                            // ← Added: required by React UI
-        attachments: attachmentUrls
+        senderName: savedMessage.senderName,    // ← Use savedMessage.senderName instead of sender
+        content: savedMessage.content,          // ← Use savedMessage.content instead of body
+        createdAt: savedMessage.createdAt || new Date().toISOString(),
+        senderType: savedMessage.senderType,    // ← Use savedMessage.senderType
+        attachments: savedMessage.attachments || []
       };
+
+      // DEBUG: Log the unified message being broadcast
+      console.log(`🔍 [DEBUG] Unified message being broadcast:`, {
+        id: unifiedMessage.id,
+        senderName: unifiedMessage.senderName,
+        content: unifiedMessage.content?.substring(0, 50),
+        senderType: unifiedMessage.senderType,
+        attachments: unifiedMessage.attachments?.length || 0
+      });
       
       console.log(`✅ Unified message created:`, {
         id: savedMessage.id,
-        sender,
+        sender: savedMessage.senderName,  // ← Use savedMessage.senderName
         attachments: attachmentUrls.length
       });
       

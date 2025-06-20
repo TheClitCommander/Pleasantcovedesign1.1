@@ -1553,6 +1553,79 @@
       "attachments": [],
       "createdAt": "2025-06-20T16:40:58.294Z",
       "id": 244
+    },
+    {
+      "projectId": 231,
+      "senderType": "admin",
+      "senderName": "Ben Dickinson",
+      "content": "",
+      "attachments": [
+        "http://localhost:3000/uploads/project-mc4gfz4q-1750438720603-ChatGPT_Image_May_27__2025__04_38_15_PM.png"
+      ],
+      "id": 245,
+      "createdAt": "2025-06-20T16:58:40.611Z"
+    },
+    {
+      "projectId": 231,
+      "senderType": "admin",
+      "senderName": "Ben Dickinson",
+      "content": "",
+      "attachments": [
+        "http://localhost:3000/uploads/project-mc4gfz4q-1750439088176-Screenshot_2025-06-12_at_10.24.19___PM.png"
+      ],
+      "id": 247,
+      "createdAt": "2025-06-20T17:04:48.183Z"
+    },
+    {
+      "projectId": 231,
+      "senderType": "admin",
+      "senderName": "Ben Dickinson",
+      "content": "",
+      "attachments": [
+        "http://localhost:3000/uploads/project-mc4gfz4q-1750439431310-ChatGPT_Image_May_27__2025__04_38_15_PM.png"
+      ],
+      "id": 249,
+      "createdAt": "2025-06-20T17:10:31.319Z"
+    },
+    {
+      "projectId": 231,
+      "senderType": "admin",
+      "senderName": "Ben",
+      "content": "",
+      "attachments": [],
+      "createdAt": "2025-06-20T17:29:00.830Z",
+      "id": 251
+    },
+    {
+      "projectId": 240,
+      "senderType": "client",
+      "senderName": "Garth",
+      "content": "hey",
+      "attachments": [],
+      "createdAt": "2025-06-20T17:41:32.487Z",
+      "id": 252
+    },
+    {
+      "projectId": 240,
+      "senderType": "admin",
+      "senderName": "Ben Dickinson",
+      "content": "",
+      "attachments": [
+        "http://localhost:3000/uploads/project-mc516tr5-1750441319420-ChatGPT_Image_May_27__2025__04_38_15_PM.png"
+      ],
+      "id": 253,
+      "createdAt": "2025-06-20T17:41:59.429Z"
+    },
+    {
+      "projectId": 240,
+      "senderType": "client",
+      "senderName": "Garth",
+      "content": "",
+      "attachments": [
+        "http://localhost:3000/uploads/project-unknown-1750441331289-Screenshot_2025-06-18_at_12.08.16___PM.png"
+      ],
+      "createdAt": "2025-06-20T17:42:11.293Z",
+      "id": 255
     }
   ],
   "projectFiles": [],
@@ -2404,6 +2477,38 @@
       "projectId": 9,
       "id": 218,
       "createdAt": "2025-06-20T06:12:26.504Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Ben Dickinson: files shared (1 files)",
+      "companyId": 142,
+      "projectId": 231,
+      "id": 246,
+      "createdAt": "2025-06-20T16:58:40.613Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Ben Dickinson: files shared (1 files)",
+      "companyId": 142,
+      "projectId": 231,
+      "id": 248,
+      "createdAt": "2025-06-20T17:04:48.186Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Ben Dickinson: files shared (1 files)",
+      "companyId": 142,
+      "projectId": 231,
+      "id": 250,
+      "createdAt": "2025-06-20T17:10:31.321Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Ben Dickinson: files shared (1 files)",
+      "companyId": 239,
+      "projectId": 240,
+      "id": 254,
+      "createdAt": "2025-06-20T17:41:59.430Z"
     }
   ],
   "campaigns": [],
@@ -2440,5 +2545,5 @@
     "appointments": 0,
     "progressEntries": 0
   },
-  "nextId": 245
+  "nextId": 256
 }

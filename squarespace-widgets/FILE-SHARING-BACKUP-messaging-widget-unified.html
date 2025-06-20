@@ -1019,23 +1019,11 @@
                 const isFromUser = message.senderType === 'client';
                 const timestamp = new Date(message.createdAt).toLocaleTimeString();
                 
-                // Debug logging for sender name issue
-                console.log('🐛 [ADDMESSAGE] Debug message object:', {
-                    senderName: message.senderName,
-                    sender: message.sender,
-                    senderType: message.senderType,
-                    content: message.content,
-                    messageKeys: Object.keys(message)
-                });
-                
-                const senderName = message.senderName || message.sender || 'Unknown';
-                console.log('🐛 [ADDMESSAGE] Final sender name:', senderName);
-                
                 messageDiv.className = `pcd-message ${isFromUser ? 'user' : 'admin'}`;
                 messageDiv.innerHTML = `
                     <div class="pcd-message-content">
                         <div class="pcd-message-header">
-                            <strong>${this.escapeHtml(senderName)}</strong>
+                            <strong>${this.escapeHtml(message.senderName || message.sender)}</strong>
                             <span class="pcd-message-time">${timestamp}</span>
                         </div>
                         <div class="pcd-message-text">${this.escapeHtml(message.content || message.body || '')}</div>
@@ -1081,9 +1069,6 @@
             }
 
             escapeHtml(text) {
-                if (text === undefined || text === null) {
-                    return '';
-                }
                 const div = document.createElement('div');
                 div.textContent = text;
                 return div.innerHTML;
