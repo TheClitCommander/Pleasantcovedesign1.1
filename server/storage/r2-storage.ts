@@ -70,7 +70,11 @@ export class R2Storage {
 
   private getR2Domain(): string {
     // Extract domain from endpoint
-    const url = new URL(this.client.config.endpoint as string);
+    const endpoint = this.client.config.endpoint;
+    if (!endpoint) {
+      throw new Error('R2 endpoint not configured');
+    }
+    const url = new URL(endpoint as string);
     return url.hostname;
   }
 }

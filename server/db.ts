@@ -109,19 +109,7 @@ interface ProjectMessage {
   updatedAt?: string;
 }
 
-// NEW: Project File interface for file management
-interface ProjectFile {
-  id: number;
-  projectId: number;
-  fileName: string;
-  fileUrl: string;
-  fileSize?: number;
-  fileType?: string;
-  uploadedBy: 'admin' | 'client';
-  uploaderName: string;
-  description?: string;
-  createdAt?: string;
-}
+// ProjectFile is imported from shared/schema.js - no need to redefine
 
 // In-memory storage
 class InMemoryDatabase {
@@ -581,8 +569,8 @@ class InMemoryDatabase {
       totalAmount: 0,
       paidAmount: 0,
       paymentStatus: 'pending',
-      accessToken: data.token,
-      token: data.token, // Add both for compatibility
+      accessToken: data.accessToken || data.token,
+      token: data.accessToken || data.token, // Add both for compatibility
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -649,24 +637,36 @@ class InMemoryDatabase {
     }
   }
 
+  // Message and file operations using in-memory data
   async getProjectMessages(projectId: number): Promise<Message[]> {
-    const db = await this.read();
-    return db.projectMessages.filter(m => m.projectId === projectId);
+    return this.projectMessages.filter(m => m.projectId === projectId);
   }
 
   async getProjectsWithMessages(): Promise<Project[]> {
-    const db = await this.read();
-    const projectIdsWithMessages = new Set(db.projectMessages.map(m => m.projectId));
-    return db.projects.filter(p => projectIdsWithMessages.has(p.id));
+    const projectIdsWithMessages = new Set(this.projectMessages.map(m => m.projectId));
+    return this.projects.filter(p => projectIdsWithMessages.has(p.id!));
   }
 
   async createProjectMessage(message: Omit<Message, 'id' | 'createdAt' | 'attachments'> & { attachments?: string[] }): Promise<Message> {
-    const db = await this.read();
-    // ... rest of the method
+    const newMessage = {
+      ...message,
+      id: this.nextId++,
+      createdAt: new Date().toISOString(),
+      attachments: message.attachments || []
+    } as Message;
+    
+    this.projectMessages.push(newMessage as any);
+    this.saveToDisk();
+    return newMessage;
   }
 
-  abstract getAllMessages(): Promise<Message[]>;
-  abstract getProjectFiles(projectId: number): Promise<ProjectFile[]>;
+  async getAllMessages(): Promise<Message[]> {
+    return this.projectMessages as Message[];
+  }
+
+  async getProjectFiles(projectId: number): Promise<ProjectFile[]> {
+    return this.projectFiles.filter(f => f.projectId === projectId);
+  }
 }
 
 // Create singleton instance

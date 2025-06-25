@@ -598,7 +598,16 @@ export class Storage {
     
     const projects = await this.getProjects({});
     const companies = await this.getCompanies();
-    const messages = await this.getAllMessages();
+    
+    // Get all project messages
+    const allProjectMessages: any[] = [];
+    for (const project of projects) {
+      if (project.id) {
+        const projectMessages = await this.getProjectMessages(project.id);
+        allProjectMessages.push(...projectMessages);
+      }
+    }
+    const messages = allProjectMessages;
 
     const companyMap = new Map(companies.map(c => [c.id, c]));
 
