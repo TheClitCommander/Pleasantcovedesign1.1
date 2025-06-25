@@ -468,7 +468,7 @@ class InMemoryDatabase {
       }
       
       // Create new client and project with secure token
-      const company = await this.createCompany({
+      const companyId = await this.createCompany({
         name: name,
         email: email,
         phone: '',
@@ -485,7 +485,7 @@ class InMemoryDatabase {
       const secureToken = generateSecureProjectToken(source || 'squarespace_form', email);
       const projectId = await this.createProject({
         title: `${name} - Conversation ${secureToken.submissionId}`,
-        companyId: company,
+        companyId: companyId,
         accessToken: secureToken.token, // Always use secure tokens
         status: 'active',
         description: `Secure conversation created from ${source || 'form submission'}`
@@ -615,6 +615,10 @@ class InMemoryDatabase {
           priority: 'high'
         });
         
+        if (!companyId) {
+          throw new Error('Failed to create company');
+        }
+        
         // Create project with stable token
         const projectId = await this.createProject({
           title: 'Ben Dickinson - Website Project',
@@ -639,7 +643,10 @@ class InMemoryDatabase {
 
   // Message and file operations using in-memory data
   async getProjectMessages(projectId: number): Promise<Message[]> {
-    return this.projectMessages.filter(m => m.projectId === projectId);
+    return this.projectMessages.filter(m => m.projectId === projectId).map(pm => ({
+      ...pm,
+      createdAt: pm.createdAt || new Date().toISOString()
+    })) as Message[];
   }
 
   async getProjectsWithMessages(): Promise<Project[]> {
@@ -661,7 +668,10 @@ class InMemoryDatabase {
   }
 
   async getAllMessages(): Promise<Message[]> {
-    return this.projectMessages as Message[];
+    return this.projectMessages.map(pm => ({
+      ...pm,
+      createdAt: pm.createdAt || new Date().toISOString()
+    })) as Message[];
   }
 
   async getProjectFiles(projectId: number): Promise<ProjectFile[]> {

@@ -634,9 +634,10 @@ export class Storage {
       })
       .filter(Boolean); // Remove null entries for projects with no messages or company
 
-    conversations.sort((a, b) => 
-      new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime()
-    );
+    conversations.sort((a, b) => {
+      if (!a || !b) return 0;
+      return new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime();
+    });
     
     console.log(`✅ [STORAGE] Returning ${conversations.length} formatted conversations.`);
     return conversations;

@@ -74,7 +74,7 @@ export class R2Storage {
     if (!endpoint) {
       throw new Error('R2 endpoint not configured');
     }
-    const url = new URL(endpoint as string);
+    const url = new URL(endpoint as unknown as string);
     return url.hostname;
   }
 }
