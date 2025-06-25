@@ -2,6 +2,7 @@ import * as dotenv from 'dotenv';
 import { resolve } from 'path';
 import { createServer } from "http";
 import path from "path";
+import fs from "fs";
 import { fileURLToPath } from "url";
 import { registerRoutes } from "./routes.js";
 import { storage } from './storage.js';
@@ -15,6 +16,7 @@ console.log('🔧 Environment variables loaded');
 
 import express, { type Express } from "express";
 import cors from "cors";
+import { createR2Storage } from './storage/r2-storage.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -48,13 +50,13 @@ const io = new Server(server, {
       /pleasantcove/,
       // Railway production
       'https://pleasantcovedesign-production.up.railway.app',
+      // Local IP for mobile access
+      'http://192.168.1.87:3000',
       // ngrok support
       /\.ngrok-free\.app$/,
       /\.ngrok\.io$/,
       // Current ngrok URL
-      'https://cfa1-2603-7080-e501-3f6a-b468-b0d0-1bfd-2e5.ngrok-free.app',
-      // Previous ngrok URL (backup)
-      'https://cae1-2603-7080-e501-3f6a-b468-b0d0-1bfd-2e5.ngrok-free.app',
+      'https://1ce2-2603-7080-e501-3f6a-59ca-c294-1beb-ddfc.ngrok-free.app',
     ],
     methods: ['GET', 'POST'],
     credentials: true,
@@ -159,37 +161,36 @@ io.on('connection', (socket) => {
 // Export io for use in routes
 export { io };
 
-// Enhanced CORS for Squarespace webhooks and ngrok
-app.use(cors({
-  origin: [
-    'http://localhost:5173',
-    'https://localhost:5173', 
-    'http://localhost:5174',
-    'https://localhost:5174',
-    // SquareSpace domains
-    /\.squarespace\.com$/,
-    /\.squarespace-cdn\.com$/,
-    'https://www.pleasantcovedesign.com',
-    'http://www.pleasantcovedesign.com',
-    'https://pleasantcovedesign.com',
-    'http://pleasantcovedesign.com',
-    /pleasantcove/,
-    // Railway production
-    'https://pleasantcovedesign-production.up.railway.app',
-    // ngrok support
-    /\.ngrok-free\.app$/,
-    /\.ngrok\.io$/,
-    // Current ngrok URL
-    'https://cfa1-2603-7080-e501-3f6a-b468-b0d0-1bfd-2e5.ngrok-free.app',
-    // Previous ngrok URL (backup)
-    'https://cae1-2603-7080-e501-3f6a-b468-b0d0-1bfd-2e5.ngrok-free.app',
-    // Allow any origin for development (remove in production)
-    true
-  ],
+// --- CORS Configuration ---
+const allowedOrigins = [
+  'http://localhost:5173', // Admin UI
+  'http://localhost:3000', // Local server
+  'http://192.168.1.87:3000', // Local server via IP for mobile access
+  'https://pleasantcovedesign-production.up.railway.app', // Production frontend
+  'https://www.pleasantcovedesign.com', // Squarespace production
+  'https://nectarine-sparrow-dwsp.squarespace.com', // Squarespace test site
+  'https://1ce2-2603-7080-e501-3f6a-59ca-c294-1beb-ddfc.ngrok-free.app', // ngrok for HTTPS compatibility
+];
+
+const corsOptions: cors.CorsOptions = {
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      console.warn(`🚫 CORS: Blocked origin: ${origin}`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'ngrok-skip-browser-warning', 'User-Agent']
-}));
+  optionsSuccessStatus: 200
+};
+
+console.log('🔧 CORS Allowed Origins:', allowedOrigins);
+app.use(cors(corsOptions));
+// --- End of CORS Configuration ---
 
 // Parse JSON bodies with increased limit for webhook data
 app.use(express.json({ limit: '50mb' }));
@@ -199,9 +200,95 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 const buildPath = path.join(__dirname, '../dist/client');
 app.use(express.static(buildPath));
 
-// Serve uploaded files from uploads directory
+// Serve uploaded files from uploads directory with proper headers
 const uploadsPath = path.join(__dirname, '../uploads');
-app.use('/uploads', express.static(uploadsPath));
+app.use('/uploads', (req, res, next) => {
+  // Add headers for cross-origin image access
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+  res.header('Cross-Origin-Resource-Policy', 'cross-origin');
+  res.header('Cache-Control', 'public, max-age=31536000'); // 1 year cache
+  next();
+}, express.static(uploadsPath));
+
+// Helper function to get MIME type from filename
+const getMimeType = (filename: string) => {
+  const extension = path.extname(filename).toLowerCase();
+  switch (extension) {
+    case '.jpg':
+    case '.jpeg':
+      return 'image/jpeg';
+    case '.png':
+      return 'image/png';
+    case '.gif':
+      return 'image/gif';
+    case '.webp':
+      return 'image/webp';
+    case '.svg':
+      return 'image/svg+xml';
+    default:
+      return 'application/octet-stream'; // Default binary type
+  }
+};
+
+// Add OPTIONS handler for image proxy preflight requests
+app.options('/api/image-proxy/:filename', (req, res) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, ngrok-skip-browser-warning');
+  res.header('ngrok-skip-browser-warning', 'true');
+  res.header('X-Ngrok-Skip-Browser-Warning', 'true');
+  res.status(200).end();
+});
+
+// Initialize R2 storage for production
+const r2Storage = createR2Storage();
+
+// Add a mobile-friendly image proxy endpoint with R2 support
+app.get('/api/image-proxy/:filename', async (req, res) => {
+  const filename = req.params.filename;
+  
+  try {
+    // Try R2 storage first (production)
+    if (r2Storage) {
+      console.log(`📁 Serving image from R2: ${filename}`);
+      const signedUrl = await r2Storage.getFileUrl(filename);
+      return res.redirect(signedUrl);
+    }
+    
+    // Fallback to local storage (development)
+    const imagePath = path.join(uploadsPath, filename);
+    
+    // Security check - ensure the file exists and is in uploads directory
+    if (!fs.existsSync(imagePath) || !imagePath.startsWith(uploadsPath)) {
+      return res.status(404).json({ error: 'Image not found' });
+    }
+    
+    const mimeType = getMimeType(filename);
+
+    // Set comprehensive headers for cross-origin access and ngrok compatibility
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, ngrok-skip-browser-warning');
+    res.header('Content-Type', mimeType);
+    res.header('Cache-Control', 'public, max-age=31536000');
+    res.header('X-Content-Type-Options', 'nosniff');
+    res.header('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.header('Cross-Origin-Embedder-Policy', 'unsafe-none');
+    
+    // Add ngrok-specific headers to prevent warning page
+    res.header('ngrok-skip-browser-warning', 'true');
+    res.header('X-Ngrok-Skip-Browser-Warning', 'true');
+    
+    console.log(`📁 Serving image from local storage: ${filename}`);
+    res.sendFile(imagePath);
+    
+  } catch (error) {
+    console.error('❌ Error serving image:', error);
+    res.status(500).json({ error: 'Failed to serve image' });
+  }
+});
 
 // Health check endpoint
 app.get('/health', (req, res) => {

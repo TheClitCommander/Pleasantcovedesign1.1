@@ -1186,20 +1186,22 @@ export async function registerRoutes(app: Express, io: any) {
       // Handle legacy multer uploads (fallback)
       else if (req.files && Array.isArray(req.files)) {
         const uploaded = req.files as any[];
+        
+        // Dynamically determine the base URL for ngrok/production
+        const baseUrl = process.env.NODE_ENV === 'production' 
+          ? 'https://pleasantcovedesign-production.up.railway.app'
+          : 'https://1ce2-2603-7080-e501-3f6a-59ca-c294-1beb-ddfc.ngrok-free.app';
+
         attachments = uploaded.map(f => {
-          // R2 uploads have .location, local uploads have .path
           if (f.location) {
             return f.location; // R2 upload
-          } else if (f.path) {
-            // Local upload - convert to accessible URL
-            const baseUrl = process.env.NODE_ENV === 'production' 
-              ? 'https://pleasantcovedesign-production.up.railway.app'
-              : `http://localhost:${process.env.PORT || 3000}`;
+          } else if (f.filename) {
+            // Local upload - construct public URL
             return `${baseUrl}/uploads/${f.filename}`;
           }
-          return f.path || f.filename; // Fallback
+          return f.path; // Fallback
         });
-        console.log('📎 Multer uploads processed:', attachments);
+        console.log('📎 Multer uploads processed (Admin):', attachments);
       }
 
       const message = await storage.createProjectMessage({
@@ -3910,27 +3912,21 @@ Booked via: ${source}
       
              // Handle file uploads  
        let attachmentUrls: string[] = [];
-       if (req.files && Array.isArray(req.files) && req.files.length > 0) {
+       if (req.files && Array.isArray(req.files)) {
          console.log(`📎 Processing ${req.files.length} file attachments`);
          
-         for (const file of req.files) {
+         // Dynamically determine the base URL - use HTTPS ngrok for HTTPS compatibility
+         const baseUrl = process.env.NODE_ENV === 'production' 
+           ? 'https://pleasantcovedesign-production.up.railway.app' 
+           : 'https://1ce2-2603-7080-e501-3f6a-59ca-c294-1beb-ddfc.ngrok-free.app';
+
+         for (const file of req.files as Express.Multer.File[]) {
            try {
-             // With disk storage, the file is already saved by multer
-             // We just need to construct the URL from the filename
-             if (file.filename) {
-               const fileUrl = `http://localhost:3000/uploads/${file.filename}`;
-               attachmentUrls.push(fileUrl);
-               console.log(`📎 File processed via disk storage: ${file.filename}`);
-             } else {
-               console.error(`File missing filename:`, {
-                 originalname: file.originalname,
-                 filename: file.filename,
-                 path: file.path
-               });
-             }
+             const localPath = `${baseUrl}/uploads/${file.filename}`;
+             console.log(`📎 File processed via disk storage: ${localPath}`);
+             attachmentUrls.push(localPath);
            } catch (uploadError) {
              console.error(`Failed to process file ${file.originalname}:`, uploadError);
-             // Continue with other files, don't fail the entire message
            }
          }
        }

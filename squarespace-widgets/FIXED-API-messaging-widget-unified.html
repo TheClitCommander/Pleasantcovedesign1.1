@@ -1408,23 +1408,50 @@
                     console.log(`🖼️ [ATTACHMENT] Rendering ${isImage ? 'image' : 'file'}: ${attachment}`);
                     
                     if (isImage) {
+                        // Create unique IDs for this specific attachment
                         const imageId = 'img_' + Date.now() + '_' + index;
                         const fallbackId = 'fallback_' + Date.now() + '_' + index;
                         const loaderId = 'loader_' + Date.now() + '_' + index;
                         
+                        // Use mobile-friendly proxy URL for better compatibility
                         let imageUrl = attachment;
                         
-                        if (attachment.includes('/uploads/') || attachment.includes('ngrok')) {
-                            const actualFilename = fileName.split('?')[0];
+                        // Always use image proxy for uploaded files
+                        if (attachment.includes('/uploads/')) {
+                            // Extract just the filename from the full URL path
+                            const urlParts = attachment.split('/');
+                            const actualFilename = urlParts[urlParts.length - 1]; // Get the last part after the last '/'
+                            
+                            // Use the detected backend URL for image proxy
                             const proxyUrl = `${this.config.backendUrl}/api/image-proxy/${actualFilename}`;
                             
+                            // Add ngrok bypass parameters if using ngrok
                             if (this.config.backendUrl.includes('ngrok-free.app')) {
                                 imageUrl = `${proxyUrl}?ngrok-skip-browser-warning=true`;
                             } else {
                                 imageUrl = proxyUrl;
                             }
+                            
+                            console.log(`📱 [PROXY] Original URL: ${attachment}`);
+                            console.log(`📱 [PROXY] Extracted filename: ${actualFilename}`);
+                            console.log(`📱 [PROXY] Final proxy URL: ${imageUrl}`);
+                        } else if (attachment.startsWith('http://localhost:3000/')) {
+                            // Already a localhost URL, use as-is
+                            imageUrl = attachment;
+                        } else if (attachment.includes('ngrok')) {
+                            // Extract filename from ngrok URL and use proxy
+                            const urlParts = attachment.split('/');
+                            const actualFilename = urlParts[urlParts.length - 1].split('?')[0]; // Remove query params
+                            const proxyUrl = `${this.config.backendUrl}/api/image-proxy/${actualFilename}`;
+                            
+                            // Add ngrok bypass parameters if using ngrok
+                            if (this.config.backendUrl.includes('ngrok-free.app')) {
+                                imageUrl = `${proxyUrl}?ngrok-skip-browser-warning=true`;
+                            } else {
+                                imageUrl = proxyUrl;
+                            }
+                            console.log(`📱 [NGROK->PROXY] Converting ngrok URL to proxy: ${imageUrl}`);
                         }
-                        
                         console.log(`🖼️ [IMAGE] Final image URL: ${imageUrl}`);
                         
                         html += `
@@ -1444,23 +1471,46 @@
                                      crossorigin="anonymous"
                                      loading="eager"
                                      referrerpolicy="no-referrer"
-                                     onerror="console.error('❌ [IMAGE] Failed to load:', '${imageUrl}'); document.getElementById('${loaderId}').style.display='none'; document.getElementById('${fallbackId}').style.display='block';"
-                                     onload="console.log('✅ [IMAGE] Successfully loaded:', '${imageUrl}'); document.getElementById('${loaderId}').style.display='none'; this.style.display='block';"
-                                     onclick="window.open('${imageUrl}', '_blank')">
+                                     onerror="console.error('❌ [IMAGE] Failed to load:', '${imageUrl}'); console.error('❌ [IMAGE] Error details:', this.naturalWidth, this.naturalHeight, this.complete); document.getElementById('${loaderId}').style.display='none'; document.getElementById('${fallbackId}').style.display='block';"
+                                     onload="console.log('✅ [IMAGE] Successfully loaded:', '${imageUrl}'); console.log('✅ [IMAGE] Dimensions:', this.naturalWidth + 'x' + this.naturalHeight); console.log('✅ [IMAGE] Complete:', this.complete); document.getElementById('${loaderId}').style.display='none'; this.style.display='block';"
+                                     onclick="console.log('🖱️ [IMAGE] Opening:', '${imageUrl}'); window.open('${imageUrl}', '_blank')">
                                 
                                 <!-- Error Fallback -->
                                 <div id="${fallbackId}" class="pcd-image-fallback" style="display:none; padding: 16px; background: #fff3cd; border-radius: 8px; text-align: center; border: 2px dashed #ffc107; max-width: 200px;">
                                     <div style="font-size: 32px; margin-bottom: 8px;">📷</div>
                                     <div style="font-weight: bold; color: #856404; margin-bottom: 4px;">${fileName}</div>
                                     <div style="font-size: 12px; color: #856404; margin-bottom: 12px;">Image could not be displayed</div>
-                                    <a href="${imageUrl}" target="_blank" style="color: #0056b3; font-weight: bold;">Open Image</a>
+                                    <div style="font-size: 11px; color: #666; margin-bottom: 8px;">URL: ${imageUrl.substring(0, 50)}...</div>
+                                    <a href="${imageUrl}" 
+                                       target="_blank" 
+                                       style="color: #0056b3; text-decoration: none; font-weight: bold; padding: 8px 12px; background: #cce7ff; border-radius: 6px; display: inline-block; font-size: 12px;"
+                                       onclick="console.log('🔗 [FALLBACK] Opening URL:', '${imageUrl}')">
+                                        📱 Open Image
+                                    </a>
                                 </div>
                             </div>
+                            <script>
+                                // Set a timeout for image loading
+                                setTimeout(function() {
+                                    const img = document.getElementById('${imageId}');
+                                    const loader = document.getElementById('${loaderId}');
+                                    const fallback = document.getElementById('${fallbackId}');
+                                    
+                                    if (img && loader && fallback && loader.style.display !== 'none') {
+                                        console.warn('⏰ [IMAGE] Timeout reached for:', '${imageUrl}');
+                                        loader.style.display = 'none';
+                                        fallback.style.display = 'block';
+                                    }
+                                }, 10000); // 10 second timeout
+                            <\/script>
                         `;
                     } else {
                         html += `
                             <div class="pcd-file-attachment" style="margin: 8px 0;">
-                                <a href="${attachment}" target="_blank" class="pcd-attachment">
+                                <a href="${attachment}" 
+                                   target="_blank" 
+                                   class="pcd-attachment"
+                                   style="display: inline-block; padding: 8px 12px; background: #e9ecef; border-radius: 6px; text-decoration: none; color: #495057;">
                                     <span class="pcd-attachment-icon">📎</span>
                                     ${fileName}
                                 </a>
@@ -1554,61 +1604,51 @@
                         const messagesUrl = this.config.backendUrl.includes('ngrok-free.app') 
                             ? `${this.config.backendUrl}/api/public/project/${this.projectToken}/messages?ngrok-skip-browser-warning=true`
                             : `${this.config.backendUrl}/api/public/project/${this.projectToken}/messages`;
+
+                        const jsonHeaders = {
+                            'Content-Type': 'application/json'
+                        };
+                        
+                        // Add ngrok bypass header if needed
+                        if (this.config.backendUrl.includes('ngrok-free.app')) {
+                            jsonHeaders['ngrok-skip-browser-warning'] = 'true';
+                        }
                         
                         response = await fetch(messagesUrl, {
                             method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            },
+                            headers: jsonHeaders,
                             body: JSON.stringify(payload)
                         });
                     }
 
+                    console.log(`📤 [SEND] Response status: ${response.status}`);
+
                     if (!response.ok) {
                         const errorText = await response.text();
-                        throw new Error(`Server responded with ${response.status}: ${errorText.substring(0, 150)}`);
+                        throw new Error(`Server error: ${response.status} - ${errorText}`);
                     }
-                    
-                    const data = await response.json();
-                    this.messages = data.messages || [];
-                    
-                    console.log(`📥 [SEND] Sent ${hasFiles ? 'files' : 'text'} message`);
-                    
-                    // Clear and populate UI
-                    const container = document.getElementById('pcd-chat-container');
-                    container.innerHTML = '';
-                    
-                    this.messages.forEach(message => {
-                        this.addMessageToUI(message, false);
-                    });
-                    
-                    this.scrollToBottom();
+
+                    const result = await response.json();
+                    console.log('✅ [SEND] Message sent successfully:', result);
+
+                    // Clear input and files on success
+                    messageInput.value = '';
+                    this.selectedFiles = [];
+                    this.updateFilePreview();
+                    this.autoResizeTextarea(messageInput);
                     
                 } catch (error) {
                     console.error('❌ [SEND] Failed to send message:', error);
                     this.updateDebugInfo(`Failed to send message: ${error.message}`, 'error');
+                    
+                    // Restore message to input on error
+                    messageInput.value = message;
                 } finally {
+                    // Re-enable send button
                     if (sendButton) sendButton.disabled = false;
                 }
             }
 
-            getProxiedImageUrl(attachmentUrl) {
-                if (!attachmentUrl) return '';
-
-                // Safely extract the filename from the URL, whether it's absolute or relative
-                const filename = attachmentUrl.substring(attachmentUrl.lastIndexOf('/') + 1).split('?')[0];
-                const isNgrok = this.config.backendUrl.includes('ngrok-free.app');
-                
-                let proxiedUrl = `${this.config.backendUrl}/api/image-proxy/${filename}`;
-
-                if (isNgrok) {
-                    proxiedUrl += '?ngrok-skip-browser-warning=true';
-                }
-
-                console.log(`🖼️ [PROXY_FN] Original: ${attachmentUrl}`);
-                console.log(`🖼️ [PROXY_FN] Final URL: ${proxiedUrl}`);
-                return proxiedUrl;
-            }
         }
 
         // Initialize the bulletproof widget

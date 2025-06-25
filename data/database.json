@@ -1626,6 +1626,408 @@
       ],
       "createdAt": "2025-06-20T17:42:11.293Z",
       "id": 255
+    },
+    {
+      "projectId": 240,
+      "senderType": "client",
+      "senderName": "Garth",
+      "content": "hey",
+      "attachments": [],
+      "createdAt": "2025-06-20T18:25:20.938Z",
+      "id": 256
+    },
+    {
+      "projectId": 231,
+      "senderType": "admin",
+      "senderName": "Ben",
+      "content": "Hey",
+      "attachments": [],
+      "createdAt": "2025-06-20T18:30:46.373Z",
+      "id": 257
+    },
+    {
+      "projectId": 231,
+      "senderType": "admin",
+      "senderName": "Ben",
+      "content": "What’s up",
+      "attachments": [],
+      "createdAt": "2025-06-20T18:30:54.370Z",
+      "id": 258
+    },
+    {
+      "projectId": 231,
+      "senderType": "admin",
+      "senderName": "Ben Dickinson",
+      "content": "how are you",
+      "attachments": [],
+      "createdAt": "2025-06-20T18:31:03.898Z",
+      "id": 259
+    },
+    {
+      "projectId": 240,
+      "senderType": "client",
+      "senderName": "Garth",
+      "content": "hey",
+      "attachments": [],
+      "createdAt": "2025-06-20T18:31:31.247Z",
+      "id": 260
+    },
+    {
+      "projectId": 231,
+      "senderType": "admin",
+      "senderName": "Ben",
+      "content": "Yo yo",
+      "attachments": [],
+      "createdAt": "2025-06-20T18:31:59.803Z",
+      "id": 261
+    },
+    {
+      "projectId": 231,
+      "senderType": "admin",
+      "senderName": "Ben Dickinson",
+      "content": "whats going on",
+      "attachments": [],
+      "createdAt": "2025-06-20T18:32:12.424Z",
+      "id": 262
+    },
+    {
+      "projectId": 240,
+      "senderType": "client",
+      "senderName": "Garth",
+      "content": "how are you jububju",
+      "attachments": [],
+      "createdAt": "2025-06-20T18:32:33.914Z",
+      "id": 263
+    },
+    {
+      "projectId": 240,
+      "senderType": "admin",
+      "senderName": "Ben Dickinson",
+      "content": "fooogdfd",
+      "attachments": [],
+      "createdAt": "2025-06-20T18:32:41.490Z",
+      "id": 264
+    },
+    {
+      "projectId": 231,
+      "senderType": "admin",
+      "senderName": "Ben",
+      "content": "",
+      "attachments": [
+        "http://localhost:3000/uploads/project-unknown-1750444394742-AF81753B-DB70-458A-A7E6-214FAC893BA8.png"
+      ],
+      "createdAt": "2025-06-20T18:33:17.984Z",
+      "id": 265
+    },
+    {
+      "projectId": 231,
+      "senderType": "admin",
+      "senderName": "Ben",
+      "content": "Where is my fonversation",
+      "attachments": [],
+      "createdAt": "2025-06-20T18:39:30.717Z",
+      "id": 266
+    },
+    {
+      "projectId": 231,
+      "senderType": "admin",
+      "senderName": "Ben",
+      "content": "what’re you doing with my stuff",
+      "attachments": [],
+      "createdAt": "2025-06-20T18:39:41.430Z",
+      "id": 267
+    },
+    {
+      "projectId": 231,
+      "senderType": "admin",
+      "senderName": "Ben",
+      "content": "",
+      "attachments": [
+        "http://localhost:3000/uploads/project-unknown-1750444826495-image.jpg"
+      ],
+      "createdAt": "2025-06-20T18:40:29.277Z",
+      "id": 268
+    },
+    {
+      "projectId": 231,
+      "senderType": "admin",
+      "senderName": "Ben Dickinson",
+      "content": "",
+      "attachments": [
+        "http://localhost:3000/uploads/project-mc4gfz4q-1750444852219-ChatGPT_Image_May_27__2025__04_38_15_PM.png"
+      ],
+      "id": 269,
+      "createdAt": "2025-06-20T18:40:52.226Z"
+    },
+    {
+      "projectId": 231,
+      "senderType": "admin",
+      "senderName": "Ben Dickinson",
+      "content": "",
+      "attachments": [
+        "http://localhost:3000/uploads/project-mc4gfz4q-1750445162997-Screenshot_2025-06-12_at_10.24.19___PM.png"
+      ],
+      "id": 271,
+      "createdAt": "2025-06-20T18:46:03.005Z"
+    },
+    {
+      "projectId": 231,
+      "senderType": "admin",
+      "senderName": "Ben Dickinson",
+      "content": "",
+      "attachments": [
+        "https://1ce2-2603-7080-e501-3f6a-59ca-c294-1beb-ddfc.ngrok-free.app/uploads/project-mc4gfz4q-1750445321784-Screenshot_2025-06-12_at_10.24.19___PM.png"
+      ],
+      "id": 273,
+      "createdAt": "2025-06-20T18:48:41.792Z"
+    },
+    {
+      "projectId": 240,
+      "senderType": "client",
+      "senderName": "Garth",
+      "content": "now its showwing a dotted border that shows the name and image could not be displayed and open image, which doesn't work so we are getting closer",
+      "attachments": [],
+      "createdAt": "2025-06-20T18:57:41.804Z",
+      "id": 275
+    },
+    {
+      "projectId": 231,
+      "senderType": "admin",
+      "senderName": "Ben",
+      "content": "",
+      "attachments": [
+        "https://1ce2-2603-7080-e501-3f6a-59ca-c294-1beb-ddfc.ngrok-free.app/uploads/project-unknown-1750446763937-IMG_9102.jpeg"
+      ],
+      "createdAt": "2025-06-20T19:12:48.077Z",
+      "id": 276
+    },
+    {
+      "projectId": 231,
+      "senderType": "admin",
+      "senderName": "Ben Dickinson",
+      "content": "",
+      "attachments": [
+        "https://1ce2-2603-7080-e501-3f6a-59ca-c294-1beb-ddfc.ngrok-free.app/uploads/project-mc4gfz4q-1750446782378-ChatGPT_Image_May_27__2025__04_38_15_PM.png"
+      ],
+      "id": 277,
+      "createdAt": "2025-06-20T19:13:02.383Z"
+    },
+    {
+      "projectId": 231,
+      "senderType": "admin",
+      "senderName": "Ben Dickinson",
+      "content": "",
+      "attachments": [
+        "http://localhost:3000/uploads/project-mc4gfz4q-1750447679024-ChatGPT_Image_May_27__2025__04_38_15_PM.png"
+      ],
+      "id": 279,
+      "createdAt": "2025-06-20T19:27:59.033Z"
+    },
+    {
+      "projectId": 231,
+      "senderType": "admin",
+      "senderName": "Ben Dickinson",
+      "content": "",
+      "attachments": [
+        "http://192.168.1.87:3000/uploads/project-mc4gfz4q-1750447858695-ChatGPT_Image_May_27__2025__04_38_15_PM.png"
+      ],
+      "id": 281,
+      "createdAt": "2025-06-20T19:30:58.704Z"
+    },
+    {
+      "projectId": 231,
+      "senderType": "admin",
+      "senderName": "Ben",
+      "content": "Hey",
+      "attachments": [],
+      "createdAt": "2025-06-20T19:41:10.123Z",
+      "id": 283
+    },
+    {
+      "projectId": 231,
+      "senderType": "admin",
+      "senderName": "Ben Dickinson",
+      "content": "",
+      "attachments": [
+        "https://1ce2-2603-7080-e501-3f6a-59ca-c294-1beb-ddfc.ngrok-free.app/uploads/project-mc4gfz4q-1750448482118-Screenshot_2025-06-12_at_10.24.19___PM.png"
+      ],
+      "id": 284,
+      "createdAt": "2025-06-20T19:41:22.127Z"
+    },
+    {
+      "projectId": 231,
+      "senderType": "admin",
+      "senderName": "Ben Dickinson",
+      "content": "",
+      "attachments": [
+        "https://1ce2-2603-7080-e501-3f6a-59ca-c294-1beb-ddfc.ngrok-free.app/uploads/project-mc4gfz4q-1750448515765-ChatGPT_Image_May_27__2025__04_38_15_PM.png"
+      ],
+      "id": 286,
+      "createdAt": "2025-06-20T19:41:55.774Z"
+    },
+    {
+      "projectId": 231,
+      "senderType": "admin",
+      "senderName": "Ben",
+      "content": "Hey",
+      "attachments": [],
+      "createdAt": "2025-06-20T19:42:07.755Z",
+      "id": 288
+    },
+    {
+      "projectId": 231,
+      "senderType": "admin",
+      "senderName": "Ben Dickinson",
+      "content": "",
+      "attachments": [
+        "https://1ce2-2603-7080-e501-3f6a-59ca-c294-1beb-ddfc.ngrok-free.app/uploads/project-mc4gfz4q-1750448534491-ChatGPT_Image_May_27__2025__04_38_15_PM.png"
+      ],
+      "id": 289,
+      "createdAt": "2025-06-20T19:42:14.497Z"
+    },
+    {
+      "projectId": 231,
+      "senderType": "admin",
+      "senderName": "Ben",
+      "content": "Yo",
+      "attachments": [],
+      "createdAt": "2025-06-20T19:44:36.664Z",
+      "id": 291
+    },
+    {
+      "projectId": 231,
+      "senderType": "admin",
+      "senderName": "Ben Dickinson",
+      "content": "",
+      "attachments": [
+        "https://1ce2-2603-7080-e501-3f6a-59ca-c294-1beb-ddfc.ngrok-free.app/uploads/project-mc4gfz4q-1750448682560-Screenshot_2025-06-12_at_10.24.19___PM.png"
+      ],
+      "id": 292,
+      "createdAt": "2025-06-20T19:44:42.565Z"
+    },
+    {
+      "projectId": 240,
+      "senderType": "client",
+      "senderName": "Garth",
+      "content": "hey",
+      "attachments": [],
+      "createdAt": "2025-06-21T05:58:00.300Z",
+      "id": 294
+    },
+    {
+      "projectId": 240,
+      "senderType": "admin",
+      "senderName": "Ben Dickinson",
+      "content": "",
+      "attachments": [
+        "https://1ce2-2603-7080-e501-3f6a-59ca-c294-1beb-ddfc.ngrok-free.app/uploads/project-mc516tr5-1750485497266-Screenshot_2025-06-18_at_12.08.16___PM.png"
+      ],
+      "id": 295,
+      "createdAt": "2025-06-21T05:58:17.271Z"
+    },
+    {
+      "projectId": 240,
+      "senderType": "admin",
+      "senderName": "Ben Dickinson",
+      "content": "",
+      "attachments": [
+        "https://1ce2-2603-7080-e501-3f6a-59ca-c294-1beb-ddfc.ngrok-free.app/uploads/project-mc516tr5-1750485946548-ChatGPT_Image_May_27__2025__04_38_15_PM.png"
+      ],
+      "id": 297,
+      "createdAt": "2025-06-21T06:05:46.556Z"
+    },
+    {
+      "projectId": 240,
+      "senderType": "client",
+      "senderName": "Garth",
+      "content": "suhhhh",
+      "attachments": [],
+      "createdAt": "2025-06-21T06:11:11.782Z",
+      "id": 299
+    },
+    {
+      "projectId": 240,
+      "senderType": "admin",
+      "senderName": "Ben Dickinson",
+      "content": "",
+      "attachments": [
+        "http://localhost:3000/uploads/project-mc516tr5-1750486282080-Screenshot_2025-06-18_at_12.08.16___PM.png"
+      ],
+      "id": 300,
+      "createdAt": "2025-06-21T06:11:22.088Z"
+    },
+    {
+      "projectId": 240,
+      "senderType": "admin",
+      "senderName": "Ben Dickinson",
+      "content": "",
+      "attachments": [
+        "http://localhost:3000/uploads/project-mc516tr5-1750486454721-ChatGPT_Image_May_27__2025__04_38_15_PM.png"
+      ],
+      "id": 302,
+      "createdAt": "2025-06-21T06:14:14.729Z"
+    },
+    {
+      "projectId": 240,
+      "senderType": "client",
+      "senderName": "Garth",
+      "content": "kjh'",
+      "attachments": [],
+      "createdAt": "2025-06-21T06:14:23.435Z",
+      "id": 304
+    },
+    {
+      "projectId": 240,
+      "senderType": "admin",
+      "senderName": "Ben Dickinson",
+      "content": "",
+      "attachments": [
+        "http://localhost:3000/uploads/project-mc516tr5-1750486472510-ChatGPT_Image_May_27__2025__04_38_15_PM.png"
+      ],
+      "id": 305,
+      "createdAt": "2025-06-21T06:14:32.518Z"
+    },
+    {
+      "projectId": 240,
+      "senderType": "admin",
+      "senderName": "Ben Dickinson",
+      "content": "",
+      "attachments": [
+        "https://1ce2-2603-7080-e501-3f6a-59ca-c294-1beb-ddfc.ngrok-free.app/uploads/project-mc516tr5-1750486740673-Screenshot_2025-06-18_at_12.08.16___PM.png"
+      ],
+      "id": 307,
+      "createdAt": "2025-06-21T06:19:00.679Z"
+    },
+    {
+      "projectId": 240,
+      "senderType": "admin",
+      "senderName": "Ben Dickinson",
+      "content": "",
+      "attachments": [
+        "https://1ce2-2603-7080-e501-3f6a-59ca-c294-1beb-ddfc.ngrok-free.app/uploads/project-mc516tr5-1750646416569-Screenshot_2025-06-18_at_12.08.16___PM.png"
+      ],
+      "id": 309,
+      "createdAt": "2025-06-23T02:40:16.576Z"
+    },
+    {
+      "projectId": 240,
+      "senderType": "admin",
+      "senderName": "Ben Dickinson",
+      "content": "",
+      "attachments": [
+        "https://1ce2-2603-7080-e501-3f6a-59ca-c294-1beb-ddfc.ngrok-free.app/uploads/project-mc516tr5-1750646704215-Screenshot_2025-06-18_at_12.08.16___PM.png"
+      ],
+      "id": 311,
+      "createdAt": "2025-06-23T02:45:04.224Z"
+    },
+    {
+      "projectId": 240,
+      "senderType": "client",
+      "senderName": "Garth",
+      "content": "hey",
+      "attachments": [],
+      "id": 313,
+      "createdAt": "2025-06-23T02:50:01.758Z"
     }
   ],
   "projectFiles": [],
@@ -2509,6 +2911,158 @@
       "projectId": 240,
       "id": 254,
       "createdAt": "2025-06-20T17:41:59.430Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Ben Dickinson: files shared (1 files)",
+      "companyId": 142,
+      "projectId": 231,
+      "id": 270,
+      "createdAt": "2025-06-20T18:40:52.228Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Ben Dickinson: files shared (1 files)",
+      "companyId": 142,
+      "projectId": 231,
+      "id": 272,
+      "createdAt": "2025-06-20T18:46:03.007Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Ben Dickinson: files shared (1 files)",
+      "companyId": 142,
+      "projectId": 231,
+      "id": 274,
+      "createdAt": "2025-06-20T18:48:41.795Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Ben Dickinson: files shared (1 files)",
+      "companyId": 142,
+      "projectId": 231,
+      "id": 278,
+      "createdAt": "2025-06-20T19:13:02.385Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Ben Dickinson: files shared (1 files)",
+      "companyId": 142,
+      "projectId": 231,
+      "id": 280,
+      "createdAt": "2025-06-20T19:27:59.036Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Ben Dickinson: files shared (1 files)",
+      "companyId": 142,
+      "projectId": 231,
+      "id": 282,
+      "createdAt": "2025-06-20T19:30:58.706Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Ben Dickinson: files shared (1 files)",
+      "companyId": 142,
+      "projectId": 231,
+      "id": 285,
+      "createdAt": "2025-06-20T19:41:22.129Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Ben Dickinson: files shared (1 files)",
+      "companyId": 142,
+      "projectId": 231,
+      "id": 287,
+      "createdAt": "2025-06-20T19:41:55.776Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Ben Dickinson: files shared (1 files)",
+      "companyId": 142,
+      "projectId": 231,
+      "id": 290,
+      "createdAt": "2025-06-20T19:42:14.498Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Ben Dickinson: files shared (1 files)",
+      "companyId": 142,
+      "projectId": 231,
+      "id": 293,
+      "createdAt": "2025-06-20T19:44:42.566Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Ben Dickinson: files shared (1 files)",
+      "companyId": 239,
+      "projectId": 240,
+      "id": 296,
+      "createdAt": "2025-06-21T05:58:17.272Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Ben Dickinson: files shared (1 files)",
+      "companyId": 239,
+      "projectId": 240,
+      "id": 298,
+      "createdAt": "2025-06-21T06:05:46.558Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Ben Dickinson: files shared (1 files)",
+      "companyId": 239,
+      "projectId": 240,
+      "id": 301,
+      "createdAt": "2025-06-21T06:11:22.090Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Ben Dickinson: files shared (1 files)",
+      "companyId": 239,
+      "projectId": 240,
+      "id": 303,
+      "createdAt": "2025-06-21T06:14:14.732Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Ben Dickinson: files shared (1 files)",
+      "companyId": 239,
+      "projectId": 240,
+      "id": 306,
+      "createdAt": "2025-06-21T06:14:32.520Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Ben Dickinson: files shared (1 files)",
+      "companyId": 239,
+      "projectId": 240,
+      "id": 308,
+      "createdAt": "2025-06-21T06:19:00.684Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Ben Dickinson: files shared (1 files)",
+      "companyId": 239,
+      "projectId": 240,
+      "id": 310,
+      "createdAt": "2025-06-23T02:40:16.579Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Ben Dickinson: files shared (1 files)",
+      "companyId": 239,
+      "projectId": 240,
+      "id": 312,
+      "createdAt": "2025-06-23T02:45:04.226Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Garth: hey",
+      "companyId": 239,
+      "projectId": 240,
+      "id": 314,
+      "createdAt": "2025-06-23T02:50:01.764Z"
     }
   ],
   "campaigns": [],
@@ -2545,5 +3099,5 @@
     "appointments": 0,
     "progressEntries": 0
   },
-  "nextId": 256
+  "nextId": 315
 }
