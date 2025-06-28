@@ -165,6 +165,7 @@ export { io };
 const allowedOrigins = [
   'http://localhost:5173', // Admin UI
   'http://localhost:3000', // Local server
+  'http://localhost:8080', // Test server for widget testing
   'http://192.168.1.87:3000', // Local server via IP for mobile access
   'https://pleasantcovedesign-production.up.railway.app', // Production frontend
   'https://www.pleasantcovedesign.com', // Squarespace production
@@ -250,11 +251,55 @@ app.get('/api/image-proxy/:filename', async (req, res) => {
   const filename = req.params.filename;
   
   try {
-    // Try R2 storage first (production)
+    // Set CORS headers first (for both R2 and local)
+    res.header('Access-Control-Allow-Origin', 'https://www.pleasantcovedesign.com');
+    res.header('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, ngrok-skip-browser-warning');
+    res.header('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.header('Cache-Control', 'public, max-age=31536000');
+    res.header('X-Content-Type-Options', 'nosniff');
+    res.header('ngrok-skip-browser-warning', 'true');
+    res.header('X-Ngrok-Skip-Browser-Warning', 'true');
+    
+    // Try R2 storage first (production) - STREAM instead of redirect
     if (r2Storage) {
-      console.log(`📁 Serving image from R2: ${filename}`);
+      console.log(`📁 Streaming image from R2: ${filename}`);
       const signedUrl = await r2Storage.getFileUrl(filename);
-      return res.redirect(signedUrl);
+      
+      // Fetch the image from R2 server-side
+      const response = await fetch(signedUrl);
+      if (!response.ok) {
+        console.error(`❌ R2 fetch failed for ${filename}:`, response.status, response.statusText);
+        return res.status(response.status).json({ error: 'Image fetch error from R2' });
+      }
+      
+      // Set content type from R2 response
+      const contentType = response.headers.get('content-type') || getMimeType(filename);
+      res.header('Content-Type', contentType);
+      
+      // Stream the image bytes directly to the browser
+      if (response.body) {
+        console.log(`✅ Streaming ${filename} from R2 with CORS headers`);
+        // Convert ReadableStream to Node.js readable stream
+        const reader = response.body.getReader();
+        const pump = async () => {
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              res.write(value);
+            }
+            res.end();
+          } catch (error) {
+            console.error('❌ Error streaming from R2:', error);
+            res.status(500).end();
+          }
+        };
+        pump();
+      } else {
+        return res.status(500).json({ error: 'No response body from R2' });
+      }
+      return;
     }
     
     // Fallback to local storage (development)
@@ -266,20 +311,7 @@ app.get('/api/image-proxy/:filename', async (req, res) => {
     }
     
     const mimeType = getMimeType(filename);
-
-    // Set comprehensive headers for cross-origin access and ngrok compatibility
-    res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, ngrok-skip-browser-warning');
     res.header('Content-Type', mimeType);
-    res.header('Cache-Control', 'public, max-age=31536000');
-    res.header('X-Content-Type-Options', 'nosniff');
-    res.header('Cross-Origin-Resource-Policy', 'cross-origin');
-    res.header('Cross-Origin-Embedder-Policy', 'unsafe-none');
-    
-    // Add ngrok-specific headers to prevent warning page
-    res.header('ngrok-skip-browser-warning', 'true');
-    res.header('X-Ngrok-Skip-Browser-Warning', 'true');
     
     console.log(`📁 Serving image from local storage: ${filename}`);
     res.sendFile(imagePath);

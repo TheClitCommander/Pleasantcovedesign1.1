@@ -532,22 +532,47 @@
                     debugMode: true // Enable for troubleshooting
                 };
                 
+                // Add postMessage listener & log it
+                window.addEventListener('message', event => {
+                    console.debug('[WIDGET] postMessage received:', event.data);
+                    if (event.data?.type === 'PCD_MEMBER_INFO') {
+                        // existing handling…
+                        console.debug('[WIDGET] postMessage PCD_MEMBER_INFO detected:', event.data);
+                    }
+                });
+                
                 console.log('🛡️ [BULLETPROOF_WIDGET] Initialized with robust detection');
                 this.init();
             }
 
             async detectBackendUrl() {
-                // Detect if we're on HTTPS and need to avoid Mixed Content issues
-                const isHTTPS = window.location.protocol === 'https:';
-                const hostname = window.location.hostname;
+                // Production domain
+                if (window.location.hostname === 'www.pleasantcovedesign.com') {
+                    console.debug('[WIDGET] detectBackendUrl production → https://pleasantcovedesign-production.up.railway.app');
+                    return 'https://pleasantcovedesign-production.up.railway.app';
+                }
                 
-                // If we're on localhost, always use localhost
-                if (hostname === 'localhost' || hostname === '127.0.0.1') {
+                // iframe override
+                const el = document.getElementById('pcd-messaging-widget');
+                if (el?.dataset.backendUrl) {
+                    console.debug('[WIDGET] detectBackendUrl iframe override →', el.dataset.backendUrl);
+                    return el.dataset.backendUrl;
+                }
+                
+                // file:// fallback
+                if (window.location.protocol === 'file:') {
+                    console.debug('[WIDGET] detectBackendUrl file:// → http://localhost:3000');
                     return 'http://localhost:3000';
                 }
                 
-                // If we're on HTTPS (like Squarespace), we need HTTPS backend
-                if (isHTTPS) {
+                // localhost dev
+                if (['localhost','127.0.0.1'].includes(window.location.hostname)) {
+                    console.debug('[WIDGET] detectBackendUrl dev → http://localhost:3000');
+                    return 'http://localhost:3000';
+                }
+                
+                // ngrok or other HTTPS sites
+                if (window.location.protocol === 'https:') {
                     // Try to detect current ngrok URL dynamically
                     try {
                         // First, try to use the known ngrok URL
@@ -564,6 +589,7 @@
                         
                         if (testResponse && testResponse.ok) {
                             console.log('✅ [BACKEND] Using ngrok URL:', knownNgrokUrl);
+                            console.debug('[WIDGET] detectBackendUrl ngrok →', knownNgrokUrl);
                             return knownNgrokUrl;
                         }
                     } catch (error) {
@@ -576,8 +602,8 @@
                     return null;
                 }
                 
-                // Default to localhost for HTTP sites
-                return 'http://localhost:3000';
+                // Default fallback
+                return null;
             }
             
             showNgrokError() {
@@ -669,6 +695,7 @@
                 console.log('🔍 [DETECTION] Starting robust member detection...');
                 
                 // METHOD 1 (NEW PRIORITY): Static.SQUARESPACE_CONTEXT
+                console.debug('[WIDGET] memberDetection: trying Static.SQUARESPACE_CONTEXT');
                 this.updateDetectionStep(1, 'pending');
                 let member = this.detectMemberFromContext();
                 if (member) {
@@ -678,6 +705,7 @@
                 this.updateDetectionStep(1, 'error', 'Context method failed');
                 
                 // METHOD 2 (FALLBACK): SiteUserInfo Cookie
+                console.debug('[WIDGET] memberDetection: trying cookies');
                 this.updateDetectionStep(2, 'pending');
                 member = this.detectMemberFromCookie();
                 if (member) {
@@ -687,6 +715,7 @@
                 this.updateDetectionStep(2, 'error', 'Cookie method failed');
                 
                 // METHOD 3: Alternative detection methods
+                console.debug('[WIDGET] memberDetection: waiting for postMessage injection');
                 this.updateDetectionStep(3, 'pending');
                 member = await this.detectMemberAlternative();
                 if (member) {
@@ -703,6 +732,7 @@
                     return this.robustMemberDetection();
                 }
                 
+                console.error('[WIDGET] memberDetection failed after 10 attempts');
                 console.log('❌ [DETECTION] All detection methods failed');
                 return null;
             }
@@ -1039,16 +1069,43 @@
                 console.log('🎨 [UI] Showing authenticated interface...');
                 
                 // Hide waiting state
-                document.getElementById('waitingState').style.display = 'none';
+                const waitingState = document.getElementById('waitingState');
+                if (waitingState) {
+                    waitingState.style.display = 'none';
+                } else {
+                    console.error('[WIDGET] showUserInterface: #waitingState not found');
+                }
                 
                 // Show user info
-                document.getElementById('userInfoBar').style.display = 'flex';
-                document.getElementById('currentUserEmail').textContent = this.userEmail;
+                const userInfoBar = document.getElementById('userInfoBar');
+                if (userInfoBar) {
+                    userInfoBar.style.display = 'flex';
+                } else {
+                    console.error('[WIDGET] showUserInterface: #userInfoBar not found');
+                }
+                
+                const currentUserEmail = document.getElementById('currentUserEmail');
+                if (currentUserEmail) {
+                    currentUserEmail.textContent = this.userEmail;
+                } else {
+                    console.error('[WIDGET] showUserInterface: #currentUserEmail not found');
+                }
                 
                 // Enable input
-                document.getElementById('messageInput').disabled = false;
-                document.getElementById('sendButton').disabled = false;
-                document.getElementById('messageInput').placeholder = 'Type your message...';
+                const messageInput = document.getElementById('messageInput');
+                if (messageInput) {
+                    messageInput.disabled = false;
+                    messageInput.placeholder = 'Type your message...';
+                } else {
+                    console.error('[WIDGET] showUserInterface: #messageInput not found');
+                }
+                
+                const sendButton = document.getElementById('sendButton');
+                if (sendButton) {
+                    sendButton.disabled = false;
+                } else {
+                    console.error('[WIDGET] showUserInterface: #sendButton not found');
+                }
                 
                 // Start messaging
                 this.startMessaging();
@@ -1287,18 +1344,52 @@
                 });
                 
                 this.socket.on('connect', () => {
+                    console.debug('[WIDGET] socket connected');
                     console.log('✅ [SOCKET] Connected to server');
-                    document.getElementById('connectionStatus').textContent = 'Connected';
-                    document.getElementById('connectionDot').style.background = '#28a745';
+                    
+                    const connectionStatus = document.getElementById('connectionStatus');
+                    if (connectionStatus) {
+                        connectionStatus.textContent = 'Connected';
+                    } else {
+                        console.error('[WIDGET] socket connect: #connectionStatus not found');
+                    }
+                    
+                    const connectionDot = document.getElementById('connectionDot');
+                    if (connectionDot) {
+                        connectionDot.style.background = '#28a745';
+                    } else {
+                        console.error('[WIDGET] socket connect: #connectionDot not found');
+                    }
                     
                     // Join the project room
                     this.socket.emit('join', this.projectToken);
                 });
                 
+                this.socket.on('connect_error', err => {
+                    console.error('[WIDGET] socket error', err);
+                    console.error('❌ [SOCKET] Connection error:', err);
+                });
+                
                 this.socket.on('disconnect', () => {
                     console.log('❌ [SOCKET] Disconnected from server');
-                    document.getElementById('connectionStatus').textContent = 'Disconnected';
-                    document.getElementById('connectionDot').style.background = '#dc3545';
+                    
+                    const connectionStatus = document.getElementById('connectionStatus');
+                    if (connectionStatus) {
+                        connectionStatus.textContent = 'Disconnected';
+                    } else {
+                        console.error('[WIDGET] socket disconnect: #connectionStatus not found');
+                    }
+                    
+                    const connectionDot = document.getElementById('connectionDot');
+                    if (connectionDot) {
+                        connectionDot.style.background = '#dc3545';
+                    } else {
+                        console.error('[WIDGET] socket disconnect: #connectionDot not found');
+                    }
+                });
+                
+                this.socket.on('message', msg => {
+                    console.debug('[WIDGET] socket message', msg);
                 });
                 
                 this.socket.on('newMessage', (message) => {
