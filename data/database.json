@@ -2066,6 +2066,15 @@
       ],
       "id": 321,
       "createdAt": "2025-06-28T13:08:18.660Z"
+    },
+    {
+      "projectId": 240,
+      "senderType": "admin",
+      "senderName": "Ben Dickinson",
+      "content": "hey",
+      "attachments": [],
+      "createdAt": "2025-06-30T22:07:33.196Z",
+      "id": 323
     }
   ],
   "projectFiles": [],
@@ -3169,5 +3178,5 @@
     "appointments": 0,
     "progressEntries": 0
   },
-  "nextId": 323
+  "nextId": 324
 }

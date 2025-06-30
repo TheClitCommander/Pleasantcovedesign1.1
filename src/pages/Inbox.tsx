@@ -99,17 +99,31 @@ const Inbox: React.FC = () => {
 
   // Handle conversation selection - join only that room
   const handleConversationSelect = (conversation: Conversation) => {
-    console.log(`🎯 [CONVERSATION_SELECT] User selected conversation:`, conversation.customerName, conversation.projectToken)
-    setSelectedConversation(conversation)
+    console.log('🎯 [SELECT] Selected conversation:', conversation.customerName);
     
-    // Mark conversation as read
-    setConversations(prev => prev.map(conv => 
-      conv.id === conversation.id 
-        ? { ...conv, unreadCount: 0 }
-        : conv
-    ))
+    // Leave previous room
+    if (selectedConversation && selectedConversation.projectToken !== conversation.projectToken) {
+      socketRef.current?.emit('leave', selectedConversation.projectToken);
+      console.log('👋 [WEBSOCKET] Left room:', selectedConversation.projectToken);
+    }
     
-    scrollToBottom()
+    // Join new room
+    joinConversationRoom(conversation.projectToken);
+    
+    // Update selected conversation
+    setSelectedConversation(conversation);
+    
+    // Clear unread count - update both local state and persist
+    setConversations(prevConversations =>
+      prevConversations.map(conv =>
+        conv.id === conversation.id
+          ? { ...conv, unreadCount: 0 }
+          : conv
+      )
+    );
+    
+    // Persist read status to backend (optional - add if you have an endpoint)
+    // api.post(`/admin/conversations/${conversation.projectId}/mark-read`).catch(console.error);
   }
 
   useEffect(() => {
@@ -188,6 +202,13 @@ const Inbox: React.FC = () => {
             updatedConvo.messages = [...updatedConvo.messages, message];
             updatedConvo.lastMessage = message;
             updatedConvo.lastMessageTime = message.createdAt;
+            
+            // Increment unread count only if this conversation is not currently selected
+            if (!selectedConversation || selectedConversation.id !== updatedConvo.id) {
+              updatedConvo.unreadCount = (updatedConvo.unreadCount || 0) + 1;
+              console.log('📬 [STATE_UPDATE] Incremented unread count for:', updatedConvo.customerName);
+            }
+            
             newConversations[convoIndex] = updatedConvo;
             console.log('✅ [STATE_UPDATE] Message added successfully');
           } else {
