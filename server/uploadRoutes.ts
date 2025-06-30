@@ -55,25 +55,30 @@ const upload = multer({
     fileSize: 10 * 1024 * 1024, // 10MB limit
   },
   fileFilter: (req, file, cb) => {
-    // Allow common file types - more permissive matching
-    const allowedTypes = /\.(jpeg|jpg|png|gif|pdf|doc|docx|txt|zip)$/i;
+    // Get file extension
+    const ext = path.extname(file.originalname).toLowerCase();
+    
+    // Allow common file types - check extension only
+    const allowedExtensions = ['.jpeg', '.jpg', '.png', '.gif', '.pdf', '.doc', '.docx', '.txt', '.zip'];
     const allowedMimeTypes = /^(image\/(jpeg|jpg|png|gif)|application\/(pdf|msword|vnd\.openxmlformats-officedocument\.wordprocessingml\.document)|text\/plain|application\/zip)$/i;
-          const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-      const mimetype = allowedMimeTypes.test(file.mimetype);
+    
+    const extAllowed = allowedExtensions.includes(ext);
+    const mimeAllowed = allowedMimeTypes.test(file.mimetype);
     
     console.log('🔍 [FILE_FILTER] Checking file:', {
       originalname: file.originalname,
       mimetype: file.mimetype,
-      extname: path.extname(file.originalname).toLowerCase(),
-      extnameMatch: extname,
-      mimetypeMatch: mimetype
+      extension: ext,
+      extensionAllowed: extAllowed,
+      mimetypeAllowed: mimeAllowed
     });
     
-    if (mimetype && extname) {
+    // Accept if either extension OR mimetype is valid (more permissive)
+    if (extAllowed || mimeAllowed) {
       console.log('✅ [FILE_FILTER] File accepted:', file.originalname);
       return cb(null, true);
     } else {
-      console.log('❌ [FILE_FILTER] File rejected:', file.originalname, 'mimetype:', file.mimetype);
+      console.log('❌ [FILE_FILTER] File rejected:', file.originalname, 'ext:', ext, 'mime:', file.mimetype);
       cb(new Error('Invalid file type'));
     }
   }

@@ -1478,70 +1478,26 @@
                 if (!attachments || attachments.length === 0) return '';
 
                 let html = '<div class="pcd-message-attachments">';
-                attachments.forEach((attachment, index) => {
+                attachments.forEach(attachment => {
                     const fileName = attachment.split('/').pop() || 'attachment';
                     const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(fileName);
                     
-                    console.log(`🖼️ [ATTACHMENT] Rendering ${isImage ? 'image' : 'file'}: ${attachment}`);
-                    
                     if (isImage) {
-                        const imageId = 'img_' + Date.now() + '_' + index;
-                        const fallbackId = 'fallback_' + Date.now() + '_' + index;
-                        const loaderId = 'loader_' + Date.now() + '_' + index;
-                        
-                        let imageUrl = attachment;
-                        
-                        if (attachment.includes('/uploads/') || attachment.includes('ngrok')) {
-                            const actualFilename = fileName.split('?')[0];
-                            const proxyUrl = `${this.config.backendUrl}/api/image-proxy/${actualFilename}`;
-                            
-                            if (this.config.backendUrl.includes('ngrok-free.app')) {
-                                imageUrl = `${proxyUrl}?ngrok-skip-browser-warning=true`;
-                            } else {
-                                imageUrl = proxyUrl;
-                            }
-                        }
-                        
-                        console.log(`🖼️ [IMAGE] Final image URL: ${imageUrl}`);
-                        
+                        // Use simple direct approach - let browser handle CORS
                         html += `
-                            <div class="pcd-image-container" style="position: relative; max-width: 200px; margin: 8px 0;">
-                                <!-- Loading State -->
-                                <div id="${loaderId}" class="pcd-image-loading" style="padding: 20px; text-align: center; background: #f8f9fa; border-radius: 8px; border: 1px solid #dee2e6;">
-                                    <div style="width: 20px; height: 20px; border: 2px solid #007bff; border-top: 2px solid transparent; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 8px;"></div>
-                                    <small style="color: #666;">Loading image...</small>
-                                </div>
-                                
-                                <!-- Actual Image -->
-                                <img id="${imageId}"
-                                     src="${imageUrl}" 
-                                     alt="${fileName}"
-                                     class="pcd-image-attachment"
-                                     style="max-width: 200px; border-radius: 8px; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: none; width: auto; height: auto;"
-                                     crossorigin="anonymous"
-                                     loading="eager"
-                                     referrerpolicy="no-referrer"
-                                     onerror="console.error('❌ [IMAGE] Failed to load:', '${imageUrl}'); document.getElementById('${loaderId}').style.display='none'; document.getElementById('${fallbackId}').style.display='block';"
-                                     onload="console.log('✅ [IMAGE] Successfully loaded:', '${imageUrl}'); document.getElementById('${loaderId}').style.display='none'; this.style.display='block';"
-                                     onclick="window.open('${imageUrl}', '_blank')">
-                                
-                                <!-- Error Fallback -->
-                                <div id="${fallbackId}" class="pcd-image-fallback" style="display:none; padding: 16px; background: #fff3cd; border-radius: 8px; text-align: center; border: 2px dashed #ffc107; max-width: 200px;">
-                                    <div style="font-size: 32px; margin-bottom: 8px;">📷</div>
-                                    <div style="font-weight: bold; color: #856404; margin-bottom: 4px;">${fileName}</div>
-                                    <div style="font-size: 12px; color: #856404; margin-bottom: 12px;">Image could not be displayed</div>
-                                    <a href="${imageUrl}" target="_blank" style="color: #0056b3; font-weight: bold;">Open Image</a>
-                                </div>
-                            </div>
+                            <img src="${attachment}" 
+                                 alt="${fileName}"
+                                 class="pcd-image-attachment"
+                                 onclick="window.open('${attachment}', '_blank')">
                         `;
                     } else {
                         html += `
-                            <div class="pcd-file-attachment" style="margin: 8px 0;">
-                                <a href="${attachment}" target="_blank" class="pcd-attachment">
-                                    <span class="pcd-attachment-icon">📎</span>
-                                    ${fileName}
-                                </a>
-                            </div>
+                            <a href="${attachment}" 
+                               target="_blank" 
+                               class="pcd-attachment">
+                                <span class="pcd-attachment-icon">📎</span>
+                                ${fileName}
+                            </a>
                         `;
                     }
                 });
