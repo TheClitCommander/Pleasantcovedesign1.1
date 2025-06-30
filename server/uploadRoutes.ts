@@ -119,9 +119,13 @@ router.post(
         return res.status(400).json({ error: 'No file uploaded' });
       }
       
+      console.debug('[API] Received upload', { filename: req.file.originalname });
+      
       const fileUrl = `/uploads/${req.file.filename}`;
       const fileKey = req.file.filename;
+      const savePath = path.join(uploadsDir, req.file.filename);
       
+      console.debug('[API] Saved upload to', savePath);
       console.log('📁 File uploaded successfully:', req.file.filename);
       
       res.json({
@@ -134,6 +138,7 @@ router.post(
       });
       
     } catch (err) {
+      console.error('[API] Upload error', err);
       console.error('❌ File upload failed:', err);
       res.status(500).json({ error: 'File upload failed' });
     }

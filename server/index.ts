@@ -261,60 +261,69 @@ app.get('/api/image-proxy/:filename', async (req, res) => {
     res.header('ngrok-skip-browser-warning', 'true');
     res.header('X-Ngrok-Skip-Browser-Warning', 'true');
     
-    // Try R2 storage first (production) - STREAM instead of redirect
-    if (r2Storage) {
-      console.log(`📁 Streaming image from R2: ${filename}`);
-      const signedUrl = await r2Storage.getFileUrl(filename);
+    // First, always check local storage
+    const imagePath = path.join(uploadsPath, filename);
+    
+    if (fs.existsSync(imagePath) && imagePath.startsWith(uploadsPath)) {
+      // Serve from local storage if file exists
+      const mimeType = getMimeType(filename);
+      res.header('Content-Type', mimeType);
       
-      // Fetch the image from R2 server-side
-      const response = await fetch(signedUrl);
-      if (!response.ok) {
-        console.error(`❌ R2 fetch failed for ${filename}:`, response.status, response.statusText);
-        return res.status(response.status).json({ error: 'Image fetch error from R2' });
-      }
-      
-      // Set content type from R2 response
-      const contentType = response.headers.get('content-type') || getMimeType(filename);
-      res.header('Content-Type', contentType);
-      
-      // Stream the image bytes directly to the browser
-      if (response.body) {
-        console.log(`✅ Streaming ${filename} from R2 with CORS headers`);
-        // Convert ReadableStream to Node.js readable stream
-        const reader = response.body.getReader();
-        const pump = async () => {
-          try {
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-              res.write(value);
-            }
-            res.end();
-          } catch (error) {
-            console.error('❌ Error streaming from R2:', error);
-            res.status(500).end();
-          }
-        };
-        pump();
-      } else {
-        return res.status(500).json({ error: 'No response body from R2' });
-      }
+      console.log(`📁 Serving image from local storage: ${filename}`);
+      res.sendFile(imagePath);
       return;
     }
     
-    // Fallback to local storage (development)
-    const imagePath = path.join(uploadsPath, filename);
-    
-    // Security check - ensure the file exists and is in uploads directory
-    if (!fs.existsSync(imagePath) || !imagePath.startsWith(uploadsPath)) {
-      return res.status(404).json({ error: 'Image not found' });
+    // If not found locally and R2 is configured, try R2 storage
+    if (r2Storage) {
+      console.log(`📁 Attempting to stream image from R2: ${filename}`);
+      
+      try {
+        const signedUrl = await r2Storage.getFileUrl(filename);
+        
+        // Fetch the image from R2 server-side
+        const response = await fetch(signedUrl);
+        if (!response.ok) {
+          console.error(`❌ R2 fetch failed for ${filename}:`, response.status, response.statusText);
+          return res.status(404).json({ error: 'Image not found in R2 storage' });
+        }
+        
+        // Set content type from R2 response
+        const contentType = response.headers.get('content-type') || getMimeType(filename);
+        res.header('Content-Type', contentType);
+        
+        // Stream the image bytes directly to the browser
+        if (response.body) {
+          console.log(`✅ Streaming ${filename} from R2 with CORS headers`);
+          // Convert ReadableStream to Node.js readable stream
+          const reader = response.body.getReader();
+          const pump = async () => {
+            try {
+              while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                res.write(value);
+              }
+              res.end();
+            } catch (error) {
+              console.error('❌ Error streaming from R2:', error);
+              res.status(500).end();
+            }
+          };
+          pump();
+        } else {
+          return res.status(500).json({ error: 'No response body from R2' });
+        }
+        return;
+      } catch (r2Error) {
+        console.error(`❌ R2 error for ${filename}:`, r2Error);
+        return res.status(404).json({ error: 'Image not found' });
+      }
     }
     
-    const mimeType = getMimeType(filename);
-    res.header('Content-Type', mimeType);
-    
-    console.log(`📁 Serving image from local storage: ${filename}`);
-    res.sendFile(imagePath);
+    // If neither local nor R2 has the file
+    console.error(`❌ Image not found anywhere: ${filename}`);
+    return res.status(404).json({ error: 'Image not found' });
     
   } catch (error) {
     console.error('❌ Error serving image:', error);

@@ -1187,6 +1187,13 @@ export async function registerRoutes(app: Express, io: any) {
       else if (req.files && Array.isArray(req.files)) {
         const uploaded = req.files as any[];
         
+        // Add instrumentation logging for each file
+        uploaded.forEach(file => {
+          console.debug('[API] Received upload', { filename: file.originalname });
+          const savePath = file.path || file.destination + '/' + file.filename;
+          console.debug('[API] Saved upload to', savePath);
+        });
+        
         // Dynamically determine the base URL for ngrok/production
         const baseUrl = process.env.NODE_ENV === 'production' 
           ? 'https://pleasantcovedesign-production.up.railway.app'

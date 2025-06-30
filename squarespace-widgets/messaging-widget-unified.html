@@ -528,7 +528,7 @@
                 this.selectedFiles = [];
                 
                 this.config = {
-                    backendUrl: null, // Will be set asynchronously
+                    backendUrl: this.detectBackendUrl(),
                     debugMode: true // Enable for troubleshooting
                 };
                 
@@ -545,7 +545,20 @@
                 this.init();
             }
 
-            async detectBackendUrl() {
+            detectBackendUrl() {
+                console.debug('[WIDGET] detectBackendUrl - hostname:', window.location.hostname);
+                console.debug('[WIDGET] detectBackendUrl - protocol:', window.location.protocol);
+                console.debug('[WIDGET] detectBackendUrl - full URL:', window.location.href);
+                
+                // FORCE LOCAL DEVELOPMENT FOR TESTING
+                if (window.location.hostname === 'localhost' || 
+                    window.location.hostname === '127.0.0.1' ||
+                    window.location.port === '8080' ||
+                    window.location.href.includes('localhost:')) {
+                    console.debug('[WIDGET] detectBackendUrl dev → http://localhost:3000');
+                    return 'http://localhost:3000';
+                }
+                
                 // Production domain
                 if (window.location.hostname === 'www.pleasantcovedesign.com') {
                     console.debug('[WIDGET] detectBackendUrl production → https://pleasantcovedesign-production.up.railway.app');
@@ -565,45 +578,18 @@
                     return 'http://localhost:3000';
                 }
                 
-                // localhost dev
-                if (['localhost','127.0.0.1'].includes(window.location.hostname)) {
-                    console.debug('[WIDGET] detectBackendUrl dev → http://localhost:3000');
-                    return 'http://localhost:3000';
-                }
-                
                 // ngrok or other HTTPS sites
                 if (window.location.protocol === 'https:') {
-                    // Try to detect current ngrok URL dynamically
-                    try {
-                        // First, try to use the known ngrok URL
-                        const knownNgrokUrl = 'https://1ce2-2603-7080-e501-3f6a-59ca-c294-1beb-ddfc.ngrok-free.app';
-                        
-                        // Test if it's accessible with a simple health check
-                        const testResponse = await fetch(`${knownNgrokUrl}/health?ngrok-skip-browser-warning=true`, {
-                            method: 'GET',
-                            headers: {
-                                'ngrok-skip-browser-warning': 'true'
-                            },
-                            mode: 'cors'
-                        }).catch(() => null);
-                        
-                        if (testResponse && testResponse.ok) {
-                            console.log('✅ [BACKEND] Using ngrok URL:', knownNgrokUrl);
-                            console.debug('[WIDGET] detectBackendUrl ngrok →', knownNgrokUrl);
-                            return knownNgrokUrl;
-                        }
-                    } catch (error) {
-                        console.warn('⚠️ [BACKEND] Could not verify ngrok URL:', error);
-                    }
-                    
-                    // Fallback: Show error message
-                    console.error('❌ [BACKEND] HTTPS site requires HTTPS backend. Please ensure ngrok is running.');
-                    this.showNgrokError();
-                    return null;
+                    // Use the known ngrok URL for HTTPS sites
+                    const knownNgrokUrl = 'https://1ce2-2603-7080-e501-3f6a-59ca-c294-1beb-ddfc.ngrok-free.app';
+                    console.log('✅ [BACKEND] Using ngrok URL for HTTPS site:', knownNgrokUrl);
+                    console.debug('[WIDGET] detectBackendUrl ngrok →', knownNgrokUrl);
+                    return knownNgrokUrl;
                 }
                 
-                // Default fallback
-                return null;
+                // Default fallback to localhost
+                console.debug('[WIDGET] detectBackendUrl fallback → http://localhost:3000');
+                return 'http://localhost:3000';
             }
             
             showNgrokError() {
@@ -653,7 +639,7 @@
                 
                 try {
                     // STEP 0: Detect backend URL first
-                    this.config.backendUrl = await this.detectBackendUrl();
+                    this.config.backendUrl = this.detectBackendUrl();
                     if (!this.config.backendUrl) {
                         console.error('❌ [INIT] Could not determine backend URL');
                         return;

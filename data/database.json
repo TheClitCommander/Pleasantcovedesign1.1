@@ -2028,6 +2028,44 @@
       "attachments": [],
       "id": 313,
       "createdAt": "2025-06-23T02:50:01.758Z"
+    },
+    {
+      "projectId": 151,
+      "senderType": "client",
+      "senderName": "Manual Member",
+      "content": "yo",
+      "attachments": [],
+      "id": 315,
+      "createdAt": "2025-06-28T12:08:33.062Z"
+    },
+    {
+      "projectId": 151,
+      "senderType": "client",
+      "senderName": "Manual Member",
+      "content": "yo",
+      "attachments": [],
+      "id": 317,
+      "createdAt": "2025-06-28T12:08:34.757Z"
+    },
+    {
+      "projectId": 151,
+      "senderType": "client",
+      "senderName": "Manual Member",
+      "content": "yo",
+      "attachments": [],
+      "id": 319,
+      "createdAt": "2025-06-28T12:08:37.410Z"
+    },
+    {
+      "projectId": 151,
+      "senderType": "admin",
+      "senderName": "Ben Dickinson",
+      "content": "",
+      "attachments": [
+        "https://1ce2-2603-7080-e501-3f6a-59ca-c294-1beb-ddfc.ngrok-free.app/uploads/project-mc410tla-1751116098650-ChatGPT_Image_May_27__2025__04_38_15_PM.png"
+      ],
+      "id": 321,
+      "createdAt": "2025-06-28T13:08:18.660Z"
     }
   ],
   "projectFiles": [],
@@ -3063,6 +3101,38 @@
       "projectId": 240,
       "id": 314,
       "createdAt": "2025-06-23T02:50:01.764Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Manual Member: yo",
+      "companyId": 1,
+      "projectId": 151,
+      "id": 316,
+      "createdAt": "2025-06-28T12:08:33.067Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Manual Member: yo",
+      "companyId": 1,
+      "projectId": 151,
+      "id": 318,
+      "createdAt": "2025-06-28T12:08:34.760Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Manual Member: yo",
+      "companyId": 1,
+      "projectId": 151,
+      "id": 320,
+      "createdAt": "2025-06-28T12:08:37.414Z"
+    },
+    {
+      "type": "client_message",
+      "description": "New message from Ben Dickinson: files shared (1 files)",
+      "companyId": 1,
+      "projectId": 151,
+      "id": 322,
+      "createdAt": "2025-06-28T13:08:18.663Z"
     }
   ],
   "campaigns": [],
@@ -3099,5 +3169,5 @@
     "appointments": 0,
     "progressEntries": 0
   },
-  "nextId": 315
+  "nextId": 323
 }

@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instrumented Widget Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-info {
+            background: #e7f3ff;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border-left: 4px solid #007cba;
+        }
+        .widget-container {
+            border: 2px dashed #ccc;
+            padding: 20px;
+            border-radius: 8px;
+            min-height: 500px;
+        }
+        .debug-panel {
+            background: #1e1e1e;
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .test-controls {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }
+        .test-btn {
+            background: #007cba;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-btn:hover {
+            background: #005a8b;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🔍 Widget Pipeline Audit Test</h1>
+        
+        <div class="test-info">
+            <h3>Instrumentation Added:</h3>
+            <ul>
+                <li>✅ Backend URL resolution logging</li>
+                <li>✅ Member detection flow logging</li>
+                <li>✅ postMessage listener logging</li>
+                <li>✅ Socket.IO connection logging</li>
+                <li>✅ File upload handler logging (backend)</li>
+            </ul>
+            <p><strong>Instructions:</strong> Open browser console to see debug logs. Try different scenarios below.</p>
+        </div>
+
+        <div class="test-controls">
+            <h3>Test Scenarios:</h3>
+            <button class="test-btn" onclick="simulateMemberLogin()">Simulate Member Login</button>
+            <button class="test-btn" onclick="testBackendConnection()">Test Backend Connection</button>
+            <button class="test-btn" onclick="sendTestMessage()">Send Test Message</button>
+            <button class="test-btn" onclick="clearLogs()">Clear Console</button>
+        </div>
+
+        <div class="widget-container">
+            <iframe 
+                src="squarespace-widgets/messaging-widget-unified.html" 
+                width="100%" 
+                height="500"
+                frameborder="0">
+            </iframe>
+        </div>
+
+        <div class="debug-panel" id="debugPanel">
+            <div><strong>Debug Console:</strong> (Check browser console for full logs)</div>
+            <div id="debugLog"></div>
+        </div>
+    </div>
+
+    <script>
+        // Capture console logs for display
+        const originalLog = console.log;
+        const originalDebug = console.debug;
+        const originalError = console.error;
+        
+        function addToDebugPanel(message, type = 'log') {
+            const debugLog = document.getElementById('debugLog');
+            const timestamp = new Date().toLocaleTimeString();
+            const color = type === 'error' ? '#ff6b6b' : type === 'debug' ? '#74c0fc' : '#00ff00';
+            debugLog.innerHTML += `<div style="color: ${color}">[${timestamp}] ${message}</div>`;
+            debugLog.scrollTop = debugLog.scrollHeight;
+        }
+        
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            addToDebugPanel(args.join(' '), 'log');
+        };
+        
+        console.debug = function(...args) {
+            originalDebug.apply(console, args);
+            addToDebugPanel(args.join(' '), 'debug');
+        };
+        
+        console.error = function(...args) {
+            originalError.apply(console, args);
+            addToDebugPanel(args.join(' '), 'error');
+        };
+
+        function simulateMemberLogin() {
+            console.log('🧪 [TEST] Simulating member login...');
+            // Send postMessage to widget
+            const iframe = document.querySelector('iframe');
+            if (iframe) {
+                iframe.contentWindow.postMessage({
+                    type: 'PCD_MEMBER_INFO',
+                    email: 'test@example.com',
+                    name: 'Test User'
+                }, '*');
+            }
+        }
+
+        function testBackendConnection() {
+            console.log('🧪 [TEST] Testing backend connection...');
+            fetch('http://localhost:3000/health')
+                .then(response => response.json())
+                .then(data => console.log('✅ [TEST] Backend response:', data))
+                .catch(error => console.error('❌ [TEST] Backend error:', error));
+        }
+
+        function sendTestMessage() {
+            console.log('🧪 [TEST] Sending test message...');
+            // This would be handled by the widget's internal messaging
+            addToDebugPanel('Test message functionality requires member authentication first', 'debug');
+        }
+
+        function clearLogs() {
+            document.getElementById('debugLog').innerHTML = '';
+            console.clear();
+        }
+
+        // Listen for messages from the widget
+        window.addEventListener('message', function(event) {
+            console.debug('🧪 [TEST] Received message from widget:', event.data);
+        });
+
+        console.log('🧪 [TEST] Instrumented widget test page loaded');
+        console.log('🧪 [TEST] Open browser console to see full debug output');
+    </script>
+</body>
+</html> 
