@@ -55,14 +55,25 @@ const upload = multer({
     fileSize: 10 * 1024 * 1024, // 10MB limit
   },
   fileFilter: (req, file, cb) => {
-    // Allow common file types
-    const allowedTypes = /jpeg|jpg|png|gif|pdf|doc|docx|txt|zip/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
+    // Allow common file types - more permissive matching
+    const allowedTypes = /\.(jpeg|jpg|png|gif|pdf|doc|docx|txt|zip)$/i;
+    const allowedMimeTypes = /^(image\/(jpeg|jpg|png|gif)|application\/(pdf|msword|vnd\.openxmlformats-officedocument\.wordprocessingml\.document)|text\/plain|application\/zip)$/i;
+          const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+      const mimetype = allowedMimeTypes.test(file.mimetype);
+    
+    console.log('🔍 [FILE_FILTER] Checking file:', {
+      originalname: file.originalname,
+      mimetype: file.mimetype,
+      extname: path.extname(file.originalname).toLowerCase(),
+      extnameMatch: extname,
+      mimetypeMatch: mimetype
+    });
     
     if (mimetype && extname) {
+      console.log('✅ [FILE_FILTER] File accepted:', file.originalname);
       return cb(null, true);
     } else {
+      console.log('❌ [FILE_FILTER] File rejected:', file.originalname, 'mimetype:', file.mimetype);
       cb(new Error('Invalid file type'));
     }
   }
