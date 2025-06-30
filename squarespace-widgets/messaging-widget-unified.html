@@ -550,7 +550,7 @@
                 console.debug('[WIDGET] detectBackendUrl - protocol:', window.location.protocol);
                 console.debug('[WIDGET] detectBackendUrl - full URL:', window.location.href);
                 
-                // FORCE LOCAL DEVELOPMENT FOR TESTING
+                // Local development detection (for testing)
                 if (window.location.hostname === 'localhost' || 
                     window.location.hostname === '127.0.0.1' ||
                     window.location.port === '8080' ||
@@ -1647,25 +1647,27 @@
                     }
                     
                     const data = await response.json();
-                    this.messages = data.messages || [];
                     
                     console.log(`📥 [SEND] Sent ${hasFiles ? 'files' : 'text'} message`);
                     
-                    // Clear and populate UI
-                    const container = document.getElementById('pcd-chat-container');
-                    container.innerHTML = '';
+                    // Clear the input and files
+                    messageInput.value = '';
+                    this.selectedFiles = [];
+                    this.updateFilePreview();
                     
-                    this.messages.forEach(message => {
-                        this.addMessageToUI(message, false);
-                    });
-                    
+                    // Add the new message to UI (it will be received via WebSocket)
+                    // No need to rebuild entire UI - WebSocket will handle it
                     this.scrollToBottom();
                     
                 } catch (error) {
                     console.error('❌ [SEND] Failed to send message:', error);
                     this.updateDebugInfo(`Failed to send message: ${error.message}`, 'error');
                 } finally {
+                    // Re-enable send button
                     if (sendButton) sendButton.disabled = false;
+                    
+                    // Reset textarea height
+                    this.autoResizeTextarea(messageInput);
                 }
             }
 
