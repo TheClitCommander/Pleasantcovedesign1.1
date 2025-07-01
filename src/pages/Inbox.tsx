@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import api, { getWebSocketUrl } from '../api'
 import { io, Socket } from 'socket.io-client'
+import TokenDebugPanel from '../components/TokenDebugPanel'
 
 interface Message {
   id: number
@@ -41,6 +42,7 @@ interface Conversation {
 
 const Inbox: React.FC = () => {
   const navigate = useNavigate()
+  const { projectToken } = useParams<{ projectToken?: string }>()
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null)
   const [newMessage, setNewMessage] = useState('')
@@ -355,11 +357,28 @@ const Inbox: React.FC = () => {
         
         setConversations(conversationList);
         
-        // Auto-select first conversation
+        // Auto-select based on URL token or first conversation
         if (!selectedConversation && !autoSelectedRef.current && conversationList.length > 0) {
-          const firstConversation = conversationList[0];
-          console.log(`🎯 [AUTO_SELECT] Auto-selecting: ${firstConversation.customerName}`);
-          setSelectedConversation(firstConversation);
+          let conversationToSelect = null;
+          
+          // If we have a project token in the URL, try to find that conversation
+          if (projectToken) {
+            console.log(`🎯 [AUTO_SELECT] Looking for conversation with token: ${projectToken}`);
+            conversationToSelect = conversationList.find(c => c.projectToken === projectToken);
+            if (conversationToSelect) {
+              console.log(`✅ [AUTO_SELECT] Found conversation for token: ${conversationToSelect.customerName}`);
+            } else {
+              console.log(`⚠️ [AUTO_SELECT] No conversation found for token: ${projectToken}`);
+            }
+          }
+          
+          // If no token or conversation not found, select the first one
+          if (!conversationToSelect) {
+            conversationToSelect = conversationList[0];
+            console.log(`🎯 [AUTO_SELECT] Auto-selecting first conversation: ${conversationToSelect.customerName}`);
+          }
+          
+          setSelectedConversation(conversationToSelect);
           autoSelectedRef.current = true;
         }
         
@@ -950,6 +969,13 @@ const Inbox: React.FC = () => {
           </div>
         )}
       </div>
+      
+      {/* Debug Panel */}
+      <TokenDebugPanel 
+        projectToken={selectedConversation?.projectToken}
+        connectionStatus={connectionStatus}
+        currentRoom={currentRoomRef.current || undefined}
+      />
     </div>
   )
 }

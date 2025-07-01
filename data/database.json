@@ -2075,6 +2075,24 @@
       "attachments": [],
       "createdAt": "2025-06-30T22:07:33.196Z",
       "id": 323
+    },
+    {
+      "projectId": 240,
+      "senderType": "admin",
+      "senderName": "Ben Dickinson",
+      "content": "whats up",
+      "attachments": [],
+      "createdAt": "2025-07-01T00:19:10.593Z",
+      "id": 324
+    },
+    {
+      "projectId": 240,
+      "senderType": "admin",
+      "senderName": "Ben Dickinson",
+      "content": "yoyo",
+      "attachments": [],
+      "createdAt": "2025-07-01T00:19:35.771Z",
+      "id": 325
     }
   ],
   "projectFiles": [],
@@ -3178,5 +3196,5 @@
     "appointments": 0,
     "progressEntries": 0
   },
-  "nextId": 324
+  "nextId": 326
 }

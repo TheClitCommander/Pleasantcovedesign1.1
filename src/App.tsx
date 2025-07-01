@@ -64,6 +64,8 @@ const App: React.FC = () => {
             {/* LOCKED IN - Single source of truth messaging system */}
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="business/1/inbox" element={<Inbox />} />
+            <Route path="inbox" element={<Inbox />} />
+            <Route path="inbox/:projectToken" element={<Inbox />} />
             <Route path="leads" element={<Leads />} />
             <Route path="interactions" element={<Interactions />} />
             <Route path="progress" element={<Progress />} />

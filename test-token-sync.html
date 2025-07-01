@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Token Sync Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .panel {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h2 {
+            margin-top: 0;
+            color: #333;
+        }
+        .info-box {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 12px;
+            word-break: break-all;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        iframe {
+            width: 100%;
+            height: 600px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+        .status-indicator.connected {
+            background: #28a745;
+        }
+        .status-indicator.disconnected {
+            background: #dc3545;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔄 Token Synchronization Test</h1>
+    
+    <div class="container">
+        <!-- Widget Panel -->
+        <div class="panel">
+            <h2>🪟 Widget</h2>
+            
+            <div class="info-box">
+                <strong>Current Token:</strong>
+                <div id="widgetToken">Loading...</div>
+            </div>
+            
+            <div class="info-box">
+                <strong>Member Email:</strong>
+                <div id="widgetEmail">Loading...</div>
+            </div>
+            
+            <div class="info-box">
+                <strong>Widget Status:</strong>
+                <div id="widgetStatus">Loading...</div>
+            </div>
+            
+            <button onclick="loadWidget()">Load Widget</button>
+            <button onclick="clearWidgetStorage()">Clear Widget Storage</button>
+            <button onclick="manualAuth()">Manual Auth</button>
+            
+            <h3>Widget Frame:</h3>
+            <iframe id="widgetFrame" src=""></iframe>
+        </div>
+        
+        <!-- Admin UI Panel -->
+        <div class="panel">
+            <h2>💼 Admin UI</h2>
+            
+            <div class="info-box">
+                <strong>Current URL:</strong>
+                <div id="adminUrl">Not loaded</div>
+            </div>
+            
+            <div class="info-box">
+                <strong>Token in URL:</strong>
+                <div id="adminToken">Not loaded</div>
+            </div>
+            
+            <div class="info-box">
+                <strong>Connection Status:</strong>
+                <div id="adminStatus">Not loaded</div>
+            </div>
+            
+            <button onclick="openAdminWithToken()">Open Admin UI with Token</button>
+            <button onclick="openAdminDefault()">Open Admin UI (Default)</button>
+            
+            <h3>Admin Frame:</h3>
+            <iframe id="adminFrame" src=""></iframe>
+        </div>
+    </div>
+    
+    <div class="panel" style="margin-top: 20px;">
+        <h2>📊 Synchronization Status</h2>
+        
+        <div id="syncStatus" class="info-box">
+            Checking synchronization...
+        </div>
+        
+        <h3>Test Steps:</h3>
+        <ol>
+            <li>Load the widget in the left panel</li>
+            <li>Authenticate as a member (use manual auth if needed)</li>
+            <li>Note the project token that appears</li>
+            <li>Click "Open Admin UI with Token" to load the admin with the same token</li>
+            <li>Send a message from the widget</li>
+            <li>Verify it appears in the admin UI immediately</li>
+        </ol>
+        
+        <h3>localStorage Data:</h3>
+        <div id="localStorageData" class="info-box">
+            <pre id="storageContent">Loading...</pre>
+        </div>
+    </div>
+
+    <script>
+        let checkInterval;
+        
+        function updateStatus() {
+            // Get widget token from localStorage
+            const widgetToken = localStorage.getItem('pcd_project_token');
+            const widgetEmail = localStorage.getItem('pcd_user_email');
+            const widgetName = localStorage.getItem('pcd_user_name');
+            
+            document.getElementById('widgetToken').textContent = widgetToken || 'None';
+            document.getElementById('widgetEmail').textContent = widgetEmail || 'None';
+            
+            // Update localStorage display
+            const storageData = {
+                pcd_project_token: widgetToken,
+                pcd_user_email: widgetEmail,
+                pcd_user_name: widgetName
+            };
+            document.getElementById('storageContent').textContent = JSON.stringify(storageData, null, 2);
+            
+            // Check admin frame URL
+            const adminFrame = document.getElementById('adminFrame');
+            if (adminFrame.src) {
+                document.getElementById('adminUrl').textContent = adminFrame.src;
+                const urlMatch = adminFrame.src.match(/\/inbox\/([^\/\?]+)/);
+                const adminToken = urlMatch ? urlMatch[1] : 'None';
+                document.getElementById('adminToken').textContent = adminToken;
+                
+                // Check sync status
+                if (widgetToken && adminToken && widgetToken === adminToken) {
+                    document.getElementById('syncStatus').className = 'info-box success';
+                    document.getElementById('syncStatus').innerHTML = 
+                        '<span class="status-indicator connected"></span>✅ Tokens are synchronized!';
+                } else if (widgetToken && adminToken) {
+                    document.getElementById('syncStatus').className = 'info-box error';
+                    document.getElementById('syncStatus').innerHTML = 
+                        '<span class="status-indicator disconnected"></span>❌ Token mismatch!<br>' +
+                        `Widget: ${widgetToken}<br>Admin: ${adminToken}`;
+                } else {
+                    document.getElementById('syncStatus').className = 'info-box warning';
+                    document.getElementById('syncStatus').innerHTML = 
+                        '⚠️ Waiting for both tokens...';
+                }
+            }
+        }
+        
+        function loadWidget() {
+            const frame = document.getElementById('widgetFrame');
+            frame.src = '/test-instrumented-widget.html';
+            document.getElementById('widgetStatus').textContent = 'Loading...';
+        }
+        
+        function clearWidgetStorage() {
+            localStorage.removeItem('pcd_project_token');
+            localStorage.removeItem('pcd_user_email');
+            localStorage.removeItem('pcd_user_name');
+            updateStatus();
+            alert('Widget storage cleared! Reload the widget to start fresh.');
+        }
+        
+        function manualAuth() {
+            const email = prompt('Enter member email:');
+            if (email) {
+                // This simulates what the widget would store
+                localStorage.setItem('pcd_user_email', email);
+                localStorage.setItem('pcd_user_name', 'Manual Member');
+                alert('Manual auth set! Now load the widget.');
+                updateStatus();
+            }
+        }
+        
+        function openAdminWithToken() {
+            const token = localStorage.getItem('pcd_project_token');
+            if (!token) {
+                alert('No widget token found! Load and authenticate the widget first.');
+                return;
+            }
+            
+            const adminFrame = document.getElementById('adminFrame');
+            adminFrame.src = `http://localhost:5173/inbox/${token}`;
+            document.getElementById('adminStatus').textContent = 'Loading with token...';
+        }
+        
+        function openAdminDefault() {
+            const adminFrame = document.getElementById('adminFrame');
+            adminFrame.src = 'http://localhost:5173/inbox';
+            document.getElementById('adminStatus').textContent = 'Loading default...';
+        }
+        
+        // Listen for storage changes
+        window.addEventListener('storage', (e) => {
+            if (e.key && e.key.startsWith('pcd_')) {
+                console.log('Storage changed:', e.key, e.newValue);
+                updateStatus();
+            }
+        });
+        
+        // Start checking status
+        checkInterval = setInterval(updateStatus, 1000);
+        updateStatus();
+        
+        // Auto-load widget on page load
+        window.addEventListener('load', () => {
+            setTimeout(loadWidget, 500);
+        });
+    </script>
+</body>
+</html> 
