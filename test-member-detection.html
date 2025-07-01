@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Member Detection Diagnostic Tool</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .diagnostic-card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .status {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        .status.success { background: #d4edda; color: #155724; }
+        .status.error { background: #f8d7da; color: #721c24; }
+        .status.warning { background: #fff3cd; color: #856404; }
+        .status.info { background: #d1ecf1; color: #0c5460; }
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+        .method-result {
+            margin: 10px 0;
+            padding: 10px;
+            background: #f8f9fa;
+            border-left: 4px solid #007bff;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover { background: #0056b3; }
+        .log-entry {
+            padding: 5px;
+            margin: 2px 0;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .log-entry.error { color: #dc3545; }
+        .log-entry.success { color: #28a745; }
+        .log-entry.info { color: #17a2b8; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Squarespace Member Detection Diagnostic</h1>
+    
+    <div class="diagnostic-card">
+        <h2>Platform Information</h2>
+        <div id="platformInfo"></div>
+    </div>
+    
+    <div class="diagnostic-card">
+        <h2>Detection Methods</h2>
+        <div id="detectionResults"></div>
+    </div>
+    
+    <div class="diagnostic-card">
+        <h2>Cookie Analysis</h2>
+        <div id="cookieAnalysis"></div>
+    </div>
+    
+    <div class="diagnostic-card">
+        <h2>Global Objects</h2>
+        <div id="globalObjects"></div>
+    </div>
+    
+    <div class="diagnostic-card">
+        <h2>DOM Analysis</h2>
+        <div id="domAnalysis"></div>
+    </div>
+    
+    <div class="diagnostic-card">
+        <h2>Real-time Logs</h2>
+        <button onclick="runDiagnostic()">Run Full Diagnostic</button>
+        <button onclick="clearLogs()">Clear Logs</button>
+        <button onclick="copyResults()">Copy Results</button>
+        <div id="logs" style="margin-top: 10px; max-height: 300px; overflow-y: auto;"></div>
+    </div>
+
+    <script>
+        const log = (message, type = 'info') => {
+            const logsDiv = document.getElementById('logs');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logsDiv.appendChild(entry);
+            logsDiv.scrollTop = logsDiv.scrollHeight;
+            console.log(`[DIAGNOSTIC] ${message}`);
+        };
+
+        const clearLogs = () => {
+            document.getElementById('logs').innerHTML = '';
+        };
+
+        const copyResults = () => {
+            const results = document.body.innerText;
+            navigator.clipboard.writeText(results).then(() => {
+                alert('Results copied to clipboard!');
+            });
+        };
+
+        const detectPlatform = () => {
+            const info = {
+                userAgent: navigator.userAgent,
+                platform: navigator.platform,
+                vendor: navigator.vendor,
+                isMobile: /iPhone|iPad|iPod|Android/i.test(navigator.userAgent),
+                isIOS: /iPhone|iPad|iPod/i.test(navigator.userAgent),
+                isAndroid: /Android/i.test(navigator.userAgent),
+                isWindows: /Windows/i.test(navigator.userAgent),
+                isMac: /Mac/i.test(navigator.userAgent),
+                browser: detectBrowser(),
+                cookiesEnabled: navigator.cookieEnabled,
+                onlineStatus: navigator.onLine,
+                screenSize: `${screen.width}x${screen.height}`,
+                windowSize: `${window.innerWidth}x${window.innerHeight}`
+            };
+            
+            const platformDiv = document.getElementById('platformInfo');
+            platformDiv.innerHTML = '<pre>' + JSON.stringify(info, null, 2) + '</pre>';
+            
+            log(`Platform: ${info.platform}, Mobile: ${info.isMobile}, Browser: ${info.browser}`);
+            return info;
+        };
+
+        const detectBrowser = () => {
+            const ua = navigator.userAgent;
+            if (ua.includes('Chrome')) return 'Chrome';
+            if (ua.includes('Safari') && !ua.includes('Chrome')) return 'Safari';
+            if (ua.includes('Firefox')) return 'Firefox';
+            if (ua.includes('Edge')) return 'Edge';
+            if (ua.includes('Opera')) return 'Opera';
+            return 'Unknown';
+        };
+
+        const analyzeCookies = () => {
+            const cookieDiv = document.getElementById('cookieAnalysis');
+            let html = '<h3>All Cookies:</h3>';
+            
+            const cookies = document.cookie.split(';').map(c => c.trim());
+            if (cookies.length === 0 || cookies[0] === '') {
+                html += '<p class="status warning">No cookies found</p>';
+            } else {
+                html += '<ul>';
+                cookies.forEach(cookie => {
+                    const [name, value] = cookie.split('=');
+                    html += `<li><strong>${name}:</strong> ${value ? value.substring(0, 50) + '...' : 'empty'}</li>`;
+                    
+                    // Check for Squarespace-specific cookies
+                    if (name && (name.includes('Site') || name.includes('SS_') || name === 'crumb')) {
+                        log(`Found Squarespace cookie: ${name}`, 'success');
+                    }
+                });
+                html += '</ul>';
+            }
+            
+            // Try to parse SiteUserInfo
+            const siteUserInfo = getCookieValue('SiteUserInfo');
+            if (siteUserInfo) {
+                try {
+                    const parsed = JSON.parse(decodeURIComponent(siteUserInfo));
+                    html += '<h3>SiteUserInfo Cookie:</h3>';
+                    html += '<pre>' + JSON.stringify(parsed, null, 2) + '</pre>';
+                    log('Successfully parsed SiteUserInfo cookie', 'success');
+                } catch (e) {
+                    log('Failed to parse SiteUserInfo cookie: ' + e.message, 'error');
+                }
+            }
+            
+            cookieDiv.innerHTML = html;
+        };
+
+        const getCookieValue = (name) => {
+            const cookie = document.cookie.split(';').find(c => c.trim().startsWith(`${name}=`));
+            return cookie ? cookie.split('=')[1] : null;
+        };
+
+        const analyzeGlobalObjects = () => {
+            const globalDiv = document.getElementById('globalObjects');
+            let html = '';
+            
+            // Check for Static.SQUARESPACE_CONTEXT
+            html += '<h3>window.Static.SQUARESPACE_CONTEXT:</h3>';
+            if (typeof window.Static !== 'undefined' && window.Static.SQUARESPACE_CONTEXT) {
+                const ctx = window.Static.SQUARESPACE_CONTEXT;
+                html += '<pre>' + JSON.stringify(ctx, null, 2).substring(0, 1000) + '...</pre>';
+                
+                if (ctx.authenticatedAccount) {
+                    html += '<p class="status success">authenticatedAccount found!</p>';
+                    log('Found authenticatedAccount in SQUARESPACE_CONTEXT', 'success');
+                } else {
+                    html += '<p class="status warning">No authenticatedAccount in context</p>';
+                    log('No authenticatedAccount in SQUARESPACE_CONTEXT', 'warning');
+                }
+            } else {
+                html += '<p class="status error">Not available</p>';
+                log('window.Static.SQUARESPACE_CONTEXT not found', 'error');
+            }
+            
+            // Check for Y.Squarespace
+            html += '<h3>window.Y.Squarespace:</h3>';
+            if (typeof window.Y !== 'undefined' && window.Y.Squarespace) {
+                html += '<p class="status success">Available</p>';
+                
+                if (window.Y.Squarespace.MemberAccounts) {
+                    html += '<p>MemberAccounts API is available</p>';
+                    log('Y.Squarespace.MemberAccounts found', 'success');
+                }
+            } else {
+                html += '<p class="status error">Not available</p>';
+                log('window.Y.Squarespace not found', 'error');
+            }
+            
+            globalDiv.innerHTML = html;
+        };
+
+        const analyzeDom = () => {
+            const domDiv = document.getElementById('domAnalysis');
+            let html = '<h3>Member Area Indicators:</h3>';
+            
+            const selectors = [
+                '.auth-container',
+                '.unauth-container',
+                '.sqs-authenticated-block',
+                '.member-area-block',
+                '[data-member-area]',
+                '[data-member-email]',
+                '.member-email',
+                '.logged-in-as'
+            ];
+            
+            let foundAny = false;
+            selectors.forEach(selector => {
+                const elements = document.querySelectorAll(selector);
+                if (elements.length > 0) {
+                    html += `<p class="status success">${selector}: Found ${elements.length} element(s)</p>`;
+                    log(`Found DOM element: ${selector}`, 'success');
+                    foundAny = true;
+                    
+                    // Try to extract email if present
+                    elements.forEach(el => {
+                        const email = el.getAttribute('data-member-email') || 
+                                     el.getAttribute('data-current-user-email');
+                        if (email) {
+                            html += `<p>Email found: ${email}</p>`;
+                            log(`Email found in DOM: ${email}`, 'success');
+                        }
+                    });
+                }
+            });
+            
+            if (!foundAny) {
+                html += '<p class="status warning">No member area indicators found in DOM</p>';
+                log('No member area indicators found in DOM', 'warning');
+            }
+            
+            domDiv.innerHTML = html;
+        };
+
+        const runDetectionMethods = async () => {
+            const resultsDiv = document.getElementById('detectionResults');
+            let html = '';
+            
+            // Method 1: API Detection
+            html += '<div class="method-result">';
+            html += '<h4>Method 1: API Detection</h4>';
+            try {
+                const apiResult = await detectViaAPI();
+                if (apiResult) {
+                    html += `<p class="status success">Success: ${apiResult.email}</p>`;
+                } else {
+                    html += '<p class="status error">Failed</p>';
+                }
+            } catch (e) {
+                html += `<p class="status error">Error: ${e.message}</p>`;
+            }
+            html += '</div>';
+            
+            // Method 2: Cookie Detection
+            html += '<div class="method-result">';
+            html += '<h4>Method 2: Cookie Detection</h4>';
+            const cookieResult = detectViaCookie();
+            if (cookieResult) {
+                html += `<p class="status success">Success: ${cookieResult.email}</p>`;
+            } else {
+                html += '<p class="status error">Failed</p>';
+            }
+            html += '</div>';
+            
+            // Method 3: Context Detection
+            html += '<div class="method-result">';
+            html += '<h4>Method 3: Context Detection</h4>';
+            const contextResult = detectViaContext();
+            if (contextResult) {
+                html += `<p class="status success">Success: ${contextResult.email}</p>`;
+            } else {
+                html += '<p class="status error">Failed</p>';
+            }
+            html += '</div>';
+            
+            resultsDiv.innerHTML = html;
+        };
+
+        const detectViaAPI = async () => {
+            const endpoints = ['/api/member-areas/member', '/api/auth/status'];
+            
+            for (const endpoint of endpoints) {
+                try {
+                    log(`Trying API endpoint: ${endpoint}`);
+                    const response = await fetch(endpoint, { credentials: 'include' });
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.email) {
+                            log(`API detection successful: ${data.email}`, 'success');
+                            return { email: data.email, method: 'api' };
+                        }
+                    }
+                } catch (e) {
+                    log(`API endpoint ${endpoint} failed: ${e.message}`, 'error');
+                }
+            }
+            return null;
+        };
+
+        const detectViaCookie = () => {
+            const cookieValue = getCookieValue('SiteUserInfo');
+            if (!cookieValue) return null;
+            
+            try {
+                const info = JSON.parse(decodeURIComponent(cookieValue));
+                if (info.authenticated && (info.email || info.siteUserId)) {
+                    const email = info.email || `${info.siteUserId}@squarespace.member`;
+                    log(`Cookie detection successful: ${email}`, 'success');
+                    return { email, method: 'cookie' };
+                }
+            } catch (e) {
+                log(`Cookie parsing failed: ${e.message}`, 'error');
+            }
+            return null;
+        };
+
+        const detectViaContext = () => {
+            if (window.Static?.SQUARESPACE_CONTEXT?.authenticatedAccount) {
+                const account = window.Static.SQUARESPACE_CONTEXT.authenticatedAccount;
+                if (account.email) {
+                    log(`Context detection successful: ${account.email}`, 'success');
+                    return { email: account.email, method: 'context' };
+                }
+            }
+            return null;
+        };
+
+        const runDiagnostic = async () => {
+            clearLogs();
+            log('Starting diagnostic...', 'info');
+            
+            detectPlatform();
+            analyzeCookies();
+            analyzeGlobalObjects();
+            analyzeDom();
+            await runDetectionMethods();
+            
+            log('Diagnostic complete!', 'success');
+        };
+
+        // Run diagnostic on load
+        window.addEventListener('load', () => {
+            setTimeout(runDiagnostic, 1000);
+        });
+    </script>
+</body>
+</html> 

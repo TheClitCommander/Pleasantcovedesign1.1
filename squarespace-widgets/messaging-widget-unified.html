@@ -637,6 +637,22 @@
                 console.log('🚀 [BULLETPROOF_WIDGET] Starting bulletproof initialization...');
                 this.updateDebugInfo('Starting robust member detection...', 'info');
                 
+                // CRITICAL: Wait for page to be fully loaded on mobile/slow connections
+                if (document.readyState !== 'complete') {
+                    console.log('⏳ [INIT] Waiting for page to fully load...');
+                    await new Promise(resolve => {
+                        window.addEventListener('load', resolve, { once: true });
+                    });
+                    console.log('✅ [INIT] Page fully loaded');
+                }
+                
+                // Additional delay for mobile browsers to ensure all scripts are loaded
+                const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+                if (isMobile) {
+                    console.log('📱 [INIT] Mobile device detected, adding extra delay...');
+                    await this.sleep(1000);
+                }
+                
                 try {
                     // STEP 0: Detect backend URL first
                     this.config.backendUrl = this.detectBackendUrl();
@@ -680,17 +696,21 @@
             async robustMemberDetection() {
                 console.log('🔍 [DETECTION] Starting robust member detection...');
                 
-                // METHOD 1 (NEW PRIORITY): Static.SQUARESPACE_CONTEXT
-                console.debug('[WIDGET] memberDetection: trying Static.SQUARESPACE_CONTEXT');
+                // CRITICAL: Check if we're in a member area first
+                const inMemberArea = this.detectMemberAreaContext();
+                console.log(`📍 [DETECTION] In member area: ${inMemberArea}`);
+                
+                // METHOD 1: Try Member Account API (NEW - most reliable for member areas)
+                console.debug('[WIDGET] memberDetection: trying Member Account API');
                 this.updateDetectionStep(1, 'pending');
-                let member = this.detectMemberFromContext();
+                let member = await this.detectMemberViaAPI();
                 if (member) {
-                    this.updateDetectionStep(1, 'success', `Found via context: ${member.email}`);
+                    this.updateDetectionStep(1, 'success', `Found via API: ${member.email}`);
                     return member;
                 }
-                this.updateDetectionStep(1, 'error', 'Context method failed');
+                this.updateDetectionStep(1, 'error', 'API method failed');
                 
-                // METHOD 2 (FALLBACK): SiteUserInfo Cookie
+                // METHOD 2: SiteUserInfo Cookie (improved parsing)
                 console.debug('[WIDGET] memberDetection: trying cookies');
                 this.updateDetectionStep(2, 'pending');
                 member = this.detectMemberFromCookie();
@@ -700,49 +720,174 @@
                 }
                 this.updateDetectionStep(2, 'error', 'Cookie method failed');
                 
-                // METHOD 3: Alternative detection methods
-                console.debug('[WIDGET] memberDetection: waiting for postMessage injection');
+                // METHOD 3: Static.SQUARESPACE_CONTEXT (lower priority for member areas)
+                console.debug('[WIDGET] memberDetection: trying Static.SQUARESPACE_CONTEXT');
                 this.updateDetectionStep(3, 'pending');
-                member = await this.detectMemberAlternative();
+                member = this.detectMemberFromContext();
                 if (member) {
-                    this.updateDetectionStep(3, 'success', `Found via alternative: ${member.email}`);
+                    this.updateDetectionStep(3, 'success', `Found via context: ${member.email}`);
                     return member;
                 }
-                this.updateDetectionStep(3, 'error', 'Alternative methods failed');
+                this.updateDetectionStep(3, 'error', 'Context method failed');
                 
-                // METHOD 4: Retry with delay
+                // METHOD 4: Alternative detection methods
+                console.debug('[WIDGET] memberDetection: trying alternative methods');
+                this.updateDetectionStep(4, 'pending');
+                member = await this.detectMemberAlternative();
+                if (member) {
+                    this.updateDetectionStep(4, 'success', `Found via alternative: ${member.email}`);
+                    return member;
+                }
+                this.updateDetectionStep(4, 'error', 'Alternative methods failed');
+                
+                // Retry with delay (especially important for mobile/slow connections)
                 if (this.detectionAttempts < this.maxDetectionAttempts) {
                     this.detectionAttempts++;
                     console.log(`🔄 [DETECTION] Retry attempt ${this.detectionAttempts}/${this.maxDetectionAttempts}`);
-                    await this.sleep(1000);
+                    
+                    // Longer delay for mobile devices
+                    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+                    const delay = isMobile ? 2000 : 1000;
+                    await this.sleep(delay);
+                    
                     return this.robustMemberDetection();
                 }
                 
-                console.error('[WIDGET] memberDetection failed after 10 attempts');
+                console.error('[WIDGET] memberDetection failed after all attempts');
                 console.log('❌ [DETECTION] All detection methods failed');
+                return null;
+            }
+
+            detectMemberAreaContext() {
+                // Check if we're in a member area by looking for specific elements
+                const memberAreaIndicators = [
+                    '.sqs-authenticated-block',
+                    '.member-area-block',
+                    '[data-member-area]',
+                    '.auth-container',
+                    '.unauth-container'
+                ];
+                
+                for (const selector of memberAreaIndicators) {
+                    if (document.querySelector(selector)) {
+                        console.log(`✅ [CONTEXT] Found member area indicator: ${selector}`);
+                        return true;
+                    }
+                }
+                
+                // Check URL patterns
+                const url = window.location.pathname;
+                if (url.includes('/member-area') || url.includes('/members')) {
+                    console.log('✅ [CONTEXT] URL indicates member area');
+                    return true;
+                }
+                
+                return false;
+            }
+
+            async detectMemberViaAPI() {
+                console.log('🌐 [API] Attempting to detect member via Squarespace API...');
+                
+                try {
+                    // Try Squarespace's member account API endpoints
+                    const endpoints = [
+                        '/api/member-areas/member',
+                        '/api/auth/status',
+                        '/api/commerce/customer/details'
+                    ];
+                    
+                    for (const endpoint of endpoints) {
+                        try {
+                            const response = await fetch(endpoint, {
+                                credentials: 'include',
+                                headers: {
+                                    'Accept': 'application/json'
+                                }
+                            });
+                            
+                            if (response.ok) {
+                                const data = await response.json();
+                                console.log(`📦 [API] Response from ${endpoint}:`, data);
+                                
+                                // Parse different response formats
+                                if (data.email || data.customerEmail || data.account?.email) {
+                                    const email = data.email || data.customerEmail || data.account.email;
+                                    const name = data.name || data.firstName || data.account?.displayName || 'Member';
+                                    
+                                    console.log(`✅ [API] Member found via ${endpoint}`);
+                                    return {
+                                        email: email,
+                                        name: name,
+                                        method: 'api'
+                                    };
+                                }
+                            }
+                        } catch (err) {
+                            console.debug(`[API] ${endpoint} failed:`, err.message);
+                        }
+                    }
+                    
+                    // Try Y.Squarespace.MemberAccounts if available
+                    if (window.Y?.Squarespace?.MemberAccounts) {
+                        console.log('🔧 [API] Trying Y.Squarespace.MemberAccounts...');
+                        
+                        return new Promise((resolve) => {
+                            // Set a timeout in case the API doesn't respond
+                            const timeout = setTimeout(() => resolve(null), 2000);
+                            
+                            try {
+                                window.Y.Squarespace.MemberAccounts.getMember((member) => {
+                                    clearTimeout(timeout);
+                                    if (member && member.email) {
+                                        console.log('✅ [API] Member found via Y.Squarespace.MemberAccounts');
+                                        resolve({
+                                            email: member.email,
+                                            name: member.firstName || member.displayName || 'Member',
+                                            method: 'yui-api'
+                                        });
+                                    } else {
+                                        resolve(null);
+                                    }
+                                });
+                            } catch (err) {
+                                clearTimeout(timeout);
+                                console.error('[API] Y.Squarespace.MemberAccounts error:', err);
+                                resolve(null);
+                            }
+                        });
+                    }
+                    
+                } catch (error) {
+                    console.error('❌ [API] Error detecting member via API:', error);
+                }
+                
                 return null;
             }
 
             detectMemberFromCookie() {
                 console.log('🍪 [DETECTION] Trying SiteUserInfo cookie...');
                 try {
-                    // MOBILE FIX: Try multiple cookie access methods
+                    // Improved cookie parsing for cross-platform compatibility
                     let cookieValue = null;
                     
-                    // Method 1: Standard cookie access
-                    const cookie = document.cookie.split('; ').find(row => row.startsWith('SiteUserInfo='));
-                    if (cookie) {
-                        cookieValue = cookie.split('=')[1];
+                    // Get all cookies and normalize them
+                    const cookies = document.cookie.split(/[;,]/).map(c => c.trim());
+                    
+                    for (const cookie of cookies) {
+                        if (cookie.startsWith('SiteUserInfo=')) {
+                            cookieValue = cookie.substring('SiteUserInfo='.length);
+                            break;
+                        }
                     }
                     
-                    // Method 2: Mobile-friendly cookie access
+                    // Try alternative cookie names that Squarespace might use
                     if (!cookieValue) {
-                        const allCookies = document.cookie.split(';');
-                        for (const cookie of allCookies) {
-                            const trimmed = cookie.trim();
-                            if (trimmed.startsWith('SiteUserInfo=')) {
-                                cookieValue = trimmed.substring('SiteUserInfo='.length);
-                                break;
+                        const alternativeCookies = ['crumb', 'SS_MID', 'SS_MATTR'];
+                        for (const cookieName of alternativeCookies) {
+                            const altCookie = cookies.find(c => c.startsWith(`${cookieName}=`));
+                            if (altCookie) {
+                                console.log(`🍪 [COOKIE] Found alternative cookie: ${cookieName}`);
+                                // These cookies might contain session info we can use
                             }
                         }
                     }
@@ -752,7 +897,20 @@
                         return null;
                     }
                     
-                    const info = JSON.parse(decodeURIComponent(cookieValue));
+                    // Decode cookie value (handle different encoding)
+                    let info;
+                    try {
+                        info = JSON.parse(decodeURIComponent(cookieValue));
+                    } catch (e) {
+                        // Try base64 decoding as fallback
+                        try {
+                            info = JSON.parse(atob(cookieValue));
+                        } catch (e2) {
+                            console.error('❌ [COOKIE] Failed to decode cookie value');
+                            return null;
+                        }
+                    }
+                    
                     console.log('📦 [COOKIE] Cookie contents:', JSON.stringify(info, null, 2));
                     
                     if (info.authenticated && info.siteUserId) {
@@ -854,23 +1012,72 @@
                 
                 // METHOD 1: Check for member-specific page elements
                 try {
-                    const memberElements = document.querySelectorAll('[data-member-email], .member-email, #member-email');
-                    for (const element of memberElements) {
-                        const email = element.getAttribute('data-member-email') || element.textContent?.trim();
-                        if (email && email.includes('@')) {
-                            console.log('✅ [ALTERNATIVE] Found email in DOM:', email);
-                            return {
-                                email: email,
-                                name: 'Squarespace Member',
-                                method: 'dom'
-                            };
+                    // Expanded selectors for different Squarespace versions
+                    const memberSelectors = [
+                        '[data-member-email]',
+                        '.member-email',
+                        '#member-email',
+                        '.sqs-authenticated-account-email',
+                        '.member-info',
+                        '[data-current-user-email]',
+                        '.logged-in-as'
+                    ];
+                    
+                    for (const selector of memberSelectors) {
+                        const elements = document.querySelectorAll(selector);
+                        for (const element of elements) {
+                            const email = element.getAttribute('data-member-email') || 
+                                         element.getAttribute('data-current-user-email') ||
+                                         element.textContent?.trim();
+                            if (email && email.includes('@')) {
+                                console.log(`✅ [ALTERNATIVE] Found email in DOM (${selector}):`, email);
+                                return {
+                                    email: email,
+                                    name: 'Squarespace Member',
+                                    method: 'dom'
+                                };
+                            }
                         }
                     }
                 } catch (error) {
                     console.error('❌ [ALTERNATIVE] DOM detection failed:', error);
                 }
                 
-                // METHOD 2: Mobile-specific detection
+                // METHOD 2: Check for auth/unauth containers (member area specific)
+                try {
+                    const authContainer = document.querySelector('.auth-container, .auth, [data-auth="true"]');
+                    const unauthContainer = document.querySelector('.unauth-container, .unauth, [data-auth="false"]');
+                    
+                    if (authContainer && !unauthContainer) {
+                        console.log('✅ [ALTERNATIVE] User is in authenticated state (auth container visible)');
+                        
+                        // Try to extract email from nearby elements
+                        const nearbyText = authContainer.textContent || '';
+                        const emailMatch = nearbyText.match(/([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)/);
+                        if (emailMatch) {
+                            console.log('✅ [ALTERNATIVE] Found email near auth container:', emailMatch[1]);
+                            return {
+                                email: emailMatch[1],
+                                name: 'Member',
+                                method: 'auth-container'
+                            };
+                        }
+                        
+                        // Generate a unique member ID based on page/session
+                        const memberId = this.generateMemberIdFromSession();
+                        if (memberId) {
+                            return {
+                                email: `${memberId}@squarespace.member`,
+                                name: 'Authenticated Member',
+                                method: 'auth-container-generated'
+                            };
+                        }
+                    }
+                } catch (error) {
+                    console.error('❌ [ALTERNATIVE] Auth container detection failed:', error);
+                }
+                
+                // METHOD 3: Mobile-specific detection
                 try {
                     // Check localStorage for cached member info (mobile apps often cache this)
                     const cachedMember = localStorage.getItem('squarespace_member');
@@ -885,11 +1092,44 @@
                             };
                         }
                     }
+                    
+                    // Check sessionStorage as well (mobile browsers might use this)
+                    const sessionMember = sessionStorage.getItem('squarespace_member');
+                    if (sessionMember) {
+                        const memberData = JSON.parse(sessionMember);
+                        if (memberData.email) {
+                            console.log('✅ [ALTERNATIVE] Found session member:', memberData.email);
+                            return {
+                                email: memberData.email,
+                                name: memberData.name || 'Squarespace Member',
+                                method: 'session-cache'
+                            };
+                        }
+                    }
                 } catch (error) {
                     console.error('❌ [ALTERNATIVE] Cache detection failed:', error);
                 }
                 
-                // METHOD 3: URL parameter detection (for testing)
+                // METHOD 4: Check for Squarespace session indicators
+                try {
+                    // Look for session-related meta tags or scripts
+                    const metaTags = document.querySelectorAll('meta[name*="user"], meta[name*="member"], meta[property*="user"]');
+                    for (const meta of metaTags) {
+                        const content = meta.getAttribute('content');
+                        if (content && content.includes('@')) {
+                            console.log('✅ [ALTERNATIVE] Found email in meta tag:', content);
+                            return {
+                                email: content,
+                                name: 'Member',
+                                method: 'meta-tag'
+                            };
+                        }
+                    }
+                } catch (error) {
+                    console.error('❌ [ALTERNATIVE] Meta tag detection failed:', error);
+                }
+                
+                // METHOD 5: URL parameter detection (for testing)
                 try {
                     const urlParams = new URLSearchParams(window.location.search);
                     const testEmail = urlParams.get('test_member_email');
@@ -906,6 +1146,36 @@
                 }
                 
                 return null;
+            }
+            
+            generateMemberIdFromSession() {
+                try {
+                    // Try to generate a consistent ID from available session data
+                    const possibleIds = [
+                        // Check various cookies for session identifiers
+                        this.getCookieValue('SS_MID'),
+                        this.getCookieValue('SS_MATTR'),
+                        this.getCookieValue('crumb'),
+                        // Check for any unique page identifiers
+                        document.querySelector('[data-collection-id]')?.getAttribute('data-collection-id'),
+                        document.querySelector('[data-item-id]')?.getAttribute('data-item-id')
+                    ].filter(Boolean);
+                    
+                    if (possibleIds.length > 0) {
+                        // Use the first available ID, cleaned up
+                        const id = possibleIds[0].replace(/[^a-zA-Z0-9]/g, '').substring(0, 16);
+                        console.log('🔧 [ALTERNATIVE] Generated member ID from session:', id);
+                        return id;
+                    }
+                } catch (error) {
+                    console.error('❌ [ALTERNATIVE] Failed to generate member ID:', error);
+                }
+                return null;
+            }
+            
+            getCookieValue(name) {
+                const cookie = document.cookie.split(';').find(c => c.trim().startsWith(`${name}=`));
+                return cookie ? cookie.split('=')[1] : null;
             }
 
             async validateSessionConsistency(currentMember) {
