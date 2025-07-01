@@ -1175,7 +1175,7 @@ export async function registerRoutes(app: Express, io: any) {
           if (key.startsWith('/uploads')) {
             const baseUrl = process.env.NODE_ENV === 'production' 
               ? 'https://pleasantcovedesign-production.up.railway.app'
-              : `http://localhost:${process.env.PORT || 3000}`;
+              : process.env.NGROK_URL || `https://localhost:${process.env.PORT || 3000}`;
             return `${baseUrl}${key}`;
           }
           // Otherwise, assume it's an R2 key and convert to R2 URL
@@ -1194,10 +1194,10 @@ export async function registerRoutes(app: Express, io: any) {
           console.debug('[API] Saved upload to', savePath);
         });
         
-        // Dynamically determine the base URL for ngrok/production
+        // Dynamically determine the base URL - always use HTTPS for production/ngrok
         const baseUrl = process.env.NODE_ENV === 'production' 
           ? 'https://pleasantcovedesign-production.up.railway.app'
-          : 'https://1ce2-2603-7080-e501-3f6a-59ca-c294-1beb-ddfc.ngrok-free.app';
+          : process.env.NGROK_URL || `https://localhost:${process.env.PORT || 3000}`;
 
         attachments = uploaded.map(f => {
           if (f.location) {
@@ -1863,9 +1863,10 @@ export async function registerRoutes(app: Express, io: any) {
           attachments.push(fileUrl);
         } else {
           // For local storage, construct absolute URL using filename
+          // Always use HTTPS for production and ngrok
           const baseUrl = process.env.NODE_ENV === 'production' 
             ? 'https://pleasantcovedesign-production.up.railway.app'
-            : `http://localhost:${process.env.PORT || 3000}`;
+            : process.env.NGROK_URL || `https://localhost:${process.env.PORT || 3000}`;
           attachments.push(`${baseUrl}/uploads/${file.filename}`);
         }
       }
@@ -2319,12 +2320,14 @@ export async function registerRoutes(app: Express, io: any) {
         client_email,
         message_content: content,
         attachments: attachments.map((url: string) => {
-          // Ensure URLs are absolute for Squarespace cross-domain access
+          // Ensure URLs are absolute and use HTTPS for production
           let fullUrl = url;
           if (!url.startsWith('http')) {
             fullUrl = process.env.NODE_ENV === 'production' 
               ? `https://pleasantcovedesign-production.up.railway.app${url}`
-              : `http://localhost:${process.env.PORT || 3000}${url}`;
+              : process.env.NGROK_URL 
+                ? `${process.env.NGROK_URL}${url}`
+                : `https://localhost:${process.env.PORT || 3000}${url}`;
           }
           return {
             url: fullUrl,
@@ -2430,7 +2433,7 @@ export async function registerRoutes(app: Express, io: any) {
             // Convert local path to absolute URL for Railway compatibility
             const baseUrl = process.env.NODE_ENV === 'production' 
               ? 'https://pleasantcovedesign-production.up.railway.app'
-              : `http://localhost:${process.env.PORT || 3000}`;
+              : process.env.NGROK_URL || `https://localhost:${process.env.PORT || 3000}`;
             const fileUrl = `${baseUrl}/uploads/${file.filename}`;
             attachments.push(fileUrl);
             console.log('📎 Admin with-push file uploaded locally (R2 fallback):', file.originalname, '→', fileUrl);
@@ -2438,7 +2441,7 @@ export async function registerRoutes(app: Express, io: any) {
             // Local storage only - convert to absolute URL
             const baseUrl = process.env.NODE_ENV === 'production' 
               ? 'https://pleasantcovedesign-production.up.railway.app'
-              : `http://localhost:${process.env.PORT || 3000}`;
+              : process.env.NGROK_URL || `https://localhost:${process.env.PORT || 3000}`;
             const fileUrl = `${baseUrl}/uploads/${file.filename}`;
             attachments.push(fileUrl);
             console.log('📎 Admin with-push file uploaded locally:', file.originalname, '→', fileUrl);
