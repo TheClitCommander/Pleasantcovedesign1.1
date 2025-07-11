@@ -580,11 +580,11 @@
                 
                 // ngrok or other HTTPS sites
                 if (window.location.protocol === 'https:') {
-                    // Use the known ngrok URL for HTTPS sites
-                    const knownNgrokUrl = 'https://1ce2-2603-7080-e501-3f6a-59ca-c294-1beb-ddfc.ngrok-free.app';
-                    console.log('✅ [BACKEND] Using ngrok URL for HTTPS site:', knownNgrokUrl);
-                    console.debug('[WIDGET] detectBackendUrl ngrok →', knownNgrokUrl);
-                    return knownNgrokUrl;
+                    // Use Railway production URL for HTTPS sites
+                    const productionUrl = 'https://pleasantcovedesign-production.up.railway.app';
+                    console.log('✅ [BACKEND] Using Railway production URL for HTTPS site:', productionUrl);
+                    console.debug('[WIDGET] detectBackendUrl production →', productionUrl);
+                    return productionUrl;
                 }
                 
                 // Default fallback to localhost
