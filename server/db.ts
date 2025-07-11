@@ -229,9 +229,11 @@ class InMemoryDatabase {
         break;
       case 'project_messages':
         this.projectMessages.push(newRecord);
+        this.saveToDisk();
         break;
       case 'project_files':
         this.projectFiles.push(newRecord);
+        this.saveToDisk();
         break;
       case 'businesses':
         this.businesses.push(newRecord);
@@ -453,9 +455,14 @@ class InMemoryDatabase {
         const conversationMetadata = generateConversationMetadata(source || 'squarespace_form', email);
         
         // Create new project with secure token
+        const companyId = existingClient.id;
+        if (typeof companyId !== 'number') {
+            throw new Error('Client ID is missing or invalid.');
+        }
+
         const projectId = await this.createProject({
           title: `${existingClient.name} - Conversation ${secureToken.submissionId}`,
-          companyId: existingClient.id,
+          companyId: companyId,
           accessToken: secureToken.token, // Use cryptographically secure token
           status: 'active',
           description: `Secure conversation created from ${source || 'form submission'}`
@@ -468,7 +475,7 @@ class InMemoryDatabase {
       }
       
       // Create new client and project with secure token
-      const companyId = await this.createCompany({
+      const newCompanyId = await this.createCompany({
         name: name,
         email: email,
         phone: '',
@@ -480,12 +487,16 @@ class InMemoryDatabase {
         tags: [],
         priority: 'medium'
       });
+
+      if (typeof newCompanyId !== 'number') {
+        throw new Error('Failed to create a new company.');
+      }
       
       // Create project with secure token
       const secureToken = generateSecureProjectToken(source || 'squarespace_form', email);
       const projectId = await this.createProject({
         title: `${name} - Conversation ${secureToken.submissionId}`,
-        companyId: companyId,
+        companyId: newCompanyId,
         accessToken: secureToken.token, // Always use secure tokens
         status: 'active',
         description: `Secure conversation created from ${source || 'form submission'}`

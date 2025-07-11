@@ -1599,9 +1599,25 @@
                     transports: ['websocket', 'polling']
                 });
                 
+                // Set up all event listeners BEFORE connecting
+                this.socket.on('newMessage', (message) => {
+                    console.log('📨 [SOCKET] New message received:', message);
+                    console.log('📨 [SOCKET] Message details:', JSON.stringify(message));
+                    this.addMessageToUI(message);
+                });
+                
+                this.socket.on('message', msg => {
+                    console.debug('[WIDGET] socket message', msg);
+                });
+                
+                this.socket.on('error', (error) => {
+                    console.error('❌ [SOCKET] Error:', error);
+                });
+                
                 this.socket.on('connect', () => {
                     console.debug('[WIDGET] socket connected');
                     console.log('✅ [SOCKET] Connected to server');
+                    console.log('🔌 [SOCKET] Socket ID:', this.socket.id);
                     
                     const connectionStatus = document.getElementById('connectionStatus');
                     if (connectionStatus) {
@@ -1618,7 +1634,10 @@
                     }
                     
                     // Join the project room
-                    this.socket.emit('join', this.projectToken);
+                    console.log('🏠 [SOCKET] Joining room:', this.projectToken);
+                    this.socket.emit('join', this.projectToken, (response) => {
+                        console.log('🏠 [SOCKET] Join response:', response);
+                    });
                 });
                 
                 this.socket.on('connect_error', err => {
@@ -1644,17 +1663,9 @@
                     }
                 });
                 
-                this.socket.on('message', msg => {
-                    console.debug('[WIDGET] socket message', msg);
-                });
-                
-                this.socket.on('newMessage', (message) => {
-                    console.log('📨 [SOCKET] New message received:', message);
-                    this.addMessageToUI(message);
-                });
-                
-                this.socket.on('error', (error) => {
-                    console.error('❌ [SOCKET] Error:', error);
+                // Add catch-all listener for debugging
+                this.socket.onAny((eventName, ...args) => {
+                    console.log('🔍 [SOCKET] Event received:', eventName, args);
                 });
             }
 
