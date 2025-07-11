@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Widget Debug Test</title>
+    <meta charset="utf-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            display: flex;
+            gap: 20px;
+        }
+        #widget-container {
+            flex: 1;
+            border: 2px solid #ccc;
+            padding: 10px;
+            min-height: 600px;
+        }
+        #debug-panel {
+            flex: 1;
+            background: #f5f5f5;
+            padding: 20px;
+            overflow-y: auto;
+            max-height: 600px;
+        }
+        .debug-entry {
+            margin: 5px 0;
+            padding: 5px;
+            background: white;
+            border-left: 3px solid #007bff;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .debug-entry.error {
+            border-left-color: #dc3545;
+            background: #fee;
+        }
+        .debug-entry.success {
+            border-left-color: #28a745;
+            background: #efe;
+        }
+        .controls {
+            margin-bottom: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            margin-right: 10px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div id="widget-container">
+        <h2>Widget Container</h2>
+        <div id="pcd-chat-widget"></div>
+    </div>
+    
+    <div id="debug-panel">
+        <h2>Debug Panel</h2>
+        <div class="controls">
+            <button onclick="clearDebug()">Clear Debug</button>
+            <button onclick="testDirectEmit()">Test Direct Emit</button>
+            <button onclick="getRoomInfo()">Get Room Info</button>
+        </div>
+        <div id="debug-log"></div>
+    </div>
+
+    <!-- Load the widget -->
+    <iframe 
+        id="widget-iframe"
+        src="/squarespace-widgets/messaging-widget-unified.html" 
+        style="width: 100%; height: 600px; border: none;">
+    </iframe>
+
+    <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+    <script>
+        const debugLog = document.getElementById('debug-log');
+        let testSocket = null;
+        
+        function addDebug(message, type = 'info') {
+            const entry = document.createElement('div');
+            entry.className = `debug-entry ${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            debugLog.insertBefore(entry, debugLog.firstChild);
+        }
+        
+        function clearDebug() {
+            debugLog.innerHTML = '';
+        }
+        
+        // Listen for messages from the iframe
+        window.addEventListener('message', (event) => {
+            if (event.data && event.data.type === 'widget-debug') {
+                addDebug(`Widget: ${event.data.message}`, event.data.level || 'info');
+            }
+        });
+        
+        // Connect our own test socket
+        function connectTestSocket() {
+            addDebug('Connecting test socket...', 'info');
+            
+            testSocket = io('http://localhost:3000', {
+                transports: ['websocket', 'polling']
+            });
+            
+            testSocket.on('connect', () => {
+                addDebug(`Test socket connected! ID: ${testSocket.id}`, 'success');
+                
+                // Join the same room as the widget
+                const token = 'mc410tla_OZWbLvupcw1x8CHnSqGwtw';
+                testSocket.emit('join', token, (response) => {
+                    addDebug(`Joined room ${token}: ${JSON.stringify(response)}`, 'success');
+                });
+            });
+            
+            testSocket.on('newMessage', (message) => {
+                addDebug(`RECEIVED newMessage: ${JSON.stringify(message)}`, 'success');
+            });
+            
+            testSocket.onAny((eventName, ...args) => {
+                addDebug(`Event '${eventName}': ${JSON.stringify(args)}`, 'info');
+            });
+            
+            testSocket.on('error', (error) => {
+                addDebug(`Socket error: ${error}`, 'error');
+            });
+            
+            testSocket.on('disconnect', () => {
+                addDebug('Test socket disconnected', 'error');
+            });
+        }
+        
+        function testDirectEmit() {
+            if (!testSocket || !testSocket.connected) {
+                addDebug('Test socket not connected!', 'error');
+                return;
+            }
+            
+            // Emit a test message directly
+            const testMessage = {
+                id: Date.now(),
+                projectToken: 'mc410tla_OZWbLvupcw1x8CHnSqGwtw',
+                senderName: 'Debug Test',
+                content: `Test message at ${new Date().toLocaleTimeString()}`,
+                createdAt: new Date().toISOString(),
+                senderType: 'admin',
+                attachments: []
+            };
+            
+            testSocket.emit('newMessage', testMessage);
+            addDebug(`Emitted test message: ${JSON.stringify(testMessage)}`, 'info');
+        }
+        
+        function getRoomInfo() {
+            if (!testSocket || !testSocket.connected) {
+                addDebug('Test socket not connected!', 'error');
+                return;
+            }
+            
+            // Request room info from server (if implemented)
+            testSocket.emit('getRoomInfo', 'mc410tla_OZWbLvupcw1x8CHnSqGwtw', (info) => {
+                addDebug(`Room info: ${JSON.stringify(info)}`, 'info');
+            });
+        }
+        
+        // Auto-connect on load
+        window.addEventListener('load', () => {
+            setTimeout(connectTestSocket, 1000);
+        });
+    </script>
+</body>
+</html> 

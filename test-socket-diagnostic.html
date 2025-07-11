@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Socket.IO Diagnostic</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #0f0;
+        }
+        .log {
+            background: #000;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #0f0;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .log-entry {
+            margin: 2px 0;
+            font-size: 12px;
+        }
+        .error { color: #f00; }
+        .success { color: #0f0; }
+        .info { color: #ff0; }
+        button {
+            background: #0f0;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+            font-family: monospace;
+            font-weight: bold;
+        }
+        button:hover { background: #0a0; }
+        input {
+            background: #000;
+            color: #0f0;
+            border: 1px solid #0f0;
+            padding: 5px;
+            font-family: monospace;
+            width: 300px;
+        }
+    </style>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+</head>
+<body>
+    <h1>🔌 Socket.IO Connection Diagnostic</h1>
+    
+    <div>
+        <h3>Configuration</h3>
+        <label>Backend URL: <input type="text" id="backendUrl" value="http://localhost:3000"></label><br><br>
+        <label>Project Token: <input type="text" id="projectToken" value="mc410tla_OZWbLvupcw1x8CHnSqGwtw"></label><br><br>
+        <button onclick="startDiagnostic()">Start Diagnostic</button>
+        <button onclick="clearLog()">Clear Log</button>
+    </div>
+    
+    <div class="log" id="log"></div>
+    
+    <div>
+        <h3>Manual Tests</h3>
+        <button onclick="testJoinRoom()">Test Join Room</button>
+        <button onclick="testSendMessage()">Test Send Message</button>
+        <button onclick="testListenForMessages()">Start Listening</button>
+    </div>
+
+    <script>
+        let socket = null;
+        const logElement = document.getElementById('log');
+        
+        function log(message, type = 'info') {
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logElement.appendChild(entry);
+            logElement.scrollTop = logElement.scrollHeight;
+            console.log(message);
+        }
+        
+        function clearLog() {
+            logElement.innerHTML = '';
+        }
+        
+        async function startDiagnostic() {
+            const backendUrl = document.getElementById('backendUrl').value;
+            const projectToken = document.getElementById('projectToken').value;
+            
+            log('=== Starting Socket.IO Diagnostic ===', 'success');
+            log(`Backend URL: ${backendUrl}`);
+            log(`Project Token: ${projectToken}`);
+            
+            // Disconnect existing socket
+            if (socket) {
+                log('Disconnecting existing socket...');
+                socket.disconnect();
+            }
+            
+            // Create new socket connection
+            log('Creating socket connection...');
+            socket = io(backendUrl, {
+                transports: ['websocket', 'polling'],
+                reconnection: true,
+                reconnectionAttempts: 3,
+                reconnectionDelay: 1000
+            });
+            
+            // Set up event listeners
+            socket.on('connect', () => {
+                log(`✅ Connected! Socket ID: ${socket.id}`, 'success');
+                log(`Transport: ${socket.io.engine.transport.name}`, 'info');
+            });
+            
+            socket.on('connect_error', (error) => {
+                log(`❌ Connection error: ${error.message}`, 'error');
+                log(`Error type: ${error.type}`, 'error');
+            });
+            
+            socket.on('disconnect', (reason) => {
+                log(`❌ Disconnected: ${reason}`, 'error');
+            });
+            
+            socket.on('message', (data) => {
+                log(`📨 Received 'message' event: ${JSON.stringify(data)}`, 'success');
+            });
+            
+            socket.on('newMessage', (data) => {
+                log(`📨 Received 'newMessage' event: ${JSON.stringify(data)}`, 'success');
+            });
+            
+            socket.on('error', (error) => {
+                log(`❌ Socket error: ${error}`, 'error');
+            });
+            
+            socket.on('joined', (data) => {
+                log(`✅ Received 'joined' confirmation: ${JSON.stringify(data)}`, 'success');
+            });
+            
+            // Socket.IO internal events for debugging
+            socket.io.on('packet', (packet) => {
+                log(`📦 Packet: ${packet.type} - ${JSON.stringify(packet.data)}`, 'info');
+            });
+            
+            socket.io.on('upgrade', (transport) => {
+                log(`⬆️ Transport upgraded to: ${transport.name}`, 'success');
+            });
+        }
+        
+        function testJoinRoom() {
+            if (!socket || !socket.connected) {
+                log('❌ Socket not connected!', 'error');
+                return;
+            }
+            
+            const projectToken = document.getElementById('projectToken').value;
+            log(`Attempting to join room: ${projectToken}`);
+            
+            // Try with callback
+            socket.emit('join', projectToken, (response) => {
+                log(`Join callback received: ${JSON.stringify(response)}`, 'success');
+            });
+            
+            // Also try without callback (in case server doesn't send one)
+            setTimeout(() => {
+                log('Sending join without callback...');
+                socket.emit('join', projectToken);
+            }, 1000);
+        }
+        
+        async function testSendMessage() {
+            const backendUrl = document.getElementById('backendUrl').value;
+            const projectToken = document.getElementById('projectToken').value;
+            const testMessage = {
+                projectToken: projectToken,
+                sender: 'Socket Diagnostic Tool',
+                body: `Test message at ${new Date().toLocaleTimeString()}`
+            };
+            
+            log(`Sending test message via HTTP POST: ${JSON.stringify(testMessage)}`);
+            
+            try {
+                const response = await fetch(`${backendUrl}/api/messages/unified/send`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(testMessage)
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    log(`✅ Message sent successfully: ${JSON.stringify(result)}`, 'success');
+                    log(`💡 Now watch for 'newMessage' event above if you're in the room!`, 'info');
+                } else {
+                    const error = await response.text();
+                    log(`❌ Failed to send message: ${response.status} - ${error}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ Error sending message: ${error.message}`, 'error');
+            }
+        }
+        
+        function testListenForMessages() {
+            if (!socket) {
+                log('❌ Socket not initialized!', 'error');
+                return;
+            }
+            
+            log('🎧 Started listening for all events...', 'success');
+            
+            // Listen for ANY event
+            const onevent = socket.onevent;
+            socket.onevent = function(packet) {
+                const args = packet.data || [];
+                if (onevent) onevent.call(this, packet);
+                log(`📡 Event received: ${args[0]} - ${JSON.stringify(args.slice(1))}`, 'info');
+            };
+        }
+        
+        // Auto-start on load
+        window.addEventListener('load', () => {
+            log('Page loaded. Click "Start Diagnostic" to begin.', 'info');
+        });
+    </script>
+</body>
+</html> 

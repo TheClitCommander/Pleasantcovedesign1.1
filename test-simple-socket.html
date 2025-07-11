@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Simple Socket Test</title>
+    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+</head>
+<body>
+    <h1>Simple Socket Test</h1>
+    <div id="log" style="font-family: monospace; white-space: pre-wrap; background: #f0f0f0; padding: 20px; height: 400px; overflow-y: auto;"></div>
+    
+    <button onclick="sendTestMessage()">Send Test Message</button>
+    <button onclick="joinRoom()">Join Room Again</button>
+    
+    <script>
+        const log = document.getElementById('log');
+        const TOKEN = 'mc410tla_OZWbLvupcw1x8CHnSqGwtw';
+        let socket;
+        
+        function addLog(msg, color = 'black') {
+            const time = new Date().toLocaleTimeString();
+            log.innerHTML += `<span style="color: ${color}">[${time}] ${msg}</span>\n`;
+            log.scrollTop = log.scrollHeight;
+        }
+        
+        // Connect socket
+        addLog('Connecting to server...', 'blue');
+        socket = io('http://localhost:3000', {
+            transports: ['websocket', 'polling']
+        });
+        
+        // Set up listeners BEFORE connecting
+        socket.on('newMessage', (message) => {
+            addLog(`📨 RECEIVED newMessage: ${JSON.stringify(message)}`, 'green');
+        });
+        
+        socket.onAny((eventName, ...args) => {
+            addLog(`🔍 Event '${eventName}': ${JSON.stringify(args)}`, 'gray');
+        });
+        
+        socket.on('connect', () => {
+            addLog(`✅ Connected! Socket ID: ${socket.id}`, 'green');
+            joinRoom();
+        });
+        
+        socket.on('disconnect', () => {
+            addLog('❌ Disconnected', 'red');
+        });
+        
+        socket.on('error', (error) => {
+            addLog(`❌ Error: ${error}`, 'red');
+        });
+        
+        function joinRoom() {
+            addLog(`Joining room: ${TOKEN}`, 'blue');
+            socket.emit('join', TOKEN, (response) => {
+                addLog(`Join response: ${JSON.stringify(response)}`, 'green');
+            });
+        }
+        
+        function sendTestMessage() {
+            const msg = {
+                token: TOKEN,
+                content: `Test message at ${new Date().toLocaleTimeString()}`,
+                senderName: 'Test User',
+                senderType: 'client'
+            };
+            
+            addLog(`Sending: ${JSON.stringify(msg)}`, 'blue');
+            
+            // Send via HTTP to trigger server broadcast
+            fetch(`http://localhost:3000/api/public/project/${TOKEN}/messages`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(msg)
+            })
+            .then(res => res.json())
+            .then(data => {
+                addLog(`HTTP Response: ${JSON.stringify(data)}`, 'green');
+            })
+            .catch(err => {
+                addLog(`HTTP Error: ${err}`, 'red');
+            });
+        }
+    </script>
+</body>
+</html> 

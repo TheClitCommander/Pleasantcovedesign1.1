@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Complete Messaging Flow Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            border: 2px solid #007bff;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        .log {
+            background: #f0f0f0;
+            padding: 10px;
+            margin: 10px 0;
+            height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .success { color: green; font-weight: bold; }
+        .error { color: red; font-weight: bold; }
+        .info { color: blue; }
+        button {
+            background: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .test-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Complete Messaging Flow Test</h1>
+    
+    <div class="test-section">
+        <h2>Configuration</h2>
+        <p>Backend URL: <strong>http://localhost:3000</strong></p>
+        <p>Test Token: <strong>mc410tla_OZWbLvupcw1x8CHnSqGwtw</strong> (Ben's conversation)</p>
+    </div>
+    
+    <div class="test-grid">
+        <div class="test-section">
+            <h2>1. Database Persistence Test</h2>
+            <button onclick="testPersistence()">Test Database Save</button>
+            <button onclick="checkDatabase()">Check Database</button>
+            <div id="persistenceLog" class="log"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>2. Socket.IO Broadcast Test</h2>
+            <button onclick="connectSocket()">Connect Socket</button>
+            <button onclick="joinRoom()">Join Room</button>
+            <button onclick="sendViaSocket()">Send Test Message</button>
+            <div id="socketLog" class="log"></div>
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h2>3. Widget Integration Test</h2>
+        <button onclick="loadWidget()">Load Widget</button>
+        <button onclick="sendFromWidget()">Send from Widget</button>
+        <button onclick="checkWidgetMessages()">Check Widget Messages</button>
+        <iframe id="widgetFrame" src="/test-instrumented-widget" style="width: 100%; height: 400px; border: 1px solid #ccc; margin-top: 10px;"></iframe>
+    </div>
+    
+    <div class="test-section">
+        <h2>4. Admin UI Test</h2>
+        <p>Open Admin UI in another tab: <a href="http://localhost:5173/inbox/mc410tla_OZWbLvupcw1x8CHnSqGwtw" target="_blank">Open Admin UI</a></p>
+        <button onclick="sendFromAdmin()">Simulate Admin Message</button>
+        <div id="adminLog" class="log"></div>
+    </div>
+    
+    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+    <script>
+        const BACKEND_URL = 'http://localhost:3000';
+        const TOKEN = 'mc410tla_OZWbLvupcw1x8CHnSqGwtw';
+        let socket = null;
+        let messageCount = 0;
+        
+        function log(section, msg, type = 'info') {
+            const logDiv = document.getElementById(section + 'Log');
+            const time = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `<div class="${type}">[${time}] ${msg}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+        
+        // Test 1: Database Persistence
+        async function testPersistence() {
+            try {
+                // Get current message count
+                const beforeResponse = await fetch(`${BACKEND_URL}/api/public/project/${TOKEN}/messages`);
+                const beforeData = await beforeResponse.json();
+                const beforeCount = beforeData.messages.length;
+                log('persistence', `Current message count: ${beforeCount}`);
+                
+                // Send a message
+                const testMessage = {
+                    content: `Persistence test at ${new Date().toLocaleTimeString()}`,
+                    senderName: 'Test User',
+                    senderType: 'client'
+                };
+                
+                const sendResponse = await fetch(`${BACKEND_URL}/api/public/project/${TOKEN}/messages`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(testMessage)
+                });
+                
+                if (!sendResponse.ok) {
+                    throw new Error(`Send failed: ${sendResponse.status}`);
+                }
+                
+                const sentData = await sendResponse.json();
+                log('persistence', `Message sent with ID: ${sentData.id}`, 'success');
+                
+                // Wait a moment for database write
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                // Check if message persisted
+                const afterResponse = await fetch(`${BACKEND_URL}/api/public/project/${TOKEN}/messages`);
+                const afterData = await afterResponse.json();
+                const afterCount = afterData.messages.length;
+                
+                if (afterCount > beforeCount) {
+                    log('persistence', `✅ Persistence working! Message count increased from ${beforeCount} to ${afterCount}`, 'success');
+                    
+                    // Find our message
+                    const ourMessage = afterData.messages.find(m => m.id === sentData.id);
+                    if (ourMessage) {
+                        log('persistence', `✅ Found our message in database: "${ourMessage.content}"`, 'success');
+                    } else {
+                        log('persistence', `❌ Our message ID ${sentData.id} not found in database`, 'error');
+                    }
+                } else {
+                    log('persistence', `❌ Message count unchanged (${afterCount}). Persistence may be failing!`, 'error');
+                }
+                
+            } catch (error) {
+                log('persistence', `Error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function checkDatabase() {
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/public/project/${TOKEN}/messages`);
+                const data = await response.json();
+                
+                log('persistence', `Database contains ${data.messages.length} messages`);
+                
+                // Show last 3 messages
+                const recent = data.messages.slice(-3);
+                recent.forEach(msg => {
+                    log('persistence', `- [${msg.id}] ${msg.senderName}: ${msg.content.substring(0, 50)}...`);
+                });
+                
+            } catch (error) {
+                log('persistence', `Error checking database: ${error.message}`, 'error');
+            }
+        }
+        
+        // Test 2: Socket.IO
+        function connectSocket() {
+            if (socket) {
+                socket.disconnect();
+            }
+            
+            socket = io(BACKEND_URL);
+            
+            socket.on('connect', () => {
+                log('socket', `✅ Connected! Socket ID: ${socket.id}`, 'success');
+            });
+            
+            socket.on('newMessage', (message) => {
+                log('socket', `📨 Received newMessage: ${JSON.stringify(message)}`, 'success');
+            });
+            
+            socket.onAny((eventName, ...args) => {
+                log('socket', `🔍 Event: ${eventName} - ${JSON.stringify(args)}`, 'info');
+            });
+            
+            socket.on('disconnect', () => {
+                log('socket', '❌ Disconnected', 'error');
+            });
+        }
+        
+        function joinRoom() {
+            if (!socket || !socket.connected) {
+                log('socket', 'Socket not connected!', 'error');
+                return;
+            }
+            
+            socket.emit('join', TOKEN, (response) => {
+                log('socket', `Join response: ${JSON.stringify(response)}`, 'success');
+            });
+        }
+        
+        async function sendViaSocket() {
+            try {
+                const msg = {
+                    content: `Socket test at ${new Date().toLocaleTimeString()}`,
+                    senderName: 'Socket Tester',
+                    senderType: 'client'
+                };
+                
+                const response = await fetch(`${BACKEND_URL}/api/public/project/${TOKEN}/messages`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(msg)
+                });
+                
+                if (response.ok) {
+                    log('socket', 'Message sent - watch for broadcast above', 'success');
+                } else {
+                    log('socket', `Send failed: ${response.status}`, 'error');
+                }
+            } catch (error) {
+                log('socket', `Error: ${error.message}`, 'error');
+            }
+        }
+        
+        // Test 3: Widget
+        function loadWidget() {
+            const iframe = document.getElementById('widgetFrame');
+            iframe.src = '/test-instrumented-widget?t=' + Date.now();
+            log('admin', 'Widget reloaded', 'info');
+        }
+        
+        function sendFromWidget() {
+            log('admin', 'Use the widget below to send a message', 'info');
+        }
+        
+        function checkWidgetMessages() {
+            const iframe = document.getElementById('widgetFrame');
+            // Try to access widget's message count
+            try {
+                const widgetDoc = iframe.contentDocument || iframe.contentWindow.document;
+                const messages = widgetDoc.querySelectorAll('.pcd-message');
+                log('admin', `Widget shows ${messages.length} messages`, 'info');
+            } catch (e) {
+                log('admin', 'Cannot access widget content (cross-origin)', 'error');
+            }
+        }
+        
+        // Test 4: Admin simulation
+        async function sendFromAdmin() {
+            try {
+                const msg = {
+                    content: `Admin message at ${new Date().toLocaleTimeString()}`,
+                    senderName: 'Admin',
+                    senderType: 'admin'
+                };
+                
+                const response = await fetch(`${BACKEND_URL}/api/public/project/${TOKEN}/messages`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(msg)
+                });
+                
+                if (response.ok) {
+                    log('admin', '✅ Admin message sent', 'success');
+                } else {
+                    log('admin', `Send failed: ${response.status}`, 'error');
+                }
+            } catch (error) {
+                log('admin', `Error: ${error.message}`, 'error');
+            }
+        }
+        
+        // Auto-connect socket on load
+        window.onload = () => {
+            connectSocket();
+            setTimeout(joinRoom, 500);
+        };
+    </script>
+</body>
+</html> 

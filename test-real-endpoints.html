@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real Endpoint Test</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test {
+            margin: 20px 0;
+            padding: 15px;
+            background: white;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .success { border-left: 5px solid #28a745; }
+        .error { border-left: 5px solid #dc3545; }
+        pre { background: #f8f9fa; padding: 10px; overflow-x: auto; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Real Endpoint Tests</h1>
+    
+    <div class="test">
+        <h2>1. Test Token Request (Your Auth)</h2>
+        <button onclick="testTokenRequest()">Test Token Request</button>
+        <pre id="token-result">Click to test...</pre>
+    </div>
+
+    <div class="test">
+        <h2>2. Test Message History</h2>
+        <button onclick="testMessages()">Get Messages</button>
+        <pre id="messages-result">Click to test...</pre>
+    </div>
+
+    <div class="test">
+        <h2>3. Send Test Message</h2>
+        <input type="text" id="message-input" placeholder="Type a message..." style="width: 300px; padding: 5px;">
+        <button onclick="sendMessage()">Send Message</button>
+        <pre id="send-result">Type a message and click send...</pre>
+    </div>
+
+    <div class="test">
+        <h2>4. Test Admin Inbox Route</h2>
+        <button onclick="testAdminInbox()">Test Admin Inbox</button>
+        <pre id="admin-result">Click to test...</pre>
+    </div>
+
+    <script>
+        const token = localStorage.getItem('pcd_project_token') || 'mc410tla_OZWbLvupcw1x8CHnSqGwtw';
+        const email = localStorage.getItem('pcd_user_email') || 'ben04537@gmail.com';
+        
+        async function testTokenRequest() {
+            const result = document.getElementById('token-result');
+            result.textContent = 'Testing token request...\n';
+            
+            try {
+                const response = await fetch('http://localhost:3000/api/token', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        type: 'member',
+                        email: email
+                    })
+                });
+                
+                const data = await response.json();
+                result.textContent = `Status: ${response.status}\n`;
+                result.textContent += `Response: ${JSON.stringify(data, null, 2)}`;
+                result.parentElement.classList.add(response.ok ? 'success' : 'error');
+            } catch (error) {
+                result.textContent = `Error: ${error.message}`;
+                result.parentElement.classList.add('error');
+            }
+        }
+
+        async function testMessages() {
+            const result = document.getElementById('messages-result');
+            result.textContent = 'Fetching messages...\n';
+            
+            try {
+                const response = await fetch(`http://localhost:3000/api/messages/${token}`, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                result.textContent = `Status: ${response.status}\n`;
+                
+                // Check if data is an array or object with messages property
+                const messages = Array.isArray(data) ? data : (data.messages || []);
+                result.textContent += `Found ${messages.length} messages\n\n`;
+                
+                // Show last 3 messages
+                if (messages.length > 0) {
+                    const recent = messages.slice(-3);
+                    recent.forEach(msg => {
+                        result.textContent += `[${msg.senderType}] ${msg.senderName}: ${msg.content}\n`;
+                    });
+                }
+                
+                result.parentElement.classList.add('success');
+            } catch (error) {
+                result.textContent = `Error: ${error.message}`;
+                result.parentElement.classList.add('error');
+            }
+        }
+
+        async function sendMessage() {
+            const result = document.getElementById('send-result');
+            const input = document.getElementById('message-input');
+            const content = input.value.trim();
+            
+            if (!content) {
+                result.textContent = 'Please enter a message!';
+                return;
+            }
+            
+            result.textContent = 'Sending message...\n';
+            
+            try {
+                // Use the unified messages endpoint
+                const response = await fetch('http://localhost:3000/api/messages', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        projectToken: token,
+                        sender: 'Test User',
+                        body: content
+                    })
+                });
+                
+                const data = await response.json();
+                result.textContent = `Status: ${response.status}\n`;
+                result.textContent += `Response: ${JSON.stringify(data, null, 2)}`;
+                result.parentElement.classList.add('success');
+                
+                // Clear input on success
+                if (response.ok) {
+                    input.value = '';
+                }
+            } catch (error) {
+                result.textContent = `Error: ${error.message}`;
+                result.parentElement.classList.add('error');
+            }
+        }
+
+        async function testAdminInbox() {
+            const result = document.getElementById('admin-result');
+            result.textContent = 'Testing admin inbox endpoint...\n';
+            
+            try {
+                const response = await fetch('http://localhost:3000/api/admin/inbox', {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Authorization': 'Bearer pleasant-cove-admin-2024'
+                    }
+                });
+                
+                const data = await response.json();
+                result.textContent = `Status: ${response.status}\n`;
+                
+                // Check if data has conversations property
+                const conversations = data.conversations || data || [];
+                result.textContent += `Found ${conversations.length} conversations\n\n`;
+                
+                // Show first 3 conversations
+                if (conversations.length > 0) {
+                    const first3 = conversations.slice(0, 3);
+                    first3.forEach(conv => {
+                        result.textContent += `${conv.customerName} (${conv.customerEmail}) - ${conv.unreadCount || 0} unread\n`;
+                    });
+                }
+                
+                result.parentElement.classList.add('success');
+            } catch (error) {
+                result.textContent = `Error: ${error.message}`;
+                result.parentElement.classList.add('error');
+            }
+        }
+
+        // Show current session info
+        window.addEventListener('load', () => {
+            console.log('Current session:', {
+                token: token,
+                email: email
+            });
+        });
+    </script>
+</body>
+</html> 

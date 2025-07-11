@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Diagnostic</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background: #1e1e1e;
+            color: #d4d4d4;
+        }
+        .test {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #444;
+            background: #2d2d2d;
+            border-radius: 5px;
+        }
+        .success { border-color: #4ec9b0; }
+        .error { border-color: #f44747; }
+        .warning { border-color: #dcdcaa; }
+        h2 { color: #569cd6; }
+        pre { 
+            background: #1e1e1e; 
+            padding: 10px; 
+            overflow-x: auto;
+            border-radius: 3px;
+        }
+        button {
+            background: #007acc;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 3px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #005a9e; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Pleasant Cove Design - System Diagnostic</h1>
+    
+    <div class="test" id="backend-test">
+        <h2>1. Backend Server Test</h2>
+        <button onclick="testBackend()">Test Backend Connection</button>
+        <pre id="backend-result">Click button to test...</pre>
+    </div>
+
+    <div class="test" id="localStorage-test">
+        <h2>2. LocalStorage Test</h2>
+        <button onclick="testLocalStorage()">Check LocalStorage</button>
+        <pre id="localStorage-result">Click button to test...</pre>
+    </div>
+
+    <div class="test" id="widget-test">
+        <h2>3. Widget Test</h2>
+        <button onclick="loadWidget()">Load Widget</button>
+        <div id="widget-container"></div>
+    </div>
+
+    <div class="test" id="websocket-test">
+        <h2>4. WebSocket Test</h2>
+        <button onclick="testWebSocket()">Test WebSocket</button>
+        <pre id="websocket-result">Click button to test...</pre>
+    </div>
+
+    <div class="test" id="admin-test">
+        <h2>5. Admin UI Test</h2>
+        <button onclick="testAdminUI()">Open Admin UI</button>
+        <pre id="admin-result">Click button to test...</pre>
+    </div>
+
+    <script>
+        // Test backend connection
+        async function testBackend() {
+            const result = document.getElementById('backend-result');
+            result.textContent = 'Testing backend at http://localhost:3000...\n';
+            
+            try {
+                const response = await fetch('http://localhost:3000/api/health', {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                result.textContent += `Status: ${response.status} ${response.statusText}\n`;
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    result.textContent += `Response: ${JSON.stringify(data, null, 2)}\n`;
+                    result.parentElement.classList.add('success');
+                } else {
+                    result.textContent += `Error: Backend returned ${response.status}\n`;
+                    result.parentElement.classList.add('error');
+                }
+            } catch (error) {
+                result.textContent += `Error: ${error.message}\n`;
+                result.textContent += '\nPossible issues:\n';
+                result.textContent += '- Backend not running (run: npm start)\n';
+                result.textContent += '- Wrong port (should be 3000)\n';
+                result.textContent += '- CORS blocking the request\n';
+                result.parentElement.classList.add('error');
+            }
+        }
+
+        // Test localStorage
+        function testLocalStorage() {
+            const result = document.getElementById('localStorage-result');
+            result.textContent = 'Checking localStorage...\n\n';
+            
+            const keys = [
+                'pcd_user_email',
+                'pcd_user_name', 
+                'pcd_project_token',
+                'pcd_client_id',
+                'pcd_project_id'
+            ];
+            
+            let hasData = false;
+            keys.forEach(key => {
+                const value = localStorage.getItem(key);
+                result.textContent += `${key}: ${value || 'null'}\n`;
+                if (value) hasData = true;
+            });
+            
+            if (hasData) {
+                result.parentElement.classList.add('success');
+                result.textContent += '\n✅ LocalStorage has data';
+            } else {
+                result.parentElement.classList.add('warning');
+                result.textContent += '\n⚠️ No data in localStorage - widget needs to authenticate first';
+            }
+        }
+
+        // Load widget
+        function loadWidget() {
+            const container = document.getElementById('widget-container');
+            container.innerHTML = `
+                <p>Loading widget...</p>
+                <iframe 
+                    src="test-instrumented-widget.html" 
+                    style="width: 100%; height: 600px; border: 1px solid #444; margin-top: 10px;"
+                    onload="console.log('Widget loaded')"
+                    onerror="console.error('Widget failed to load')"
+                ></iframe>
+            `;
+        }
+
+        // Test WebSocket
+        async function testWebSocket() {
+            const result = document.getElementById('websocket-result');
+            result.textContent = 'Testing WebSocket connection...\n';
+            
+            try {
+                // First check if backend is running
+                const healthCheck = await fetch('http://localhost:3000/api/health');
+                if (!healthCheck.ok) {
+                    throw new Error('Backend not responding');
+                }
+                
+                result.textContent += 'Backend is running ✓\n';
+                result.textContent += 'Attempting WebSocket connection...\n';
+                
+                // Try to connect via Socket.IO
+                const script = document.createElement('script');
+                script.src = 'http://localhost:3000/socket.io/socket.io.js';
+                script.onload = () => {
+                    const socket = io('http://localhost:3000');
+                    
+                    socket.on('connect', () => {
+                        result.textContent += '✅ WebSocket connected!\n';
+                        result.textContent += `Socket ID: ${socket.id}\n`;
+                        result.parentElement.classList.add('success');
+                        socket.disconnect();
+                    });
+                    
+                    socket.on('connect_error', (error) => {
+                        result.textContent += `❌ Connection error: ${error.message}\n`;
+                        result.parentElement.classList.add('error');
+                    });
+                };
+                script.onerror = () => {
+                    result.textContent += '❌ Failed to load Socket.IO client\n';
+                    result.parentElement.classList.add('error');
+                };
+                document.head.appendChild(script);
+                
+            } catch (error) {
+                result.textContent += `❌ Error: ${error.message}\n`;
+                result.parentElement.classList.add('error');
+            }
+        }
+
+        // Test Admin UI
+        function testAdminUI() {
+            const result = document.getElementById('admin-result');
+            const token = localStorage.getItem('pcd_project_token');
+            
+            if (token) {
+                const adminUrl = `http://localhost:5173/inbox/${token}`;
+                result.textContent = `Opening Admin UI at:\n${adminUrl}\n\nMake sure to run: npm run dev`;
+                window.open(adminUrl, '_blank');
+            } else {
+                result.textContent = 'No project token found!\n\n';
+                result.textContent += 'Steps to fix:\n';
+                result.textContent += '1. Load the widget (button #3)\n';
+                result.textContent += '2. Authenticate in the widget\n';
+                result.textContent += '3. Check localStorage again (button #2)\n';
+                result.textContent += '4. Try this button again';
+                result.parentElement.classList.add('warning');
+            }
+        }
+
+        // Auto-run tests on load
+        window.addEventListener('load', () => {
+            console.log('Diagnostic page loaded');
+            // Don't auto-run to avoid overwhelming the console
+        });
+    </script>
+</body>
+</html> 

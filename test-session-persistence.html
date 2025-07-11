@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Session Persistence Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+        }
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+        .key-value {
+            margin: 10px 0;
+            padding: 10px;
+            background: white;
+            border-radius: 4px;
+            font-family: monospace;
+            word-break: break-all;
+        }
+        .key {
+            font-weight: bold;
+            color: #495057;
+        }
+        .value {
+            color: #28a745;
+        }
+        .null {
+            color: #dc3545;
+            font-style: italic;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .btn-primary {
+            background: #007bff;
+            color: white;
+        }
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .iframe-container {
+            margin-top: 20px;
+            border: 2px solid #007bff;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        iframe {
+            width: 100%;
+            height: 600px;
+            border: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Session Persistence Test</h1>
+        
+        <div class="section">
+            <h2>📦 Current localStorage Values</h2>
+            <div id="storage-values"></div>
+            <button class="btn-primary" onclick="refreshValues()">🔄 Refresh Values</button>
+            <button class="btn-danger" onclick="clearStorage()">🗑️ Clear All</button>
+        </div>
+
+        <div class="section">
+            <h2>🧪 Test Session Persistence</h2>
+            <p>1. Click "Set Test Values" to simulate a logged-in session</p>
+            <p>2. Refresh the page (F5 or Cmd+R)</p>
+            <p>3. Check if the values persist</p>
+            <button class="btn-success" onclick="setTestValues()">✅ Set Test Values</button>
+            <div id="test-status"></div>
+        </div>
+
+        <div class="section">
+            <h2>🔗 Admin UI Navigation</h2>
+            <p>Based on your current project token:</p>
+            <div id="admin-url"></div>
+            <button class="btn-primary" onclick="openAdminUI()">🚀 Open Admin UI</button>
+        </div>
+
+        <div class="section">
+            <h2>📱 Widget Test</h2>
+            <button class="btn-primary" onclick="loadWidget()">Load Widget in iFrame</button>
+            <div id="widget-container"></div>
+        </div>
+    </div>
+
+    <script>
+        // Check all localStorage keys
+        function getAllStorageValues() {
+            const keys = [
+                'pcd_user_email',
+                'pcd_user_name',
+                'pcd_project_token',
+                'pcd_client_id',
+                'pcd_project_id',
+                'pcd_auth_method',
+                'pcd_last_admin_project'
+            ];
+            
+            const values = {};
+            keys.forEach(key => {
+                values[key] = localStorage.getItem(key);
+            });
+            
+            return values;
+        }
+        
+        // Display storage values
+        function displayValues() {
+            const values = getAllStorageValues();
+            const container = document.getElementById('storage-values');
+            
+            container.innerHTML = Object.entries(values)
+                .map(([key, value]) => `
+                    <div class="key-value">
+                        <span class="key">${key}:</span> 
+                        <span class="${value ? 'value' : 'null'}">${value || 'null'}</span>
+                    </div>
+                `).join('');
+        }
+        
+        // Refresh values
+        function refreshValues() {
+            displayValues();
+            updateAdminUrl();
+        }
+        
+        // Clear storage
+        function clearStorage() {
+            if (confirm('Are you sure you want to clear all localStorage values?')) {
+                localStorage.clear();
+                refreshValues();
+                showStatus('All localStorage values cleared!', 'error');
+            }
+        }
+        
+        // Set test values
+        function setTestValues() {
+            const testData = {
+                'pcd_user_email': 'test@example.com',
+                'pcd_user_name': 'Test User',
+                'pcd_project_token': 'test-token-' + Date.now(),
+                'pcd_client_id': '123',
+                'pcd_project_id': '456',
+                'pcd_auth_method': 'test'
+            };
+            
+            Object.entries(testData).forEach(([key, value]) => {
+                localStorage.setItem(key, value);
+            });
+            
+            refreshValues();
+            showStatus('Test values set! Now refresh the page to test persistence.', 'success');
+        }
+        
+        // Show status message
+        function showStatus(message, type) {
+            const status = document.getElementById('test-status');
+            status.innerHTML = `<div class="status ${type}">${message}</div>`;
+            setTimeout(() => {
+                status.innerHTML = '';
+            }, 5000);
+        }
+        
+        // Update admin URL
+        function updateAdminUrl() {
+            const token = localStorage.getItem('pcd_project_token');
+            const container = document.getElementById('admin-url');
+            
+            if (token) {
+                const adminUrl = `http://localhost:5173/inbox/${token}`;
+                container.innerHTML = `
+                    <div class="key-value">
+                        <span class="key">URL:</span> 
+                        <span class="value">${adminUrl}</span>
+                    </div>
+                `;
+            } else {
+                container.innerHTML = `
+                    <div class="key-value">
+                        <span class="key">URL:</span> 
+                        <span class="null">No project token found</span>
+                    </div>
+                `;
+            }
+        }
+        
+        // Open admin UI
+        function openAdminUI() {
+            const token = localStorage.getItem('pcd_project_token');
+            if (token) {
+                window.open(`http://localhost:5173/inbox/${token}`, '_blank');
+            } else {
+                alert('No project token found! Please authenticate in the widget first.');
+            }
+        }
+        
+        // Load widget
+        function loadWidget() {
+            const container = document.getElementById('widget-container');
+            container.innerHTML = `
+                <div class="iframe-container">
+                    <iframe src="test-instrumented-widget.html"></iframe>
+                </div>
+            `;
+        }
+        
+        // Check persistence on load
+        window.addEventListener('load', () => {
+            displayValues();
+            updateAdminUrl();
+            
+            // Check if values persisted from before
+            const email = localStorage.getItem('pcd_user_email');
+            const token = localStorage.getItem('pcd_project_token');
+            
+            if (email && token) {
+                console.log('✅ Session persisted after refresh!');
+                console.log('Email:', email);
+                console.log('Token:', token);
+            } else {
+                console.log('⚠️ No session found after refresh');
+            }
+        });
+    </script>
+</body>
+</html> 

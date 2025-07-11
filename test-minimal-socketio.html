@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Minimal Socket.IO Test</title>
+    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+</head>
+<body>
+    <h1>Minimal Socket.IO Test</h1>
+    <div id="log" style="border: 1px solid #ccc; padding: 10px; height: 400px; overflow-y: auto; font-family: monospace;"></div>
+    
+    <button onclick="joinRoom()">1. Join Room</button>
+    <button onclick="sendMessage()">2. Send Message via HTTP</button>
+    
+    <script>
+        const BACKEND_URL = 'http://localhost:3000';
+        const TOKEN = 'mc410tla_OZWbLvupcw1x8CHnSqGwtw';
+        const socket = io(BACKEND_URL);
+        
+        function log(msg, color = 'black') {
+            const div = document.getElementById('log');
+            const time = new Date().toLocaleTimeString();
+            div.innerHTML += `<div style="color: ${color}">[${time}] ${msg}</div>`;
+            div.scrollTop = div.scrollHeight;
+        }
+        
+        // Socket event handlers
+        socket.on('connect', () => {
+            log('✅ Connected to server, socket ID: ' + socket.id, 'green');
+        });
+        
+        socket.on('disconnect', () => {
+            log('❌ Disconnected from server', 'red');
+        });
+        
+        socket.on('joined', (data) => {
+            log('✅ Received joined confirmation: ' + JSON.stringify(data), 'green');
+        });
+        
+        socket.on('newMessage', (message) => {
+            log('📨 RECEIVED newMessage: ' + JSON.stringify(message), 'blue');
+        });
+        
+        // Catch-all listener
+        socket.onAny((eventName, ...args) => {
+            log(`🔍 Event received: ${eventName} - ${JSON.stringify(args)}`, 'purple');
+        });
+        
+        function joinRoom() {
+            log('Emitting join for room: ' + TOKEN);
+            socket.emit('join', TOKEN, (response) => {
+                log('Join callback response: ' + JSON.stringify(response), 'green');
+            });
+        }
+        
+        async function sendMessage() {
+            const msg = {
+                content: 'Test message at ' + new Date().toLocaleTimeString(),
+                senderName: 'Minimal Test',
+                senderType: 'client'
+            };
+            
+            log('Sending HTTP POST to /api/public/project/' + TOKEN + '/messages');
+            
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/public/project/${TOKEN}/messages`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(msg)
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log('✅ Message sent successfully, ID: ' + data.id, 'green');
+                } else {
+                    log('❌ Failed to send: ' + response.status, 'red');
+                }
+            } catch (error) {
+                log('❌ Error: ' + error.message, 'red');
+            }
+        }
+        
+        // Auto-join on connect
+        socket.on('connect', () => {
+            setTimeout(joinRoom, 100);
+        });
+    </script>
+</body>
+</html> 

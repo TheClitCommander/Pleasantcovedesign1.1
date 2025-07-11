@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Message Persistence Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            border: 1px solid #ddd;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .success {
+            color: green;
+            font-weight: bold;
+        }
+        .error {
+            color: red;
+            font-weight: bold;
+        }
+        #messages {
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin: 10px 0;
+            max-height: 300px;
+            overflow-y: auto;
+            background: #f9f9f9;
+        }
+        .message {
+            padding: 5px;
+            margin: 5px 0;
+            border-left: 3px solid #007bff;
+            background: white;
+        }
+    </style>
+</head>
+<body>
+    <h1>Message Persistence Test</h1>
+    
+    <div class="test-section">
+        <h2>Test Configuration</h2>
+        <p>Backend URL: <strong>http://localhost:3000</strong></p>
+        <p>Test Token: <strong>mc410tla_OZWbLvupcw1x8CHnSqGwtw</strong></p>
+    </div>
+
+    <div class="test-section">
+        <h2>Step 1: Send Test Message</h2>
+        <button onclick="sendMessage()">Send Message</button>
+        <div id="sendResult"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Step 2: Load Messages</h2>
+        <button onclick="loadMessages()">Load Messages</button>
+        <div id="loadResult"></div>
+        <div id="messages"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Step 3: Verify Persistence</h2>
+        <p>After sending a message:</p>
+        <ol>
+            <li>Refresh this page</li>
+            <li>Click "Load Messages" again</li>
+            <li>Your message should still be there!</li>
+        </ol>
+    </div>
+
+    <script>
+        const BACKEND_URL = 'http://localhost:3000';
+        const TEST_TOKEN = 'mc410tla_OZWbLvupcw1x8CHnSqGwtw';
+        
+        async function sendMessage() {
+            const result = document.getElementById('sendResult');
+            const timestamp = new Date().toLocaleTimeString();
+            
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/messages/unified/send`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        token: TEST_TOKEN,
+                        content: `Test message sent at ${timestamp}`,
+                        senderName: 'Persistence Test',
+                        senderType: 'client'
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    result.innerHTML = `<span class="success">✓ Message sent! ID: ${data.message.id}</span>`;
+                    
+                    // Automatically load messages to show it
+                    setTimeout(loadMessages, 500);
+                } else {
+                    result.innerHTML = `<span class="error">✗ Failed to send message: ${response.status}</span>`;
+                }
+            } catch (error) {
+                result.innerHTML = `<span class="error">✗ Error: ${error.message}</span>`;
+            }
+        }
+        
+        async function loadMessages() {
+            const result = document.getElementById('loadResult');
+            const messagesDiv = document.getElementById('messages');
+            
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/messages/unified/${TEST_TOKEN}`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    result.innerHTML = `<span class="success">✓ Loaded ${data.messages.length} messages</span>`;
+                    
+                    // Display messages
+                    messagesDiv.innerHTML = data.messages.map(msg => `
+                        <div class="message">
+                            <strong>${msg.senderName}</strong> (ID: ${msg.id})<br>
+                            ${msg.content}<br>
+                            <small>${new Date(msg.createdAt).toLocaleString()}</small>
+                        </div>
+                    `).join('');
+                } else {
+                    result.innerHTML = `<span class="error">✗ Failed to load messages: ${response.status}</span>`;
+                }
+            } catch (error) {
+                result.innerHTML = `<span class="error">✗ Error: ${error.message}</span>`;
+            }
+        }
+        
+        // Load messages on page load
+        window.addEventListener('load', () => {
+            loadMessages();
+        });
+    </script>
+</body>
+</html> 
