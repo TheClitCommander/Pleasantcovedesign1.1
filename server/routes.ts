@@ -73,68 +73,96 @@ if (!fs.existsSync(uploadsDir)) {
   console.log('📁 Created uploads directory:', uploadsDir);
 }
 
-// Configure multer for both R2 and local storage
+// Configure multer for both R2 and local storage with robust error handling
 let upload: multer.Multer;
 
-if (useR2Storage) {
-  // R2 storage configuration
-  upload = multer({
-    storage: multerS3({
-      s3: s3 as any, // Type workaround for AWS SDK v2 compatibility
-      bucket: process.env.R2_BUCKET!,
-      // leave off ACL (R2 ignores S3 canned ACLs)
-      key: (req, file, cb) => {
-        const filename = `${Date.now()}-${file.originalname}`;
-        cb(null, filename);
-      }
-    }),
-    limits: {
-      fileSize: 10 * 1024 * 1024, // 10MB limit
-      files: 5 // Max 5 files per request
-    },
-    fileFilter: function (req, file, cb) {
-      const allowedTypes = /jpeg|jpg|png|gif|pdf|doc|docx|txt|zip|xls|xlsx/;
-      const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-      const mimetype = allowedTypes.test(file.mimetype);
-      
-      if (mimetype && extname) {
-        return cb(null, true);
-      } else {
-        cb(new Error('Only images, documents, and common file types are allowed!'));
-      }
-    }
-  });
-} else {
-  // Local storage configuration
-  upload = multer({
-    storage: multer.diskStorage({
-      destination: (req, file, cb) => {
-        cb(null, uploadsDir);
+try {
+  if (useR2Storage && s3) {
+    // R2 storage configuration
+    console.log('🔧 Configuring multer with R2 storage...');
+    upload = multer({
+      storage: multerS3({
+        s3: s3 as any, // Type workaround for AWS SDK v2 compatibility
+        bucket: process.env.R2_BUCKET!,
+        // leave off ACL (R2 ignores S3 canned ACLs)
+        key: (req, file, cb) => {
+          const filename = `${Date.now()}-${file.originalname}`;
+          cb(null, filename);
+        }
+      }),
+      limits: {
+        fileSize: 10 * 1024 * 1024, // 10MB limit
+        files: 5 // Max 5 files per request
       },
-      filename: (req, file, cb) => {
-        // Fix: Use token from the messages route (:token) not (:id)
-        const projectToken = req.params.token || req.params.id || 'unknown';
-        const timestamp = Date.now();
-        const safeName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
-        cb(null, `project-${projectToken.substring(0, 8)}-${timestamp}-${safeName}`);
+      fileFilter: function (req, file, cb) {
+        const allowedTypes = /jpeg|jpg|png|gif|pdf|doc|docx|txt|zip|xls|xlsx/;
+        const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+        const mimetype = allowedTypes.test(file.mimetype);
+        
+        if (mimetype && extname) {
+          return cb(null, true);
+        } else {
+          cb(new Error('Only images, documents, and common file types are allowed!'));
+        }
       }
-    }),
+    });
+    console.log('✅ Multer configured with R2 storage');
+  } else {
+    // Local storage configuration
+    console.log('🔧 Configuring multer with local storage...');
+    upload = multer({
+      storage: multer.diskStorage({
+        destination: (req, file, cb) => {
+          // Ensure uploads directory exists
+          if (!fs.existsSync(uploadsDir)) {
+            fs.mkdirSync(uploadsDir, { recursive: true });
+          }
+          cb(null, uploadsDir);
+        },
+        filename: (req, file, cb) => {
+          try {
+            const timestamp = Date.now();
+            const safeName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+            const filename = `upload-${timestamp}-${safeName}`;
+            cb(null, filename);
+          } catch (err) {
+            cb(err as Error, '');
+          }
+        }
+      }),
+      limits: {
+        fileSize: 10 * 1024 * 1024, // 10MB limit
+        files: 5 // Max 5 files per request
+      },
+      fileFilter: function (req, file, cb) {
+        try {
+          const allowedTypes = /jpeg|jpg|png|gif|pdf|doc|docx|txt|zip|xls|xlsx/;
+          const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+          const mimetype = allowedTypes.test(file.mimetype);
+          
+          if (mimetype && extname) {
+            return cb(null, true);
+          } else {
+            cb(new Error('Only images, documents, and common file types are allowed!'));
+          }
+        } catch (err) {
+          cb(err as Error, false);
+        }
+      }
+    });
+    console.log('✅ Multer configured with local storage');
+  }
+} catch (multerConfigError) {
+  console.error('❌ Failed to configure multer:', multerConfigError);
+  // Fallback: create a basic multer instance that will handle errors gracefully
+  upload = multer({
+    dest: uploadsDir,
     limits: {
-      fileSize: 10 * 1024 * 1024, // 10MB limit
-      files: 5 // Max 5 files per request
-    },
-    fileFilter: function (req, file, cb) {
-      const allowedTypes = /jpeg|jpg|png|gif|pdf|doc|docx|txt|zip|xls|xlsx/;
-      const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-      const mimetype = allowedTypes.test(file.mimetype);
-      
-      if (mimetype && extname) {
-        return cb(null, true);
-      } else {
-        cb(new Error('Only images, documents, and common file types are allowed!'));
-      }
+      fileSize: 10 * 1024 * 1024,
+      files: 5
     }
   });
+  console.log('⚠️ Using fallback multer configuration');
 }
 
 if (useR2Storage) {
@@ -1175,7 +1203,7 @@ export async function registerRoutes(app: Express, io: any) {
           if (key.startsWith('/uploads')) {
             const baseUrl = process.env.NODE_ENV === 'production' 
               ? 'https://pleasantcovedesign-production.up.railway.app'
-              : process.env.NGROK_URL || `https://localhost:${process.env.PORT || 3000}`;
+              : process.env.NGROK_URL || `http://localhost:${process.env.PORT || 3000}`;
             return `${baseUrl}${key}`;
           }
           // Otherwise, assume it's an R2 key and convert to R2 URL
@@ -1183,32 +1211,38 @@ export async function registerRoutes(app: Express, io: any) {
         });
         console.log('📎 Presigned uploads processed:', attachments);
       }
-      // Handle legacy multer uploads (fallback)
-      else if (req.files && Array.isArray(req.files)) {
-        const uploaded = req.files as any[];
-        
-        // Add instrumentation logging for each file
-        uploaded.forEach(file => {
-          console.debug('[API] Received upload', { filename: file.originalname });
-          const savePath = file.path || file.destination + '/' + file.filename;
-          console.debug('[API] Saved upload to', savePath);
-        });
-        
-        // Dynamically determine the base URL - always use HTTPS for production/ngrok
-        const baseUrl = process.env.NODE_ENV === 'production' 
-          ? 'https://pleasantcovedesign-production.up.railway.app'
-          : process.env.NGROK_URL || `https://localhost:${process.env.PORT || 3000}`;
+      // Handle multer uploads with error handling
+      else if (req.files && Array.isArray(req.files) && req.files.length > 0) {
+        try {
+          const uploaded = req.files as any[];
+          console.log(`📎 Processing ${uploaded.length} uploaded files`);
+          
+          // Dynamically determine the base URL - always use HTTPS for production
+          const baseUrl = process.env.NODE_ENV === 'production' 
+            ? 'https://pleasantcovedesign-production.up.railway.app'
+            : process.env.NGROK_URL || `http://localhost:${process.env.PORT || 3000}`;
 
-        attachments = uploaded.map(f => {
-          if (f.location) {
-            return f.location; // R2 upload
-          } else if (f.filename) {
-            // Local upload - construct public URL
-            return `${baseUrl}/uploads/${f.filename}`;
-          }
-          return f.path; // Fallback
-        });
-        console.log('📎 Multer uploads processed (Admin):', attachments);
+          attachments = uploaded.map(f => {
+            if (f.location) {
+              console.log('📎 R2 upload:', f.originalname, '→', f.location);
+              return f.location; // R2 upload
+            } else if (f.filename) {
+              // Local upload - construct public URL
+              const fileUrl = `${baseUrl}/uploads/${f.filename}`;
+              console.log('📎 Local upload:', f.originalname, '→', fileUrl);
+              return fileUrl;
+            }
+            console.log('📎 Fallback path:', f.originalname, '→', f.path);
+            return f.path; // Fallback
+          });
+          
+          console.log('✅ All files processed successfully:', attachments);
+        } catch (fileError) {
+          console.error('❌ File processing error:', fileError);
+          // Continue without files rather than failing
+          attachments = [];
+          console.log('⚠️ Continuing without file attachments due to processing error');
+        }
       }
 
       const message = await storage.createProjectMessage({
@@ -1270,13 +1304,29 @@ export async function registerRoutes(app: Express, io: any) {
         if (error.code === 'LIMIT_FILE_COUNT') {
           return res.status(400).json({ error: "Too many files. Maximum is 5 files." });
         }
+        if (error.code === 'LIMIT_UNEXPECTED_FILE') {
+          return res.status(400).json({ error: "Unexpected file field. Please use 'files' field name." });
+        }
         return res.status(400).json({ error: `Upload error: ${error.message}` });
       }
       
-      // Return more detailed error for debugging
+      // Handle specific error types
+      if (error instanceof Error) {
+        if (error.message.includes('ENOENT')) {
+          return res.status(500).json({ error: "File system error. Please try again." });
+        }
+        if (error.message.includes('EACCES')) {
+          return res.status(500).json({ error: "Permission error. Please contact support." });
+        }
+        if (error.message.includes('storage')) {
+          return res.status(500).json({ error: "Storage configuration error. Files temporarily unavailable." });
+        }
+      }
+      
+      // Generic error response
       res.status(500).json({ 
         error: "Failed to send message", 
-        details: error instanceof Error ? error.message : String(error)
+        details: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.message : String(error)) : "Internal server error"
       });
     }
   });
