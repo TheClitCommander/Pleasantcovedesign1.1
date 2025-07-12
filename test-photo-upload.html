@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Photo Upload Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .upload-section {
+            border: 2px dashed #ccc;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .file-input {
+            margin: 10px 0;
+        }
+        .result {
+            margin: 20px 0;
+            padding: 10px;
+            background: #f5f5f5;
+            border-radius: 5px;
+        }
+        .error {
+            background: #ffebee;
+            color: #c62828;
+        }
+        .success {
+            background: #e8f5e8;
+            color: #2e7d32;
+        }
+        .log {
+            background: #f0f0f0;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <h1>Photo Upload Debug Test</h1>
+    
+    <div class="upload-section">
+        <h3>Test Photo Upload</h3>
+        <input type="file" id="fileInput" accept="image/*" class="file-input">
+        <br>
+        <button onclick="testUpload()">Upload Photo</button>
+    </div>
+    
+    <div id="results"></div>
+    
+    <div class="log" id="log"></div>
+
+    <script>
+        const backendUrl = 'https://pleasantcovedesign-production.up.railway.app';
+        const testToken = 'mc50o9qu_69gdwmMznqd-4weVuSkXxQ'; // Use a known project token
+        
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.textContent += `[${timestamp}] ${message}\n`;
+            console.log(message);
+        }
+        
+        function showResult(message, isError = false) {
+            const resultsDiv = document.getElementById('results');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `result ${isError ? 'error' : 'success'}`;
+            resultDiv.textContent = message;
+            resultsDiv.appendChild(resultDiv);
+        }
+        
+        async function testUpload() {
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                showResult('Please select a file first', true);
+                return;
+            }
+            
+            log(`Starting upload test for file: ${file.name} (${file.size} bytes)`);
+            
+            try {
+                // Test 1: Upload via FormData to public endpoint
+                log('Test 1: Uploading via FormData to public endpoint...');
+                
+                const formData = new FormData();
+                formData.append('content', 'Test photo upload');
+                formData.append('senderName', 'Test User');
+                formData.append('senderType', 'client');
+                formData.append('files', file);
+                
+                const response = await fetch(`${backendUrl}/api/public/project/${testToken}/messages`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                log(`Response status: ${response.status}`);
+                log(`Response headers: ${JSON.stringify(Object.fromEntries(response.headers), null, 2)}`);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    log(`Error response: ${errorText}`);
+                    throw new Error(`HTTP ${response.status}: ${errorText}`);
+                }
+                
+                const result = await response.json();
+                log(`Success response: ${JSON.stringify(result, null, 2)}`);
+                
+                showResult(`Upload successful! Message ID: ${result.id}`);
+                
+                // Test 2: Try to access the uploaded file
+                if (result.attachments && result.attachments.length > 0) {
+                    const fileUrl = result.attachments[0];
+                    log(`Testing file access: ${fileUrl}`);
+                    
+                    // Create an image element to test if the file is accessible
+                    const img = new Image();
+                    img.onload = () => {
+                        log(`✅ Image loaded successfully: ${fileUrl}`);
+                        showResult(`Image accessible at: ${fileUrl}`);
+                    };
+                    img.onerror = () => {
+                        log(`❌ Image failed to load: ${fileUrl}`);
+                        showResult(`Image not accessible: ${fileUrl}`, true);
+                    };
+                    img.src = fileUrl;
+                }
+                
+            } catch (error) {
+                log(`❌ Upload failed: ${error.message}`);
+                showResult(`Upload failed: ${error.message}`, true);
+            }
+        }
+        
+        // Initialize
+        log('Photo upload test initialized');
+        log(`Backend URL: ${backendUrl}`);
+        log(`Test token: ${testToken}`);
+    </script>
+</body>
+</html> 

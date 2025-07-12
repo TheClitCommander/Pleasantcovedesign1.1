@@ -76,80 +76,75 @@ if (!fs.existsSync(uploadsDir)) {
 // Configure multer for both R2 and local storage with robust error handling
 let upload: multer.Multer;
 
+// Always configure local storage first as fallback
+const localStorageConfig = {
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      // Ensure uploads directory exists
+      if (!fs.existsSync(uploadsDir)) {
+        fs.mkdirSync(uploadsDir, { recursive: true });
+      }
+      cb(null, uploadsDir);
+    },
+    filename: (req, file, cb) => {
+      try {
+        const timestamp = Date.now();
+        const safeName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+        const filename = `upload-${timestamp}-${safeName}`;
+        cb(null, filename);
+      } catch (err) {
+        cb(err as Error, '');
+      }
+    }
+  }),
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+    files: 5 // Max 5 files per request
+  },
+  fileFilter: function (req, file, cb) {
+    try {
+      const allowedTypes = /jpeg|jpg|png|gif|pdf|doc|docx|txt|zip|xls|xlsx|webp|heic|heif/;
+      const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+      const mimetype = allowedTypes.test(file.mimetype) || file.mimetype.startsWith('image/');
+      
+      if (mimetype || extname) {
+        return cb(null, true);
+      } else {
+        cb(new Error('Only images, documents, and common file types are allowed!'));
+      }
+    } catch (err) {
+      cb(err as Error, false);
+    }
+  }
+};
+
 try {
   if (useR2Storage && s3) {
     // R2 storage configuration
     console.log('🔧 Configuring multer with R2 storage...');
-    upload = multer({
-      storage: multerS3({
-        s3: s3 as any, // Type workaround for AWS SDK v2 compatibility
-        bucket: process.env.R2_BUCKET!,
-        // leave off ACL (R2 ignores S3 canned ACLs)
-        key: (req, file, cb) => {
-          const filename = `${Date.now()}-${file.originalname}`;
-          cb(null, filename);
-        }
-      }),
-      limits: {
-        fileSize: 10 * 1024 * 1024, // 10MB limit
-        files: 5 // Max 5 files per request
-      },
-      fileFilter: function (req, file, cb) {
-        const allowedTypes = /jpeg|jpg|png|gif|pdf|doc|docx|txt|zip|xls|xlsx/;
-        const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-        const mimetype = allowedTypes.test(file.mimetype);
-        
-        if (mimetype && extname) {
-          return cb(null, true);
-        } else {
-          cb(new Error('Only images, documents, and common file types are allowed!'));
-        }
-      }
-    });
-    console.log('✅ Multer configured with R2 storage');
+    try {
+      upload = multer({
+        storage: multerS3({
+          s3: s3 as any, // Type workaround for AWS SDK v2 compatibility
+          bucket: process.env.R2_BUCKET!,
+          // leave off ACL (R2 ignores S3 canned ACLs)
+          key: (req, file, cb) => {
+            const filename = `${Date.now()}-${file.originalname}`;
+            cb(null, filename);
+          }
+        }),
+        limits: localStorageConfig.limits,
+        fileFilter: localStorageConfig.fileFilter
+      });
+      console.log('✅ Multer configured with R2 storage');
+    } catch (r2Error) {
+      console.error('❌ R2 multer configuration failed:', r2Error);
+      throw r2Error; // Fall back to local storage
+    }
   } else {
     // Local storage configuration
     console.log('🔧 Configuring multer with local storage...');
-    upload = multer({
-      storage: multer.diskStorage({
-        destination: (req, file, cb) => {
-          // Ensure uploads directory exists
-          if (!fs.existsSync(uploadsDir)) {
-            fs.mkdirSync(uploadsDir, { recursive: true });
-          }
-          cb(null, uploadsDir);
-        },
-        filename: (req, file, cb) => {
-          try {
-            const timestamp = Date.now();
-            const safeName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
-            const filename = `upload-${timestamp}-${safeName}`;
-            cb(null, filename);
-          } catch (err) {
-            cb(err as Error, '');
-          }
-        }
-      }),
-      limits: {
-        fileSize: 10 * 1024 * 1024, // 10MB limit
-        files: 5 // Max 5 files per request
-      },
-      fileFilter: function (req, file, cb) {
-        try {
-          const allowedTypes = /jpeg|jpg|png|gif|pdf|doc|docx|txt|zip|xls|xlsx/;
-          const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-          const mimetype = allowedTypes.test(file.mimetype);
-          
-          if (mimetype && extname) {
-            return cb(null, true);
-          } else {
-            cb(new Error('Only images, documents, and common file types are allowed!'));
-          }
-        } catch (err) {
-          cb(err as Error, false);
-        }
-      }
-    });
+    upload = multer(localStorageConfig);
     console.log('✅ Multer configured with local storage');
   }
 } catch (multerConfigError) {
@@ -160,6 +155,10 @@ try {
     limits: {
       fileSize: 10 * 1024 * 1024,
       files: 5
+    },
+    fileFilter: (req, file, cb) => {
+      // Accept all files in fallback mode
+      cb(null, true);
     }
   });
   console.log('⚠️ Using fallback multer configuration');
@@ -303,6 +302,45 @@ export async function registerRoutes(app: Express, io: any) {
   
   app.use('/uploads', express.static(uploadsDir));
   console.log('📁 Serving uploads from:', uploadsDir);
+  
+  // Health check endpoint
+  app.get('/health', (req: Request, res: Response) => {
+    res.json({ 
+      status: 'OK', 
+      timestamp: new Date().toISOString(),
+      multerConfigured: !!upload,
+      uploadsDir: uploadsDir,
+      r2Storage: useR2Storage
+    });
+  });
+  
+  // Test file upload endpoint
+  app.post('/api/test-upload', (req: Request, res: Response, next: NextFunction) => {
+    console.log('📤 Test upload endpoint called');
+    
+    // Handle multer with error catching
+    upload.array('files')(req, res, (err) => {
+      if (err) {
+        console.error('❌ Test upload multer error:', err);
+        return res.status(500).json({ error: `Upload failed: ${err.message}` });
+      }
+      
+      console.log('✅ Test upload multer processed successfully');
+      console.log('Files received:', req.files ? (req.files as any[]).length : 0);
+      
+      res.json({
+        success: true,
+        message: 'Test upload successful',
+        filesReceived: req.files ? (req.files as any[]).length : 0,
+        files: req.files ? (req.files as any[]).map(f => ({
+          originalname: f.originalname,
+          filename: f.filename,
+          size: f.size,
+          mimetype: f.mimetype
+        })) : []
+      });
+    });
+  });
   
   // ===================
   // APPOINTMENT BOOKING ROUTES (from appointment-server.js)
@@ -1158,11 +1196,30 @@ export async function registerRoutes(app: Express, io: any) {
   });
 
   // Create message in project (PUBLIC - for client replies) - supports both multer and presigned URL uploads
-  app.post("/api/public/project/:token/messages", upload.array('files'), async (req: Request, res: Response) => {
+  app.post("/api/public/project/:token/messages", (req: Request, res: Response, next: NextFunction) => {
     // Add CORS headers for widget access
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
     res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+    
+    // Handle multer with error catching
+    upload.array('files')(req, res, (err) => {
+      if (err) {
+        console.error('❌ Multer error:', err);
+        if (err instanceof multer.MulterError) {
+          if (err.code === 'LIMIT_FILE_SIZE') {
+            return res.status(400).json({ error: "File too large. Maximum size is 10MB." });
+          }
+          if (err.code === 'LIMIT_FILE_COUNT') {
+            return res.status(400).json({ error: "Too many files. Maximum is 5 files." });
+          }
+          return res.status(400).json({ error: `Upload error: ${err.message}` });
+        }
+        return res.status(500).json({ error: `File upload failed: ${err.message}` });
+      }
+      next();
+    });
+  }, async (req: Request, res: Response) => {
     
     try {
       const { token } = req.params;
