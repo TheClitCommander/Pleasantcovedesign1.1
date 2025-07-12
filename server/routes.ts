@@ -28,7 +28,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Configure Cloudflare R2 (S3-compatible) storage
-const useR2Storage = !!(process.env.R2_ENDPOINT && process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY && process.env.R2_BUCKET);
+// Temporarily disable R2 to fix photo upload issues
+const useR2Storage = false; // !!(process.env.R2_ENDPOINT && process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY && process.env.R2_BUCKET);
 
 // Function to create R2 S3Client for presigned URLs (AWS SDK v3) - only when needed
 function createR2Client(): S3Client {
@@ -55,13 +56,12 @@ if (!process.env.R2_ENDPOINT || !process.env.R2_ACCESS_KEY_ID || !process.env.R2
 }
 
 // Configure the S3 client to talk to Cloudflare R2 (S3-compatible)
+// Use AWS SDK v2 for multer-s3 compatibility
 const s3 = useR2Storage ? new AWS.S3({
   endpoint: new AWS.Endpoint(process.env.R2_ENDPOINT!),
   region: process.env.R2_REGION || 'auto',
-  credentials: {
-    accessKeyId: process.env.R2_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
-  },
+  accessKeyId: process.env.R2_ACCESS_KEY_ID!,
+  secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
   signatureVersion: 'v4',       // Required for R2
   s3ForcePathStyle: true,      // R2 only supports path-style
 }) : null;
